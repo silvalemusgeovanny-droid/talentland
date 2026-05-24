@@ -458,7 +458,7 @@ function renderRepairs() {
           <span>${escapeHtml(repair.deviceType)} ${repair.brand ? `${escapeHtml(repair.brand)} ` : ""}${escapeHtml(repair.model)} | ${escapeHtml(repair.status)}</span>
           <span>${escapeHtml(repair.repairType)} | Cel. ${escapeHtml(repair.phone)}</span>
           <span>Ingreso ${formatRepairDateTimeInput(repair.createdAt)} | ${deliveredLabel}</span>
-          ${repair.notes ? `<p>${escapeHtml(repair.notes)}</p>` : ""}
+         ${repair.notes ? `<p>${escapeHtml(repair.notes)}</p>` : ""}
           <button class="edit-button" type="button" data-repair-id="${repair.id}">Editar</button>
         </article>
       `;
