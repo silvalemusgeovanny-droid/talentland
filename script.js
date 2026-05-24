@@ -568,4 +568,178 @@ editSaleButton.addEventListener("click", () => {
   salesHint.textContent = "Puedes corregir la venta antes de guardarla.";
 });
 
-confirmSaleBut
+confirmSaleButton.addEventListener("click", () => {
+  if (!pendingSale) return;
+  const sales = loadSales();
+  sales.unshift(pendingSale);
+  saveSales(sales);
+  salesForm.reset();
+  saleQuantityInput.value = 1;
+  setNextSaleNumber();
+  updateSaleTotals();
+  renderSales();
+  closeSaleConfirmation();
+  pendingSale = null;
+  salesHint.textContent = "Venta guardada correctamente.";
+});
+
+salesList.addEventListener("click", (event) => {
+  const voidButton = event.target.closest(".void-sale-button");
+  if (!voidButton) return;
+  const sale = loadSales().find((item) => item.id === voidButton.dataset.id);
+  const saleLabel = sale ? `Venta #${sale.saleNumber}` : "esta venta";
+  if (!confirm(`¿Seguro que quieres anular ${saleLabel}?`)) return;
+  openAdminVoid(voidButton.dataset.id);
+});
+
+cancelVoidButton.addEventListener("click", closeAdminVoid);
+
+adminVoidForm.addEventListener("submit", (event) => {
+  event.preventDefault();
+  const isAdmin =
+    voidAdminUser.value.trim() === users.admin.username &&
+    voidAdminPassword.value === users.admin.password;
+  if (!isAdmin) {
+    adminVoidHint.textContent = "Credenciales de administrador incorrectas.";
+    return;
+  }
+  const sales = loadSales();
+  const saleIndex = sales.findIndex((sale) => sale.id === pendingVoidSaleId);
+  const saleToVoid = sales[saleIndex];
+  if (!saleToVoid) {
+    closeAdminVoid();
+    renderSales();
+    salesHint.textContent = "No se encontro la venta para anular.";
+    return;
+  }
+  lastVoidedSale = { sale: saleToVoid, index: saleIndex };
+  sales.splice(saleIndex, 1);
+  saveSales(sales);
+  closeAdminVoid();
+  renderSales();
+  salesHint.textContent = "Venta anulada correctamente.";
+  showUndoBar("Venta anulada.", () => {
+    if (!lastVoidedSale) return;
+    const restoredSales = loadSales();
+    restoredSales.splice(lastVoidedSale.index, 0, lastVoidedSale.sale);
+    saveSales(restoredSales);
+    salesHint.textContent = "Anulacion deshecha.";
+    lastVoidedSale = null;
+    renderSales();
+    setNextSaleNumber();
+  });
+});
+
+quickPartsForm.addEventListener("submit", (event) => {
+  event.preventDefault();
+  const formData = new FormData(quickPartsForm);
+  const parts = loadParts();
+  parts.unshift({
+    id: crypto.randomUUID(),
+    name: formData.get("partName").trim(),
+    category: "Repuesto",
+    price: Number(formData.get("price")),
+    stock: 1,
+    quality: formData.get("quality"),
+    supplier: formData.get("supplier").trim(),
+  });
+  saveParts(parts);
+  quickPartsForm.reset();
+  quickPartsHint.textContent = "Repuesto guardado correctamente.";
+  renderQuickParts();
+});
+
+repairsList.addEventListener("click", (event) => {
+  const editButton = event.target.closest(".edit-button");
+  if (!editButton) return;
+  const repairs = loadRepairs();
+  const repair = repairs.find((r) => r.id === editButton.dataset.repairId);
+  if (!repair) return;
+  repairCustomerInput.value = repair.customer;
+  repairPhoneInput.value = repair.phone;
+  repairBrandInput.value = repair.brand;
+  repairModelInput.value = repair.model;
+  repairTypeInput.value = repair.repairType;
+  repairStatusInput.value = repair.status;
+  document.querySelector("#repairDeviceType").value = repair.deviceType;
+  document.querySelector("#repairNotes").value = repair.notes || "";
+  repairCreatedAtInput.dataset.value = repair.createdAt;
+  repairCreatedAtInput.value = formatRepairDateTimeInput(repair.createdAt);
+  repairDeliveredAtInput.dataset.value = repair.deliveredAt || "";
+  repairDeliveredAtInput.value = repair.deliveredAt ? formatRepairDateTimeInput(repair.deliveredAt) : "";
+  repairNumberInput.value = repair.repairNumber;
+  repairsForm.dataset.editingId = repair.id;
+  repairsHint.textContent = "Editando reparacion — guarda para confirmar los cambios.";
+  document.querySelector("#submitRepairs").textContent = "Guardar cambios";
+  repairsForm.scrollIntoView({ behavior: "smooth", block: "start" });
+});
+
+repairsForm.addEventListener("submit", (event) => {
+  event.preventDefault();
+  const formData = new FormData(repairsForm);
+  const repairs = loadRepairs();
+  const editingId = repairsForm.dataset.editingId;
+  const status = formData.get("status");
+  const createdAt = repairCreatedAtInput.dataset.value || new Date().toISOString();
+  const deliveredAt = status === "Entregado" ? repairDeliveredAtInput.dataset.value || new Date().toISOString() : "";
+  const brand = addRepairBrand(formData.get("brand"));
+  const model = addRepairModel(formData.get("model"));
+  const repairType = addRepairType(formData.get("repairType"));
+
+  if (editingId) {
+    const index = repairs.findIndex((r) => r.id === editingId);
+    if (index !== -1) {
+      repairs[index] = {
+        ...repairs[index],
+        customer: formData.get("customer").trim(),
+        deviceType: formData.get("deviceType"),
+        phone: formData.get("phone").trim(),
+        brand, model, repairType, status, createdAt, deliveredAt,
+        notes: formData.get("notes").trim(),
+      };
+    }
+    delete repairsForm.dataset.editingId;
+    document.querySelector("#submitRepairs").textContent = "Guardar reparacion";
+    repairsHint.textContent = "Reparacion actualizada correctamente.";
+  } else {
+    const nextRepairNumber = repairs.reduce((max, r) => Math.max(max, r.repairNumber), 0) + 1;
+    repairs.unshift({
+      id: crypto.randomUUID(),
+      repairNumber: nextRepairNumber,
+      customer: formData.get("customer").trim(),
+      deviceType: formData.get("deviceType"),
+      phone: formData.get("phone").trim(),
+      brand, model, repairType, status, createdAt, deliveredAt,
+      notes: formData.get("notes").trim(),
+    });
+    repairsHint.textContent = "Reparacion guardada correctamente.";
+  }
+
+  saveRepairs(repairs);
+  repairsForm.reset();
+  repairDeliveredAtInput.dataset.value = "";
+  setNextRepairNumber();
+  setRepairCreatedAt();
+  updateRepairDeliveredAt();
+  renderRepairs();
+});
+
+logoutButton.addEventListener("click", () => {
+  sessionPanel.hidden = true;
+  loginForm.hidden = false;
+});
+
+setRoleDemo("admin");
+setColorMode(localStorage.getItem(colorModeStorageKey) || "light");
+setNextSaleNumber();
+setNextRepairNumber();
+setRepairCreatedAt();
+renderRepairBrandOptions();
+renderRepairModelOptions();
+renderRepairTypeOptions();
+updateSaleTotals();
+renderSales();
+renderRepairs();
+updateDateTime();
+renderQuickParts();
+setInterval(updateDateTime, 1000);
