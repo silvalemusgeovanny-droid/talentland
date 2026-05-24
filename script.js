@@ -156,7 +156,6 @@ function setTheme(themeName) {
   themeLabel.textContent = theme.label;
   themeTitle.textContent = theme.title;
   themeCopy.textContent = theme.copy;
-
   tabButtons.forEach((button) => {
     button.classList.toggle("active", button.dataset.theme === themeName);
   });
@@ -220,9 +219,7 @@ function normalizeSystemOption(value) {
 function loadRepairOptions(storageKey, repairField) {
   const savedOptions = localStorage.getItem(storageKey);
   const savedList = savedOptions ? JSON.parse(savedOptions) : [];
-  const repairOptions = loadRepairs()
-    .map((repair) => repair[repairField])
-    .filter(Boolean);
+  const repairOptions = loadRepairs().map((repair) => repair[repairField]).filter(Boolean);
   return [...new Set([...savedList, ...repairOptions].map(normalizeSystemOption).filter(Boolean))].sort();
 }
 
@@ -232,10 +229,7 @@ function saveRepairOptions(storageKey, options) {
 
 function addRepairOption(value, storageKey, repairField, renderOptions) {
   const normalizedValue = normalizeSystemOption(value);
-  if (!normalizedValue) {
-    return "";
-  }
-
+  if (!normalizedValue) return "";
   saveRepairOptions(storageKey, [...loadRepairOptions(storageKey, repairField), normalizedValue]);
   renderOptions();
   return normalizedValue;
@@ -250,47 +244,18 @@ function renderRepairOptions(datalist, storageKey, repairField) {
 function syncKnownRepairOptionCase(input, storageKey, repairField) {
   const typedValue = normalizeSystemOption(input.value);
   const knownValue = loadRepairOptions(storageKey, repairField).find((option) => option === typedValue);
-
-  if (knownValue) {
-    input.value = knownValue;
-  }
+  if (knownValue) input.value = knownValue;
 }
 
-function renderRepairBrandOptions() {
-  renderRepairOptions(repairBrandOptions, repairBrandsStorageKey, "brand");
-}
-
-function renderRepairModelOptions() {
-  renderRepairOptions(repairModelOptions, repairModelsStorageKey, "model");
-}
-
-function renderRepairTypeOptions() {
-  renderRepairOptions(repairTypeOptions, repairTypesStorageKey, "repairType");
-}
-
-function addRepairBrand(brand) {
-  return addRepairOption(brand, repairBrandsStorageKey, "brand", renderRepairBrandOptions);
-}
-
-function addRepairModel(model) {
-  return addRepairOption(model, repairModelsStorageKey, "model", renderRepairModelOptions);
-}
-
-function addRepairType(repairType) {
-  return addRepairOption(repairType, repairTypesStorageKey, "repairType", renderRepairTypeOptions);
-}
-
-function syncKnownRepairBrandCase() {
-  syncKnownRepairOptionCase(repairBrandInput, repairBrandsStorageKey, "brand");
-}
-
-function syncKnownRepairModelCase() {
-  syncKnownRepairOptionCase(repairModelInput, repairModelsStorageKey, "model");
-}
-
-function syncKnownRepairTypeCase() {
-  syncKnownRepairOptionCase(repairTypeInput, repairTypesStorageKey, "repairType");
-}
+function renderRepairBrandOptions() { renderRepairOptions(repairBrandOptions, repairBrandsStorageKey, "brand"); }
+function renderRepairModelOptions() { renderRepairOptions(repairModelOptions, repairModelsStorageKey, "model"); }
+function renderRepairTypeOptions() { renderRepairOptions(repairTypeOptions, repairTypesStorageKey, "repairType"); }
+function addRepairBrand(brand) { return addRepairOption(brand, repairBrandsStorageKey, "brand", renderRepairBrandOptions); }
+function addRepairModel(model) { return addRepairOption(model, repairModelsStorageKey, "model", renderRepairModelOptions); }
+function addRepairType(repairType) { return addRepairOption(repairType, repairTypesStorageKey, "repairType", renderRepairTypeOptions); }
+function syncKnownRepairBrandCase() { syncKnownRepairOptionCase(repairBrandInput, repairBrandsStorageKey, "brand"); }
+function syncKnownRepairModelCase() { syncKnownRepairOptionCase(repairModelInput, repairModelsStorageKey, "model"); }
+function syncKnownRepairTypeCase() { syncKnownRepairOptionCase(repairTypeInput, repairTypesStorageKey, "repairType"); }
 
 function escapeHtml(value) {
   return String(value)
@@ -302,24 +267,14 @@ function escapeHtml(value) {
 }
 
 function formatCurrency(value) {
-  return new Intl.NumberFormat("es-MX", {
-    style: "currency",
-    currency: "MXN",
-  }).format(value);
+  return new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN" }).format(value);
 }
 
 function formatSaleDateTime(value) {
   const date = new Date(value);
   return {
-    date: new Intl.DateTimeFormat("es-MX", {
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-    }).format(date),
-    time: new Intl.DateTimeFormat("es-MX", {
-      hour: "2-digit",
-      minute: "2-digit",
-    }).format(date),
+    date: new Intl.DateTimeFormat("es-MX", { day: "2-digit", month: "short", year: "numeric" }).format(date),
+    time: new Intl.DateTimeFormat("es-MX", { hour: "2-digit", minute: "2-digit" }).format(date),
   };
 }
 
@@ -331,26 +286,17 @@ function formatRepairDateTimeInput(value) {
 function isToday(value) {
   const date = new Date(value);
   const today = new Date();
-  return (
-    date.getFullYear() === today.getFullYear() &&
-    date.getMonth() === today.getMonth() &&
-    date.getDate() === today.getDate()
-  );
+  return date.getFullYear() === today.getFullYear() && date.getMonth() === today.getMonth() && date.getDate() === today.getDate();
 }
 
 function renderQuickParts() {
   const parts = loadParts().slice(0, 4);
-
-  quickPartsList.innerHTML = parts
-    .map(
-      (part) => `
-        <article class="compact-part-item">
-          <strong>${part.name}</strong>
-          <span>${formatCurrency(part.price)} · ${part.quality} · ${part.supplier}</span>
-        </article>
-      `,
-    )
-    .join("");
+  quickPartsList.innerHTML = parts.map((part) => `
+    <article class="compact-part-item">
+      <strong>${part.name}</strong>
+      <span>${formatCurrency(part.price)} · ${part.quality} · ${part.supplier}</span>
+    </article>
+  `).join("");
 }
 
 function getSaleValues() {
@@ -361,7 +307,6 @@ function getSaleValues() {
   const subtotal = quantity * price;
   const total = Math.max(subtotal - discount, 0);
   const change = Math.max(received - total, 0);
-
   return { quantity, price, discount, received, subtotal, total, change };
 }
 
@@ -373,14 +318,12 @@ function updateSaleTotals() {
 
 function setNextSaleNumber() {
   const sales = loadSales();
-  const highestSaleNumber = sales.reduce((max, sale) => Math.max(max, sale.saleNumber), 0);
-  saleNumberInput.value = highestSaleNumber + 1;
+  saleNumberInput.value = sales.reduce((max, sale) => Math.max(max, sale.saleNumber), 0) + 1;
 }
 
 function setNextRepairNumber() {
   const repairs = loadRepairs();
-  const highestRepairNumber = repairs.reduce((max, repair) => Math.max(max, repair.repairNumber), 0);
-  repairNumberInput.value = highestRepairNumber + 1;
+  repairNumberInput.value = repairs.reduce((max, repair) => Math.max(max, repair.repairNumber), 0) + 1;
 }
 
 function setRepairCreatedAt() {
@@ -394,116 +337,72 @@ function updateRepairDeliveredAt() {
     repairDeliveredAtInput.dataset.value = "";
     return;
   }
-
   if (!repairDeliveredAtInput.dataset.value) {
     repairDeliveredAtInput.dataset.value = new Date().toISOString();
   }
-
   repairDeliveredAtInput.value = formatRepairDateTimeInput(repairDeliveredAtInput.dataset.value);
 }
 
 function renderSales() {
   const dailySales = loadSales().filter((sale) => isToday(sale.createdAt));
   const dailyTotal = dailySales.reduce((sum, sale) => sum + sale.total, 0);
-
   dailySalesTotal.textContent = formatCurrency(dailyTotal);
   dailySalesCount.textContent = `${dailySales.length} venta${dailySales.length === 1 ? "" : "s"}`;
-
   if (!dailySales.length) {
     salesList.innerHTML = `<p class="hint">Todavia no hay ventas registradas hoy.</p>`;
     return;
   }
-
-  salesList.innerHTML = dailySales
-    .map((sale) => {
-      const { date, time } = formatSaleDateTime(sale.createdAt);
-
-      return `
-        <article class="compact-part-item sale-item">
-          <div class="sale-item-heading">
-            <strong>Venta #${sale.saleNumber} - ${escapeHtml(sale.product)}</strong>
-            <button class="delete-button void-sale-button" type="button" data-id="${sale.id}">Anular</button>
-          </div>
-          <span>${date} | ${time}</span>
-          <span>
-            ${sale.quantity} pza(s) x ${formatCurrency(sale.price)}
-            | Desc. ${formatCurrency(sale.discount)}
-            | Total ${formatCurrency(sale.total)}
-          </span>
-          <span>Recibido ${formatCurrency(sale.received)} | Vuelto ${formatCurrency(sale.change)}</span>
-        </article>
-      `;
-    })
-    .join("");
+  salesList.innerHTML = dailySales.map((sale) => {
+    const { date, time } = formatSaleDateTime(sale.createdAt);
+    return `
+      <article class="compact-part-item sale-item">
+        <div class="sale-item-heading">
+          <strong>Venta #${sale.saleNumber} - ${escapeHtml(sale.product)}</strong>
+          <button class="delete-button void-sale-button" type="button" data-id="${sale.id}">Anular</button>
+        </div>
+        <span>${date} | ${time}</span>
+        <span>${sale.quantity} pza(s) x ${formatCurrency(sale.price)} | Desc. ${formatCurrency(sale.discount)} | Total ${formatCurrency(sale.total)}</span>
+        <span>Recibido ${formatCurrency(sale.received)} | Vuelto ${formatCurrency(sale.change)}</span>
+      </article>
+    `;
+  }).join("");
 }
 
 function renderRepairs() {
   const repairs = loadRepairs();
   repairsCount.textContent = `${repairs.length} registro${repairs.length === 1 ? "" : "s"}`;
-
   if (!repairs.length) {
     repairsList.innerHTML = `<p class="hint">Todavia no hay reparaciones registradas.</p>`;
     return;
   }
-
-  repairsList.innerHTML = repairs
-    .map((repair) => {
-      const deliveredLabel = repair.deliveredAt
-        ? `Entregado ${formatRepairDateTimeInput(repair.deliveredAt)}`
-        : "Entrega pendiente";
-
-      return `
-        <article class="compact-part-item repair-item">
-          <strong>Reparacion #${repair.repairNumber} - ${escapeHtml(repair.customer)}</strong>
-          <span>${escapeHtml(repair.deviceType)} ${repair.brand ? `${escapeHtml(repair.brand)} ` : ""}${escapeHtml(repair.model)} | ${escapeHtml(repair.status)}</span>
-          <span>${escapeHtml(repair.repairType)} | Cel. ${escapeHtml(repair.phone)}</span>
-          <span>Ingreso ${formatRepairDateTimeInput(repair.createdAt)} | ${deliveredLabel}</span>
-         ${repair.notes ? `<p>${escapeHtml(repair.notes)}</p>` : ""}
-          <button class="edit-button" type="button" data-repair-id="${repair.id}">Editar</button>
-        </article>
-      `;
-    })
-    .join("");
+  repairsList.innerHTML = repairs.map((repair) => {
+    const deliveredLabel = repair.deliveredAt
+      ? `Entregado ${formatRepairDateTimeInput(repair.deliveredAt)}`
+      : "Entrega pendiente";
+    return `
+      <article class="compact-part-item repair-item">
+        <strong>Reparacion #${repair.repairNumber} - ${escapeHtml(repair.customer)}</strong>
+        <span>${escapeHtml(repair.deviceType)} ${repair.brand ? `${escapeHtml(repair.brand)} ` : ""}${escapeHtml(repair.model)} | ${escapeHtml(repair.status)}</span>
+        <span>${escapeHtml(repair.repairType)} | Cel. ${escapeHtml(repair.phone)}</span>
+        <span>Ingreso ${formatRepairDateTimeInput(repair.createdAt)} | ${deliveredLabel}</span>
+        ${repair.notes ? `<p>${escapeHtml(repair.notes)}</p>` : ""}
+        <button class="edit-button" type="button" data-repair-id="${repair.id}">Editar</button>
+      </article>
+    `;
+  }).join("");
 }
 
 function renderSaleConfirmation(sale) {
   saleConfirmList.innerHTML = `
-    <div>
-      <dt>Fecha y hora</dt>
-      <dd>${formatSaleDateTime(sale.createdAt).date} | ${formatSaleDateTime(sale.createdAt).time}</dd>
-    </div>
-    <div>
-      <dt>No. venta</dt>
-      <dd>${sale.saleNumber}</dd>
-    </div>
-    <div>
-      <dt>Producto</dt>
-      <dd>${escapeHtml(sale.product)}</dd>
-    </div>
-    <div>
-      <dt>Cantidad</dt>
-      <dd>${sale.quantity}</dd>
-    </div>
-    <div>
-      <dt>Precio unitario</dt>
-      <dd>${formatCurrency(sale.price)}</dd>
-    </div>
-    <div>
-      <dt>Descuento</dt>
-      <dd>${formatCurrency(sale.discount)}</dd>
-    </div>
-    <div>
-      <dt>Total</dt>
-      <dd>${formatCurrency(sale.total)}</dd>
-    </div>
-    <div>
-      <dt>Billete recibido</dt>
-      <dd>${formatCurrency(sale.received)}</dd>
-    </div>
-    <div>
-      <dt>Vuelto</dt>
-      <dd>${formatCurrency(sale.change)}</dd>
-    </div>
+    <div><dt>Fecha y hora</dt><dd>${formatSaleDateTime(sale.createdAt).date} | ${formatSaleDateTime(sale.createdAt).time}</dd></div>
+    <div><dt>No. venta</dt><dd>${sale.saleNumber}</dd></div>
+    <div><dt>Producto</dt><dd>${escapeHtml(sale.product)}</dd></div>
+    <div><dt>Cantidad</dt><dd>${sale.quantity}</dd></div>
+    <div><dt>Precio unitario</dt><dd>${formatCurrency(sale.price)}</dd></div>
+    <div><dt>Descuento</dt><dd>${formatCurrency(sale.discount)}</dd></div>
+    <div><dt>Total</dt><dd>${formatCurrency(sale.total)}</dd></div>
+    <div><dt>Billete recibido</dt><dd>${formatCurrency(sale.received)}</dd></div>
+    <div><dt>Vuelto</dt><dd>${formatCurrency(sale.change)}</dd></div>
   `;
 }
 
@@ -514,9 +413,7 @@ function openSaleConfirmation(sale) {
   confirmSaleButton.focus();
 }
 
-function closeSaleConfirmation() {
-  saleConfirmOverlay.hidden = true;
-}
+function closeSaleConfirmation() { saleConfirmOverlay.hidden = true; }
 
 function openAdminVoid(saleId) {
   pendingVoidSaleId = saleId;
@@ -533,54 +430,32 @@ function closeAdminVoid() {
 
 function getUndoBar() {
   let undoBar = document.querySelector("#undoBar");
-
   if (!undoBar) {
     undoBar = document.createElement("div");
     undoBar.className = "undo-bar";
     undoBar.id = "undoBar";
     document.body.append(undoBar);
   }
-
   return undoBar;
 }
 
 function hideUndoBar() {
   const undoBar = getUndoBar();
   undoBar.hidden = true;
-
-  if (undoTimerId) {
-    clearInterval(undoTimerId);
-    undoTimerId = null;
-  }
+  if (undoTimerId) { clearInterval(undoTimerId); undoTimerId = null; }
 }
 
 function showUndoBar(message, onUndo) {
   const undoBar = getUndoBar();
   let secondsLeft = 10;
-
-  if (undoTimerId) {
-    clearInterval(undoTimerId);
-  }
-
-  undoBar.innerHTML = `
-    <span>${message}</span>
-    <small>${secondsLeft}s</small>
-    <button type="button">Deshacer</button>
-  `;
+  if (undoTimerId) clearInterval(undoTimerId);
+  undoBar.innerHTML = `<span>${message}</span><small>${secondsLeft}s</small><button type="button">Deshacer</button>`;
   undoBar.hidden = false;
-
-  undoBar.querySelector("button").addEventListener("click", () => {
-    onUndo();
-    hideUndoBar();
-  });
-
+  undoBar.querySelector("button").addEventListener("click", () => { onUndo(); hideUndoBar(); });
   undoTimerId = setInterval(() => {
     secondsLeft -= 1;
     undoBar.querySelector("small").textContent = `${secondsLeft}s`;
-
-    if (secondsLeft <= 0) {
-      hideUndoBar();
-    }
+    if (secondsLeft <= 0) hideUndoBar();
   }, 1000);
 }
 
@@ -595,10 +470,7 @@ function setColorMode(mode) {
 }
 
 function setModule(moduleName) {
-  moduleTabs.forEach((button) => {
-    button.classList.toggle("active", button.dataset.module === moduleName);
-  });
-
+  moduleTabs.forEach((button) => button.classList.toggle("active", button.dataset.module === moduleName));
   modulePanels.forEach((panel) => {
     const isActive =
       (moduleName === "permissions" && panel.id === "permissionsModule") ||
@@ -607,30 +479,17 @@ function setModule(moduleName) {
       (moduleName === "repairs" && panel.id === "repairsModule");
     panel.classList.toggle("active", isActive);
   });
-
-  if (moduleName === "sales") {
-    setNextSaleNumber();
-    updateSaleTotals();
-    renderSales();
-  }
-
+  if (moduleName === "sales") { setNextSaleNumber(); updateSaleTotals(); renderSales(); }
   if (moduleName === "repairs") {
     setNextRepairNumber();
-    if (!repairCreatedAtInput.dataset.value) {
-      setRepairCreatedAt();
-    }
+    if (!repairCreatedAtInput.dataset.value) setRepairCreatedAt();
     updateRepairDeliveredAt();
     renderRepairs();
   }
 }
 
-tabButtons.forEach((button) => {
-  button.addEventListener("click", () => setTheme(button.dataset.theme));
-});
-
-moduleTabs.forEach((button) => {
-  button.addEventListener("click", () => setModule(button.dataset.module));
-});
+tabButtons.forEach((button) => button.addEventListener("click", () => setTheme(button.dataset.theme)));
+moduleTabs.forEach((button) => button.addEventListener("click", () => setModule(button.dataset.module)));
 
 moduleShortcuts.forEach((button) => {
   button.addEventListener("click", () => {
@@ -639,14 +498,12 @@ moduleShortcuts.forEach((button) => {
       loginForm.scrollIntoView({ behavior: "smooth", block: "center" });
       return;
     }
-
     setModule(button.dataset.moduleShortcut);
     sessionPanel.scrollIntoView({ behavior: "smooth", block: "center" });
   });
 });
 
 roleSelect.addEventListener("change", () => setRoleDemo(roleSelect.value));
-
 colorModeToggle.addEventListener("click", () => {
   const nextMode = document.body.classList.contains("login-dark") ? "light" : "dark";
   setColorMode(nextMode);
@@ -662,16 +519,11 @@ repairPhoneInput.addEventListener("input", () => {
 
 repairBrandInput.addEventListener("blur", syncKnownRepairBrandCase);
 repairBrandInput.addEventListener("change", syncKnownRepairBrandCase);
-
-repairModelInput.addEventListener("input", () => {
-  repairModelInput.value = repairModelInput.value.replace(/[^A-Za-z0-9 ]/g, "");
-});
+repairModelInput.addEventListener("input", () => { repairModelInput.value = repairModelInput.value.replace(/[^A-Za-z0-9 ]/g, ""); });
 repairModelInput.addEventListener("blur", syncKnownRepairModelCase);
 repairModelInput.addEventListener("change", syncKnownRepairModelCase);
-
 repairTypeInput.addEventListener("blur", syncKnownRepairTypeCase);
 repairTypeInput.addEventListener("change", syncKnownRepairTypeCase);
-
 repairStatusInput.addEventListener("change", updateRepairDeliveredAt);
 
 loginForm.addEventListener("submit", (event) => {
@@ -680,17 +532,13 @@ loginForm.addEventListener("submit", (event) => {
   const validCredentials =
     usernameInput.value.trim() === selectedUser.username &&
     passwordInput.value === selectedUser.password;
-
   if (!validCredentials) {
     credentialHint.textContent = "Credenciales incorrectas para el rol seleccionado.";
     return;
   }
-
   welcomeTitle.textContent = `Bienvenido, ${selectedUser.name}`;
   accessSummary.textContent = selectedUser.access;
-  permissionList.innerHTML = selectedUser.permissions
-    .map((permission) => `<li>${permission}</li>`)
-    .join("");
+  permissionList.innerHTML = selectedUser.permissions.map((p) => `<li>${p}</li>`).join("");
   loginForm.hidden = true;
   sessionPanel.hidden = false;
   setModule("permissions");
@@ -704,22 +552,15 @@ salesForm.addEventListener("submit", (event) => {
   const formData = new FormData(salesForm);
   const { quantity, price, discount, received, total, change } = getSaleValues();
   const nextSaleNumber = loadSales().reduce((max, sale) => Math.max(max, sale.saleNumber), 0) + 1;
-
   if (received < total) {
     salesHint.textContent = "El billete recibido no alcanza para cubrir el total.";
     return;
   }
-
   openSaleConfirmation({
     id: crypto.randomUUID(),
     saleNumber: nextSaleNumber,
     product: formData.get("product").trim(),
-    quantity,
-    price,
-    discount,
-    total,
-    received,
-    change,
+    quantity, price, discount, total, received, change,
     createdAt: new Date().toISOString(),
   });
 });
@@ -731,13 +572,9 @@ editSaleButton.addEventListener("click", () => {
 });
 
 confirmSaleButton.addEventListener("click", () => {
-  if (!pendingSale) {
-    return;
-  }
-
+  if (!pendingSale) return;
   const sales = loadSales();
   sales.unshift(pendingSale);
-
   saveSales(sales);
   salesForm.reset();
   saleQuantityInput.value = 1;
@@ -751,18 +588,11 @@ confirmSaleButton.addEventListener("click", () => {
 
 salesList.addEventListener("click", (event) => {
   const voidButton = event.target.closest(".void-sale-button");
-  if (!voidButton) {
-    return;
-  }
-
+  if (!voidButton) return;
   const sale = loadSales().find((item) => item.id === voidButton.dataset.id);
   const saleLabel = sale ? `Venta #${sale.saleNumber}` : "esta venta";
   const shouldVoid = confirm(`¿Seguro que quieres anular ${saleLabel}?`);
-
-  if (!shouldVoid) {
-    return;
-  }
-
+  if (!shouldVoid) return;
   openAdminVoid(voidButton.dataset.id);
 });
 
@@ -770,39 +600,30 @@ cancelVoidButton.addEventListener("click", closeAdminVoid);
 
 adminVoidForm.addEventListener("submit", (event) => {
   event.preventDefault();
-
   const isAdmin =
     voidAdminUser.value.trim() === users.admin.username &&
     voidAdminPassword.value === users.admin.password;
-
   if (!isAdmin) {
     adminVoidHint.textContent = "Credenciales de administrador incorrectas.";
     return;
   }
-
   const sales = loadSales();
   const saleIndex = sales.findIndex((sale) => sale.id === pendingVoidSaleId);
   const saleToVoid = sales[saleIndex];
-
   if (!saleToVoid) {
     closeAdminVoid();
     renderSales();
     salesHint.textContent = "No se encontro la venta para anular.";
     return;
   }
-
   lastVoidedSale = { sale: saleToVoid, index: saleIndex };
   sales.splice(saleIndex, 1);
   saveSales(sales);
   closeAdminVoid();
   renderSales();
   salesHint.textContent = "Venta anulada correctamente.";
-
   showUndoBar("Venta anulada.", () => {
-    if (!lastVoidedSale) {
-      return;
-    }
-
+    if (!lastVoidedSale) return;
     const restoredSales = loadSales();
     restoredSales.splice(lastVoidedSale.index, 0, lastVoidedSale.sale);
     saveSales(restoredSales);
@@ -813,53 +634,31 @@ adminVoidForm.addEventListener("submit", (event) => {
   });
 });
 
-partsForm.addEventListener("submit", (event) => {
+quickPartsForm.addEventListener("submit", (event) => {
   event.preventDefault();
-  const formData = new FormData(partsForm);
+  const formData = new FormData(quickPartsForm);
   const parts = loadParts();
-  const editingId = partsForm.dataset.editingId;
-
-  if (editingId) {
-    const index = parts.findIndex((p) => p.id === editingId);
-    if (index !== -1) {
-      parts[index] = {
-        ...parts[index],
-        name: formData.get("partName").trim(),
-        category: formData.get("category"),
-        price: Number(formData.get("price")),
-        stock: Number(formData.get("stock")),
-        quality: formData.get("quality"),
-        supplier: formData.get("supplier").trim(),
-      };
-    }
-    delete partsForm.dataset.editingId;
-    document.querySelector("#submitParts").textContent = "Guardar repuesto";
-    partsHint.textContent = "Repuesto actualizado correctamente.";
-  } else {
-    parts.unshift({
-      id: crypto.randomUUID(),
-      name: formData.get("partName").trim(),
-      category: formData.get("category"),
-      price: Number(formData.get("price")),
-      stock: Number(formData.get("stock")),
-      quality: formData.get("quality"),
-      supplier: formData.get("supplier").trim(),
-    });
-    partsHint.textContent = "Repuesto guardado correctamente.";
-  }
-
+  parts.unshift({
+    id: crypto.randomUUID(),
+    name: formData.get("partName").trim(),
+    category: "Repuesto",
+    price: Number(formData.get("price")),
+    stock: 1,
+    quality: formData.get("quality"),
+    supplier: formData.get("supplier").trim(),
+  });
   saveParts(parts);
-  partsForm.reset();
-  renderParts();
+  quickPartsForm.reset();
+  quickPartsHint.textContent = "Repuesto guardado correctamente.";
+  renderQuickParts();
 });
+
 repairsList.addEventListener("click", (event) => {
   const editButton = event.target.closest(".edit-button");
   if (!editButton) return;
-
   const repairs = loadRepairs();
   const repair = repairs.find((r) => r.id === editButton.dataset.repairId);
   if (!repair) return;
-
   repairCustomerInput.value = repair.customer;
   repairPhoneInput.value = repair.phone;
   repairBrandInput.value = repair.brand;
@@ -873,63 +672,6 @@ repairsList.addEventListener("click", (event) => {
   repairDeliveredAtInput.dataset.value = repair.deliveredAt || "";
   repairDeliveredAtInput.value = repair.deliveredAt ? formatRepairDateTimeInput(repair.deliveredAt) : "";
   repairNumberInput.value = repair.repairNumber;
-
-  repairsForm.dataset.editingId = repair.id;
-  repairsHint.textContent = "Editando reparacion — guarda para confirmar los cambios.";
-  document.querySelector("#submitRepairs").textContent = "Guardar cambios";
-  repairsForm.scrollIntoView({ behavior: "smooth", block: "start" });
-});
-repairsList.addEventListener("click", (event) => {
-  const editButton = event.target.closest(".edit-button");
-  if (!editButton) return;
-
-  const repairs = loadRepairs();
-  const repair = repairs.find((r) => r.id === editButton.dataset.repairId);
-  if (!repair) return;
-
-  repairCustomerInput.value = repair.customer;
-  repairPhoneInput.value = repair.phone;
-  repairBrandInput.value = repair.brand;
-  repairModelInput.value = repair.model;
-  repairTypeInput.value = repair.repairType;
-  repairStatusInput.value = repair.status;
-  document.querySelector("#repairDeviceType").value = repair.deviceType;
-  document.querySelector("#repairNotes").value = repair.notes || "";
-  repairCreatedAtInput.dataset.value = repair.createdAt;
-  repairCreatedAtInput.value = formatRepairDateTimeInput(repair.createdAt);
-  repairDeliveredAtInput.dataset.value = repair.deliveredAt || "";
-  repairDeliveredAtInput.value = repair.deliveredAt ? formatRepairDateTimeInput(repair.deliveredAt) : "";
-  repairNumberInput.value = repair.repairNumber;
-
-  repairsForm.dataset.editingId = repair.id;
-  repairsHint.textContent = "Editando reparacion — guarda para confirmar los cambios.";
-  document.querySelector("#submitRepairs").textContent = "Guardar cambios";
-  repairsForm.scrollIntoView({ behavior: "smooth", block: "start" });
-});
-
-
-repairsList.addEventListener("click", (event) => {
-  const editButton = event.target.closest(".edit-button");
-  if (!editButton) return;
-
-  const repairs = loadRepairs();
-  const repair = repairs.find((r) => r.id === editButton.dataset.repairId);
-  if (!repair) return;
-
-  repairCustomerInput.value = repair.customer;
-  repairPhoneInput.value = repair.phone;
-  repairBrandInput.value = repair.brand;
-  repairModelInput.value = repair.model;
-  repairTypeInput.value = repair.repairType;
-  repairStatusInput.value = repair.status;
-  document.querySelector("#repairDeviceType").value = repair.deviceType;
-  document.querySelector("#repairNotes").value = repair.notes || "";
-  repairCreatedAtInput.dataset.value = repair.createdAt;
-  repairCreatedAtInput.value = formatRepairDateTimeInput(repair.createdAt);
-  repairDeliveredAtInput.dataset.value = repair.deliveredAt || "";
-  repairDeliveredAtInput.value = repair.deliveredAt ? formatRepairDateTimeInput(repair.deliveredAt) : "";
-  repairNumberInput.value = repair.repairNumber;
-
   repairsForm.dataset.editingId = repair.id;
   repairsHint.textContent = "Editando reparacion — guarda para confirmar los cambios.";
   document.querySelector("#submitRepairs").textContent = "Guardar cambios";
@@ -940,7 +682,7 @@ repairsForm.addEventListener("submit", (event) => {
   event.preventDefault();
   const formData = new FormData(repairsForm);
   const repairs = loadRepairs();
-  const nextRepairNumber = repairs.reduce((max, repair) => Math.max(max, repair.repairNumber), 0) + 1;
+  const editingId = repairsForm.dataset.editingId;
   const status = formData.get("status");
   const createdAt = repairCreatedAtInput.dataset.value || new Date().toISOString();
   const deliveredAt = status === "Entregado" ? repairDeliveredAtInput.dataset.value || new Date().toISOString() : "";
@@ -948,20 +690,34 @@ repairsForm.addEventListener("submit", (event) => {
   const model = addRepairModel(formData.get("model"));
   const repairType = addRepairType(formData.get("repairType"));
 
-  repairs.unshift({
-    id: crypto.randomUUID(),
-    repairNumber: nextRepairNumber,
-    customer: formData.get("customer").trim(),
-    deviceType: formData.get("deviceType"),
-    phone: formData.get("phone").trim(),
-    brand,
-    model,
-    repairType,
-    status,
-    createdAt,
-    deliveredAt,
-    notes: formData.get("notes").trim(),
-  });
+  if (editingId) {
+    const index = repairs.findIndex((r) => r.id === editingId);
+    if (index !== -1) {
+      repairs[index] = {
+        ...repairs[index],
+        customer: formData.get("customer").trim(),
+        deviceType: formData.get("deviceType"),
+        phone: formData.get("phone").trim(),
+        brand, model, repairType, status, createdAt, deliveredAt,
+        notes: formData.get("notes").trim(),
+      };
+    }
+    delete repairsForm.dataset.editingId;
+    document.querySelector("#submitRepairs").textContent = "Guardar reparacion";
+    repairsHint.textContent = "Reparacion actualizada correctamente.";
+  } else {
+    const nextRepairNumber = repairs.reduce((max, r) => Math.max(max, r.repairNumber), 0) + 1;
+    repairs.unshift({
+      id: crypto.randomUUID(),
+      repairNumber: nextRepairNumber,
+      customer: formData.get("customer").trim(),
+      deviceType: formData.get("deviceType"),
+      phone: formData.get("phone").trim(),
+      brand, model, repairType, status, createdAt, deliveredAt,
+      notes: formData.get("notes").trim(),
+    });
+    repairsHint.textContent = "Reparacion guardada correctamente.";
+  }
 
   saveRepairs(repairs);
   repairsForm.reset();
@@ -970,7 +726,6 @@ repairsForm.addEventListener("submit", (event) => {
   setRepairCreatedAt();
   updateRepairDeliveredAt();
   renderRepairs();
-  repairsHint.textContent = "Reparacion guardada correctamente.";
 });
 
 logoutButton.addEventListener("click", () => {
