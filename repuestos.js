@@ -199,11 +199,30 @@ partsForm.addEventListener("submit", (event) => {
 });
 
 partsTable.addEventListener("click", (event) => {
+  const editButton = event.target.closest(".edit-button");
+  if (editButton) {
+    const parts = loadParts();
+    const part = parts.find((p) => p.id === editButton.dataset.id);
+    if (!part) return;
+
+    document.querySelector("#partName").value = part.name;
+    document.querySelector("#category").value = part.category;
+    document.querySelector("#price").value = part.price;
+    document.querySelector("#stock").value = part.stock;
+    document.querySelector("#quality").value = part.quality;
+    document.querySelector("#supplier").value = part.supplier;
+
+    partsForm.dataset.editingId = part.id;
+    partsHint.textContent = "Editando repuesto — haz clic en Guardar para confirmar los cambios.";
+    document.querySelector("#submitParts").textContent = "Guardar cambios";
+    partsForm.scrollIntoView({ behavior: "smooth", block: "start" });
+    return;
+  }
+
   const deleteButton = event.target.closest(".delete-button");
   if (!deleteButton) {
     return;
   }
-
   const parts = loadParts();
   const partIndex = parts.findIndex((part) => part.id === deleteButton.dataset.id);
   const partToDelete = parts[partIndex];
