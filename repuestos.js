@@ -181,23 +181,41 @@ partsForm.addEventListener("submit", (event) => {
   event.preventDefault();
   const formData = new FormData(partsForm);
   const parts = loadParts();
+  const editingId = partsForm.dataset.editingId;
 
-  parts.unshift({
-    id: crypto.randomUUID(),
-    name: formData.get("partName").trim(),
-    category: formData.get("category"),
-    price: Number(formData.get("price")),
-    stock: Number(formData.get("stock")),
-    quality: formData.get("quality"),
-    supplier: formData.get("supplier").trim(),
-  });
+  if (editingId) {
+    const index = parts.findIndex((p) => p.id === editingId);
+    if (index !== -1) {
+      parts[index] = {
+        ...parts[index],
+        name: formData.get("partName").trim(),
+        category: formData.get("category"),
+        price: Number(formData.get("price")),
+        stock: Number(formData.get("stock")),
+        quality: formData.get("quality"),
+        supplier: formData.get("supplier").trim(),
+      };
+    }
+    delete partsForm.dataset.editingId;
+    document.querySelector("#submitParts").textContent = "Guardar repuesto";
+    partsHint.textContent = "Repuesto actualizado correctamente.";
+  } else {
+    parts.unshift({
+      id: crypto.randomUUID(),
+      name: formData.get("partName").trim(),
+      category: formData.get("category"),
+      price: Number(formData.get("price")),
+      stock: Number(formData.get("stock")),
+      quality: formData.get("quality"),
+      supplier: formData.get("supplier").trim(),
+    });
+    partsHint.textContent = "Repuesto guardado correctamente.";
+  }
 
   saveParts(parts);
   partsForm.reset();
-  partsHint.textContent = "Repuesto guardado correctamente.";
   renderParts();
 });
-
 partsTable.addEventListener("click", (event) => {
   const editButton = event.target.closest(".edit-button");
   if (editButton) {
