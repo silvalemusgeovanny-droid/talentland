@@ -157,7 +157,7 @@ function renderParts() {
           <td>${part.supplier}</td>
           <td>${formatCurrency(part.price)}</td>
           <td>${part.stock}</td>
-          <td><button class="delete-button" type="button" data-id="${part.id}">Eliminar</button></td>
+          <td>   <button class="edit-button" type="button" data-id="${part.id}">Editar</button>   <button class="delete-button" type="button" data-id="${part.id}">Eliminar</button> </td>
         </tr>
       `,
     )
