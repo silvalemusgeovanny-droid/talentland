@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Repuestos | Inventario y Reparaciones</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body class="parts-page">
+    <main class="parts-shell">
+      <header class="parts-header">
+        <a class="back-link" href="index.html">Volver al login</a>
+        <div>
+          <span class="panel-kicker">Inventario</span>
+          <h1>Repuestos</h1>
+          <p>Registra piezas, valor, calidad, proveedor y existencia disponible.</p>
+        </div>
+      </header>
+
+      <section class="parts-summary" aria-label="Resumen de repuestos">
+        <article>
+          <span>Total repuestos</span>
+          <strong id="totalParts">0</strong>
+        </article>
+        <article>
+          <span>Valor inventario</span>
+          <strong id="totalValue">$0.00</strong>
+        </article>
+        <article>
+          <span>Proveedores</span>
+          <strong id="totalProviders">0</strong>
+        </article>
+      </section>
+
+      <section class="parts-layout">
+        <form class="parts-form" id="partsForm">
+          <div class="form-heading">
+            <span>Alta de repuesto</span>
+            <h2>Datos del repuesto</h2>
+            <p>Captura la informacion base para compras, ventas y reparaciones.</p>
+          </div>
+
+          <label for="partName">Nombre del repuesto</label>
+          <input id="partName" name="partName" type="text" placeholder="Pantalla, bateria, tarjeta, motor..." required />
+
+          <label for="category">Categoria</label>
+          <select id="category" name="category" required>
+            <option value="Celular">Celular</option>
+            <option value="Computadora">Computadora</option>
+            <option value="Electrodomestico">Electrodomestico</option>
+          </select>
+
+          <div class="field-grid">
+            <div>
+              <label for="price">Valor unitario</label>
+              <input id="price" name="price" type="number" min="0" step="0.01" placeholder="0.00" required />
+            </div>
+            <div>
+              <label for="stock">Existencia</label>
+              <input id="stock" name="stock" type="number" min="0" step="1" placeholder="0" required />
+            </div>
+          </div>
+
+          <label for="quality">Calidad</label>
+          <select id="quality" name="quality" required>
+            <option value="Original">Original</option>
+            <option value="Premium">Premium</option>
+            <option value="Generica">Generica</option>
+            <option value="Reacondicionada">Reacondicionada</option>
+          </select>
+
+          <label for="supplier">Proveedor</label>
+          <input id="supplier" name="supplier" type="text" placeholder="Nombre del proveedor" required />
+
+          <button class="primary-button" type="submit" id="savePartButton">Guardar repuesto</button>
+          <p class="hint" id="partsHint">Los datos se guardan en este navegador como demo.</p>
+        </form>
+
+        <section class="parts-table-card">
+          <div class="table-toolbar">
+            <div>
+              <span class="panel-kicker">Consulta</span>
+              <h2>Listado de repuestos</h2>
+            </div>
+            <input id="partSearch" type="search" placeholder="Buscar repuesto o proveedor" />
+          </div>
+
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Repuesto</th>
+                  <th>Categoria</th>
+                  <th>Calidad</th>
+                  <th>Proveedor</th>
+                  <th>Valor</th>
+                  <th>Existencia</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody id="partsTable"></tbody>
+            </table>
+          </div>
+        </section>
+      </section>
+
+      <div class="date-time" aria-label="Fecha y hora actual">
+        <span id="currentDate">--/--/----</span>
+        <span id="currentTime">--:--</span>
+      </div>
+    </main>
+
+    <script src="repuestos.js"></script>
+  </body>
+</html>
