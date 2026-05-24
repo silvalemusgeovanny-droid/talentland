@@ -879,6 +879,34 @@ repairsList.addEventListener("click", (event) => {
   document.querySelector("#submitRepairs").textContent = "Guardar cambios";
   repairsForm.scrollIntoView({ behavior: "smooth", block: "start" });
 });
+repairsList.addEventListener("click", (event) => {
+  const editButton = event.target.closest(".edit-button");
+  if (!editButton) return;
+
+  const repairs = loadRepairs();
+  const repair = repairs.find((r) => r.id === editButton.dataset.repairId);
+  if (!repair) return;
+
+  repairCustomerInput.value = repair.customer;
+  repairPhoneInput.value = repair.phone;
+  repairBrandInput.value = repair.brand;
+  repairModelInput.value = repair.model;
+  repairTypeInput.value = repair.repairType;
+  repairStatusInput.value = repair.status;
+  document.querySelector("#repairDeviceType").value = repair.deviceType;
+  document.querySelector("#repairNotes").value = repair.notes || "";
+  repairCreatedAtInput.dataset.value = repair.createdAt;
+  repairCreatedAtInput.value = formatRepairDateTimeInput(repair.createdAt);
+  repairDeliveredAtInput.dataset.value = repair.deliveredAt || "";
+  repairDeliveredAtInput.value = repair.deliveredAt ? formatRepairDateTimeInput(repair.deliveredAt) : "";
+  repairNumberInput.value = repair.repairNumber;
+
+  repairsForm.dataset.editingId = repair.id;
+  repairsHint.textContent = "Editando reparacion — guarda para confirmar los cambios.";
+  document.querySelector("#submitRepairs").textContent = "Guardar cambios";
+  repairsForm.scrollIntoView({ behavior: "smooth", block: "start" });
+});
+
 
 repairsForm.addEventListener("submit", (event) => {
   event.preventDefault();
