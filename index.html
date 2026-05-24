@@ -1,0 +1,360 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Login | Inventario y Reparaciones</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main class="app-shell">
+      <section class="proposal-panel">
+        <div class="brand-row">
+          <span class="brand-mark">IR</span>
+          <div>
+            <h1>Inventario y Reparaciones</h1>
+            <p>Celulares, computadoras y electrodomesticos</p>
+          </div>
+        </div>
+
+        <div class="proposal-tabs" role="tablist" aria-label="Propuestas de login">
+          <button class="tab-button active" type="button" data-theme="admin">Administrativo</button>
+          <button class="tab-button" type="button" data-theme="technical">Tecnico</button>
+          <button class="tab-button" type="button" data-theme="visual">Moderno</button>
+        </div>
+
+        <div class="access-card">
+          <h2>Niveles de acceso</h2>
+          <div class="role-grid">
+            <article>
+              <span>Administrador</span>
+              <strong>Control total</strong>
+              <p>Usuarios, ventas, inventario, reportes, reparaciones e importacion Excel.</p>
+            </article>
+            <article>
+              <span>Vendedor</span>
+              <strong>Ventas e inventario</strong>
+              <p>Registrar ventas, consultar existencias, clientes y tickets.</p>
+            </article>
+            <article>
+              <span>Tecnico</span>
+              <strong>Reparaciones</strong>
+              <p>Diagnosticos, ordenes de servicio, refacciones y estado de equipos.</p>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section class="login-stage admin" id="loginStage">
+        <div class="status-strip" aria-label="Accesos rapidos">
+          <button type="button" data-module-shortcut="parts">Inventario</button>
+          <button type="button" data-module-shortcut="sales">Ventas</button>
+          <button type="button" data-module-shortcut="repairs">Reparaciones</button>
+        </div>
+
+        <form class="login-card" id="loginForm">
+          <div class="form-heading">
+            <span id="themeLabel">Propuesta 1</span>
+            <h2 id="themeTitle">Acceso administrativo</h2>
+            <p id="themeCopy">Panel limpio para control general del negocio.</p>
+          </div>
+
+          <label for="role">Rol</label>
+          <select id="role" name="role">
+            <option value="admin">Administrador</option>
+            <option value="seller">Vendedor</option>
+            <option value="technician">Tecnico</option>
+          </select>
+
+          <label for="username">Usuario</label>
+          <input id="username" name="username" type="text" autocomplete="username" value="admin" />
+
+          <label for="password">Contrasena</label>
+          <input id="password" name="password" type="password" autocomplete="current-password" value="admin123" />
+
+          <button class="primary-button" type="submit">Iniciar sesion</button>
+          <p class="hint" id="credentialHint">Demo: admin / admin123</p>
+        </form>
+
+        <aside class="session-panel" id="sessionPanel" hidden>
+          <div>
+            <span class="panel-kicker">Sesion activa</span>
+            <h2 id="welcomeTitle">Bienvenido</h2>
+            <p id="accessSummary"></p>
+          </div>
+
+          <div class="module-tabs" role="tablist" aria-label="Modulos del sistema">
+            <button class="module-tab active" type="button" data-module="permissions">Acceso</button>
+            <button class="module-tab" type="button" data-module="sales">Ventas</button>
+            <button class="module-tab" type="button" data-module="parts">Repuestos</button>
+            <button class="module-tab" type="button" data-module="repairs">Reparaciones</button>
+          </div>
+
+          <section class="module-panel active" id="permissionsModule">
+            <ul id="permissionList"></ul>
+          </section>
+
+          <section class="module-panel sales-module" id="salesModule">
+            <form class="sales-form" id="salesForm">
+              <div class="field-grid">
+                <div>
+                  <label for="saleNumber">No. venta</label>
+                  <input
+                    id="saleNumber"
+                    name="saleNumber"
+                    type="number"
+                    min="1"
+                    step="1"
+                    readonly
+                    aria-readonly="true"
+                    required
+                  />
+                </div>
+                <div>
+                  <label for="saleQuantity">Cantidad</label>
+                  <input id="saleQuantity" name="quantity" type="number" min="1" step="1" value="1" required />
+                </div>
+              </div>
+
+              <label for="saleProduct">Producto</label>
+              <input id="saleProduct" name="product" type="text" placeholder="Producto vendido" required />
+
+              <div class="field-grid">
+                <div>
+                  <label for="salePrice">Precio unitario</label>
+                  <input id="salePrice" name="price" type="number" min="0" step="0.01" placeholder="0.00" required />
+                </div>
+                <div>
+                  <label for="saleDiscount">Descuento</label>
+                  <input id="saleDiscount" name="discount" type="number" min="0" step="0.01" placeholder="0.00" />
+                </div>
+              </div>
+
+              <div class="field-grid">
+                <div>
+                  <label for="saleReceived">Billete recibido</label>
+                  <input id="saleReceived" name="received" type="number" min="0" step="0.01" placeholder="0.00" required />
+                </div>
+                <div>
+                  <label for="saleChange">Vuelto</label>
+                  <input id="saleChange" name="change" type="text" value="$0.00" readonly />
+                </div>
+              </div>
+
+              <div class="sale-total-box">
+                <span>Total a pagar</span>
+                <strong id="saleTotal">$0.00</strong>
+              </div>
+
+              <button class="primary-button" type="submit">Guardar venta</button>
+              <p class="hint" id="salesHint">Captura la venta y el cambio entregado al cliente.</p>
+            </form>
+
+            <div class="daily-sales-header">
+              <div>
+                <span class="panel-kicker">Ventas del dia</span>
+                <strong id="dailySalesTotal">$0.00</strong>
+              </div>
+              <span id="dailySalesCount">0 ventas</span>
+            </div>
+
+            <div class="compact-list sales-list" id="salesList"></div>
+          </section>
+
+          <section class="module-panel compact-parts" id="partsModule">
+            <form class="compact-parts-form" id="quickPartsForm">
+              <label for="quickPartName">Repuesto</label>
+              <input id="quickPartName" name="partName" type="text" placeholder="Pantalla, bateria, motor..." required />
+
+              <div class="field-grid">
+                <div>
+                  <label for="quickPrice">Valor</label>
+                  <input id="quickPrice" name="price" type="number" min="0" step="0.01" placeholder="0.00" required />
+                </div>
+                <div>
+                  <label for="quickQuality">Calidad</label>
+                  <select id="quickQuality" name="quality" required>
+                    <option value="Original">Original</option>
+                    <option value="Premium">Premium</option>
+                    <option value="Generica">Generica</option>
+                    <option value="Reacondicionada">Reacondicionada</option>
+                  </select>
+                </div>
+              </div>
+
+              <label for="quickSupplier">Proveedor</label>
+              <input id="quickSupplier" name="supplier" type="text" placeholder="Nombre del proveedor" required />
+
+              <button class="primary-button" type="submit">Guardar repuesto</button>
+              <p class="hint" id="quickPartsHint">Registro rapido de repuestos.</p>
+            </form>
+
+            <div class="compact-list" id="quickPartsList"></div>
+          </section>
+
+          <section class="module-panel repairs-module" id="repairsModule">
+            <form class="repairs-form" id="repairsForm">
+              <div class="field-grid">
+                <div>
+                  <label for="repairNumber">No. reparacion</label>
+                  <input id="repairNumber" name="repairNumber" type="number" min="1" step="1" readonly aria-readonly="true" required />
+                </div>
+                <div>
+                  <label for="repairCreatedAt">Fecha y hora</label>
+                  <input id="repairCreatedAt" name="createdAt" type="text" readonly aria-readonly="true" required />
+                </div>
+              </div>
+
+              <label for="repairCustomer">Nombre</label>
+              <input id="repairCustomer" name="customer" type="text" placeholder="Nombre del cliente" required />
+
+              <div class="field-grid">
+                <div>
+                  <label for="repairDeviceType">Equipo</label>
+                  <select id="repairDeviceType" name="deviceType" required>
+                    <option value="Telefono">Telefono</option>
+                    <option value="Tablet">Tablet</option>
+                    <option value="Computadora">Computadora</option>
+                    <option value="Otro">Otro</option>
+                  </select>
+                </div>
+                <div>
+                  <label for="repairPhone">Celular</label>
+                  <input id="repairPhone" name="phone" type="tel" inputmode="numeric" maxlength="11" pattern="[0-9]{1,11}" placeholder="Max. 11 digitos" required />
+                </div>
+              </div>
+
+              <label for="repairBrand">Marca</label>
+              <input id="repairBrand" name="brand" type="text" list="repairBrandOptions" placeholder="Samsung, Apple, HP..." required />
+              <datalist id="repairBrandOptions"></datalist>
+
+              <label for="repairModel">Modelo</label>
+              <input id="repairModel" name="model" type="text" list="repairModelOptions" pattern="[A-Za-z0-9 ]+" placeholder="Letras y numeros" required />
+              <datalist id="repairModelOptions"></datalist>
+
+              <label for="repairType">Tipo de reparacion</label>
+              <input id="repairType" name="repairType" type="text" list="repairTypeOptions" placeholder="Cambio de pantalla, diagnostico..." required />
+              <datalist id="repairTypeOptions"></datalist>
+
+              <div class="field-grid">
+                <div>
+                  <label for="repairStatus">Estado</label>
+                  <select id="repairStatus" name="status" required>
+                    <option value="En proceso">En proceso</option>
+                    <option value="Listo">Listo</option>
+                    <option value="Entregado">Entregado</option>
+                  </select>
+                </div>
+                <div>
+                  <label for="repairDeliveredAt">Fecha de entrega</label>
+                  <input id="repairDeliveredAt" name="deliveredAt" type="text" readonly aria-readonly="true" placeholder="Pendiente" />
+                </div>
+              </div>
+
+              <label for="repairNotes">Notas</label>
+              <textarea id="repairNotes" name="notes" rows="4" placeholder="Observaciones, accesorios, detalles del equipo..."></textarea>
+
+              <button class="primary-button" type="submit">Guardar reparacion</button>
+              <p class="hint" id="repairsHint">Registra la reparacion y su estado actual.</p>
+            </form>
+
+            <div class="daily-sales-header">
+              <div>
+                <span class="panel-kicker">Reparaciones</span>
+                <strong id="repairsCount">0 registros</strong>
+              </div>
+              <span>Historial guardado</span>
+            </div>
+
+            <div class="compact-list repairs-list" id="repairsList"></div>
+          </section>
+
+          <a class="module-link" href="repuestos.html">Ver pagina completa de repuestos</a>
+          <button class="secondary-button" type="button" id="logoutButton">Cerrar sesion</button>
+        </aside>
+      </section>
+
+      <div class="date-time" aria-label="Fecha y hora actual">
+        <span id="currentDate">--/--/----</span>
+        <span id="currentTime">--:--</span>
+      </div>
+
+      <button
+        class="color-mode-toggle"
+        type="button"
+        id="colorModeToggle"
+        aria-label="Cambiar a modo noche"
+        aria-pressed="false"
+        title="Cambiar a modo noche"
+      >
+        <svg class="mode-icon moon-icon" aria-hidden="true" viewBox="0 0 24 24">
+          <path
+            d="M20.3 15.4A8.2 8.2 0 0 1 8.6 3.7a8.9 8.9 0 1 0 11.7 11.7Z"
+            fill="none"
+            stroke="currentColor"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2.4"
+          />
+        </svg>
+        <svg class="mode-icon sun-icon" aria-hidden="true" viewBox="0 0 24 24">
+          <circle cx="12" cy="12" r="4.2" fill="none" stroke="currentColor" stroke-width="2.4" />
+          <path
+            d="M12 2.2v2.2M12 19.6v2.2M4.4 4.4 6 6M18 18l1.6 1.6M2.2 12h2.2M19.6 12h2.2M4.4 19.6 6 18M18 6l1.6-1.6"
+            fill="none"
+            stroke="currentColor"
+            stroke-linecap="round"
+            stroke-width="2.4"
+          />
+        </svg>
+      </button>
+
+      <div class="sale-confirm-overlay" id="saleConfirmOverlay" hidden>
+        <section class="sale-confirm-card" role="dialog" aria-modal="true" aria-labelledby="saleConfirmTitle">
+          <div>
+            <span class="panel-kicker">Verificar venta</span>
+            <h2 id="saleConfirmTitle">Resumen de venta</h2>
+          </div>
+
+          <dl class="sale-confirm-list" id="saleConfirmList"></dl>
+
+          <div class="sale-confirm-actions">
+            <button class="secondary-button" type="button" id="editSaleButton">Editar</button>
+            <button class="primary-button" type="button" id="confirmSaleButton">OK</button>
+          </div>
+        </section>
+      </div>
+
+      <div class="sale-confirm-overlay" id="adminVoidOverlay" hidden>
+        <form class="sale-confirm-card admin-void-card" id="adminVoidForm" role="dialog" aria-modal="true" aria-labelledby="adminVoidTitle">
+          <div>
+            <span class="panel-kicker">Anular venta</span>
+            <h2 id="adminVoidTitle">Credenciales de administrador</h2>
+            <p class="hint">Solo administrador puede eliminar ventas registradas.</p>
+          </div>
+
+          <label for="voidAdminUser">Usuario</label>
+          <input id="voidAdminUser" name="adminUser" type="text" autocomplete="username" required />
+
+          <label for="voidAdminPassword">Contrasena</label>
+          <input
+            id="voidAdminPassword"
+            name="adminPassword"
+            type="password"
+            autocomplete="current-password"
+            required
+          />
+
+          <p class="hint" id="adminVoidHint">Ingresa credenciales de administrador para continuar.</p>
+
+          <div class="sale-confirm-actions">
+            <button class="secondary-button" type="button" id="cancelVoidButton">Cancelar</button>
+            <button class="primary-button danger-action" type="submit">Anular</button>
+          </div>
+        </form>
+      </div>
+    </main>
+
+    <script src="script.js"></script>
+  </body>
+</html>
