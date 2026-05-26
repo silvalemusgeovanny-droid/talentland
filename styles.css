@@ -536,7 +536,7 @@ body.login-dark input[readonly] {
 
 .module-tabs {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(92px, 1fr));
   gap: 6px;
   padding: 5px;
   border: 1px solid rgb(23 32 38 / 10%);
@@ -605,6 +605,12 @@ body.login-dark input[readonly] {
   gap: 14px;
 }
 
+.database-module.active,
+.users-module.active {
+  display: grid;
+  gap: 14px;
+}
+
 .compact-parts-form {
   display: grid;
   gap: 0;
@@ -612,12 +618,14 @@ body.login-dark input[readonly] {
 
 .compact-parts-form .primary-button,
 .sales-form .primary-button,
-.repairs-form .primary-button {
+.repairs-form .primary-button,
+.users-form .primary-button {
   margin-top: 16px;
 }
 
 .sales-form,
-.repairs-form {
+.repairs-form,
+.users-form {
   display: grid;
   gap: 0;
 }
@@ -680,6 +688,17 @@ body.login-dark input[readonly] {
   color: var(--muted);
   font-size: 0.84rem;
   font-weight: 700;
+}
+
+.user-item {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+}
+
+.user-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
 }
 
 .daily-sales-header {
