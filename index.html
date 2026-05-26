@@ -27,19 +27,19 @@
           <h2>Niveles de acceso</h2>
           <div class="role-grid">
             <article>
-              <span>Administrador</span>
+              <span>Root</span>
               <strong>Control total</strong>
-              <p>Usuarios, ventas, inventario, reportes, reparaciones e importacion Excel.</p>
+              <p>Usuarios, roles, base de datos, ventas, inventario y reparaciones.</p>
             </article>
             <article>
-              <span>Vendedor</span>
-              <strong>Ventas e inventario</strong>
-              <p>Registrar ventas, consultar existencias, clientes y tickets.</p>
+              <span>Admin</span>
+              <strong>Operacion avanzada</strong>
+              <p>Ventas, repuestos, reparaciones y base de datos sin borrar al root.</p>
             </article>
             <article>
-              <span>Tecnico</span>
-              <strong>Reparaciones</strong>
-              <p>Diagnosticos, ordenes de servicio, refacciones y estado de equipos.</p>
+              <span>Usuario</span>
+              <strong>Operacion limitada</strong>
+              <p>Acceso operativo sin base de datos ni gestion de usuarios.</p>
             </article>
           </div>
         </div>
@@ -59,21 +59,14 @@
             <p id="themeCopy">Panel limpio para control general del negocio.</p>
           </div>
 
-          <label for="role">Rol</label>
-          <select id="role" name="role">
-            <option value="admin">Administrador</option>
-            <option value="seller">Vendedor</option>
-            <option value="technician">Tecnico</option>
-          </select>
-
           <label for="username">Usuario</label>
-          <input id="username" name="username" type="text" autocomplete="username" value="admin" />
+          <input id="username" name="username" type="text" autocomplete="username" value="root" required />
 
           <label for="password">Contrasena</label>
-          <input id="password" name="password" type="password" autocomplete="current-password" value="admin123" />
+          <input id="password" name="password" type="password" autocomplete="current-password" value="root123" required />
 
           <button class="primary-button" type="submit">Iniciar sesion</button>
-          <p class="hint" id="credentialHint">Demo: admin / admin123</p>
+          <p class="hint" id="credentialHint">Demo root: root / root123</p>
         </form>
 
         <aside class="session-panel" id="sessionPanel" hidden>
@@ -88,6 +81,8 @@
             <button class="module-tab" type="button" data-module="sales">Ventas</button>
             <button class="module-tab" type="button" data-module="parts">Repuestos</button>
             <button class="module-tab" type="button" data-module="repairs">Reparaciones</button>
+            <button class="module-tab" type="button" data-module="database">Base de datos</button>
+            <button class="module-tab" type="button" data-module="users">Usuarios</button>
           </div>
 
           <section class="module-panel active" id="permissionsModule">
@@ -270,6 +265,48 @@
             </div>
 
             <div class="compact-list repairs-list" id="repairsList"></div>
+          </section>
+
+          <section class="module-panel database-module" id="databaseModule">
+            <div class="daily-sales-header">
+              <div>
+                <span class="panel-kicker">Base de datos</span>
+                <strong id="databaseSummary">0 registros</strong>
+              </div>
+              <span>Vista restringida</span>
+            </div>
+
+            <div class="compact-list database-list" id="databaseList"></div>
+          </section>
+
+          <section class="module-panel users-module" id="usersModule">
+            <form class="users-form" id="usersForm">
+              <div class="field-grid">
+                <div>
+                  <label for="managedName">Nombre</label>
+                  <input id="managedName" name="name" type="text" placeholder="Nombre visible" required />
+                </div>
+                <div>
+                  <label for="managedRole">Rol</label>
+                  <select id="managedRole" name="role" required>
+                    <option value="user">Usuario</option>
+                    <option value="admin">Admin</option>
+                    <option value="root">Root</option>
+                  </select>
+                </div>
+              </div>
+
+              <label for="managedUsername">Usuario</label>
+              <input id="managedUsername" name="username" type="text" placeholder="usuario" required />
+
+              <label for="managedPassword">Contrasena</label>
+              <input id="managedPassword" name="password" type="text" placeholder="contrasena" required />
+
+              <button class="primary-button" type="submit" id="submitUser">Guardar usuario</button>
+              <p class="hint" id="usersHint">Solo root puede gestionar usuarios y roles.</p>
+            </form>
+
+            <div class="compact-list users-list" id="usersList"></div>
           </section>
 
           <a class="module-link" href="repuestos.html">Ver pagina completa de repuestos</a>

@@ -16,41 +16,63 @@ const themes = {
   },
 };
 
-const users = {
-  admin: {
+const usersStorageKey = "systemUsers";
+const defaultUsers = [
+  {
+    id: "root-user",
+    username: "root",
+    password: "root123",
+    name: "Root",
+    role: "root",
+  },
+  {
+    id: "admin-user",
     username: "admin",
     password: "admin123",
     name: "Administrador",
+    role: "admin",
+  },
+  {
+    id: "standard-user",
+    username: "usuario",
+    password: "user123",
+    name: "Usuario",
+    role: "user",
+  },
+];
+
+const roleProfiles = {
+  root: {
+    label: "Root",
     access: "Control total del sistema",
+    modules: ["permissions", "sales", "parts", "repairs", "database", "users"],
     permissions: [
-      "Importar y sincronizar base de datos desde Excel",
-      "Administrar usuarios y niveles de acceso",
-      "Ver reportes de ventas, inventario y reparaciones",
-      "Editar precios, productos, servicios y garantias",
+      "Modificar usuarios, roles y accesos",
+      "Ver base de datos local completa",
+      "Registrar ventas, repuestos y reparaciones",
+      "Editar cualquier dato del sistema",
     ],
   },
-  seller: {
-    username: "vendedor",
-    password: "venta123",
-    name: "Vendedor",
-    access: "Ventas, clientes e inventario disponible",
+  admin: {
+    label: "Admin",
+    access: "Administracion con restricciones",
+    modules: ["permissions", "sales", "parts", "repairs", "database"],
     permissions: [
-      "Registrar ventas y cotizaciones",
-      "Consultar existencias y precios",
-      "Crear clientes y tickets de venta",
-      "Consultar historial de compras",
+      "Registrar ventas, repuestos y reparaciones",
+      "Ver base de datos local",
+      "No puede borrar ni reemplazar al root",
+      "No puede gestionar usuarios desde este panel",
     ],
   },
-  technician: {
-    username: "tecnico",
-    password: "repara123",
-    name: "Tecnico",
-    access: "Ordenes de servicio y reparaciones",
+  user: {
+    label: "Usuario",
+    access: "Operacion basica sin base de datos",
+    modules: ["permissions", "sales", "parts", "repairs"],
     permissions: [
-      "Registrar diagnosticos",
-      "Actualizar estado de reparaciones",
-      "Solicitar refacciones del inventario",
-      "Cerrar servicios terminados",
+      "Registrar operaciones del dia",
+      "Consultar modulos operativos permitidos",
+      "No puede ver la base de datos",
+      "No puede gestionar usuarios ni roles",
     ],
   },
 };
@@ -60,7 +82,6 @@ const tabButtons = document.querySelectorAll(".tab-button");
 const themeLabel = document.querySelector("#themeLabel");
 const themeTitle = document.querySelector("#themeTitle");
 const themeCopy = document.querySelector("#themeCopy");
-const roleSelect = document.querySelector("#role");
 const usernameInput = document.querySelector("#username");
 const passwordInput = document.querySelector("#password");
 const credentialHint = document.querySelector("#credentialHint");
@@ -125,10 +146,21 @@ const voidAdminUser = document.querySelector("#voidAdminUser");
 const voidAdminPassword = document.querySelector("#voidAdminPassword");
 const adminVoidHint = document.querySelector("#adminVoidHint");
 const cancelVoidButton = document.querySelector("#cancelVoidButton");
+const databaseSummary = document.querySelector("#databaseSummary");
+const databaseList = document.querySelector("#databaseList");
+const usersForm = document.querySelector("#usersForm");
+const usersList = document.querySelector("#usersList");
+const usersHint = document.querySelector("#usersHint");
+const managedNameInput = document.querySelector("#managedName");
+const managedUsernameInput = document.querySelector("#managedUsername");
+const managedPasswordInput = document.querySelector("#managedPassword");
+const managedRoleInput = document.querySelector("#managedRole");
+const submitUserButton = document.querySelector("#submitUser");
 let pendingSale = null;
 let pendingVoidSaleId = null;
 let lastVoidedSale = null;
 let undoTimerId = null;
+let currentUser = null;
 
 const starterParts = [
   {
@@ -162,11 +194,32 @@ function setTheme(themeName) {
   });
 }
 
-function setRoleDemo(role) {
-  const user = users[role];
-  usernameInput.value = user.username;
-  passwordInput.value = user.password;
-  credentialHint.textContent = `Demo: ${user.username} / ${user.password}`;
+function loadUsers() {
+  const savedUsers = localStorage.getItem(usersStorageKey);
+  if (!savedUsers) {
+    localStorage.setItem(usersStorageKey, JSON.stringify(defaultUsers));
+    return defaultUsers;
+  }
+  return JSON.parse(savedUsers);
+}
+
+function saveUsers(users) {
+  localStorage.setItem(usersStorageKey, JSON.stringify(users));
+}
+
+function getRoleProfile(role) {
+  return roleProfiles[role] || roleProfiles.user;
+}
+
+function canAccessModule(moduleName) {
+  if (!currentUser) return false;
+  return getRoleProfile(currentUser.role).modules.includes(moduleName);
+}
+
+function setLoginDemo() {
+  usernameInput.value = "root";
+  passwordInput.value = "root123";
+  credentialHint.textContent = "Demo root: root / root123 | admin: admin / admin123 | usuario: usuario / user123";
 }
 
 function updateDateTime() {
@@ -392,6 +445,52 @@ function renderRepairs() {
   }).join("");
 }
 
+function renderDatabase() {
+  if (!canAccessModule("database")) {
+    databaseSummary.textContent = "Sin acceso";
+    databaseList.innerHTML = `<p class="hint">Tu rol no puede ver la base de datos.</p>`;
+    return;
+  }
+
+  const datasets = [
+    { label: "Usuarios", value: loadUsers().length },
+    { label: "Ventas", value: loadSales().length },
+    { label: "Repuestos", value: loadParts().length },
+    { label: "Reparaciones", value: loadRepairs().length },
+    { label: "Marcas conocidas", value: loadRepairOptions(repairBrandsStorageKey, "brand").length },
+    { label: "Modelos conocidos", value: loadRepairOptions(repairModelsStorageKey, "model").length },
+    { label: "Tipos de reparacion", value: loadRepairOptions(repairTypesStorageKey, "repairType").length },
+  ];
+  const total = datasets.reduce((sum, item) => sum + item.value, 0);
+  databaseSummary.textContent = `${total} registro${total === 1 ? "" : "s"}`;
+  databaseList.innerHTML = datasets.map((item) => `
+    <article class="compact-part-item database-item">
+      <strong>${item.label}</strong>
+      <span>${item.value} registro${item.value === 1 ? "" : "s"}</span>
+    </article>
+  `).join("");
+}
+
+function renderUsers() {
+  if (!canAccessModule("users")) {
+    usersList.innerHTML = `<p class="hint">Solo root puede ver este panel.</p>`;
+    return;
+  }
+
+  usersList.innerHTML = loadUsers().map((user) => `
+    <article class="compact-part-item user-item">
+      <div>
+        <strong>${escapeHtml(user.name)} (${escapeHtml(user.username)})</strong>
+        <span>${getRoleProfile(user.role).label}</span>
+      </div>
+      <div class="user-actions">
+        <button class="edit-button" type="button" data-user-action="edit" data-user-id="${user.id}">Editar</button>
+        <button class="delete-button" type="button" data-user-action="delete" data-user-id="${user.id}">Borrar</button>
+      </div>
+    </article>
+  `).join("");
+}
+
 function renderSaleConfirmation(sale) {
   saleConfirmList.innerHTML = `
     <div><dt>Fecha y hora</dt><dd>${formatSaleDateTime(sale.createdAt).date} | ${formatSaleDateTime(sale.createdAt).time}</dd></div>
@@ -470,13 +569,23 @@ function setColorMode(mode) {
 }
 
 function setModule(moduleName) {
-  moduleTabs.forEach((button) => button.classList.toggle("active", button.dataset.module === moduleName));
+  if (!canAccessModule(moduleName)) {
+    credentialHint.textContent = "Tu rol no tiene permiso para abrir ese modulo.";
+    moduleName = "permissions";
+  }
+  moduleTabs.forEach((button) => {
+    const isAllowed = canAccessModule(button.dataset.module);
+    button.hidden = !isAllowed;
+    button.classList.toggle("active", isAllowed && button.dataset.module === moduleName);
+  });
   modulePanels.forEach((panel) => {
     const isActive =
       (moduleName === "permissions" && panel.id === "permissionsModule") ||
       (moduleName === "sales" && panel.id === "salesModule") ||
       (moduleName === "parts" && panel.id === "partsModule") ||
-      (moduleName === "repairs" && panel.id === "repairsModule");
+      (moduleName === "repairs" && panel.id === "repairsModule") ||
+      (moduleName === "database" && panel.id === "databaseModule") ||
+      (moduleName === "users" && panel.id === "usersModule");
     panel.classList.toggle("active", isActive);
   });
   if (moduleName === "sales") { setNextSaleNumber(); updateSaleTotals(); renderSales(); }
@@ -486,6 +595,8 @@ function setModule(moduleName) {
     updateRepairDeliveredAt();
     renderRepairs();
   }
+  if (moduleName === "database") renderDatabase();
+  if (moduleName === "users") renderUsers();
 }
 
 tabButtons.forEach((button) => button.addEventListener("click", () => setTheme(button.dataset.theme)));
@@ -503,7 +614,6 @@ moduleShortcuts.forEach((button) => {
   });
 });
 
-roleSelect.addEventListener("change", () => setRoleDemo(roleSelect.value));
 colorModeToggle.addEventListener("click", () => {
   const nextMode = document.body.classList.contains("login-dark") ? "light" : "dark";
   setColorMode(nextMode);
@@ -527,23 +637,28 @@ repairStatusInput.addEventListener("change", updateRepairDeliveredAt);
 
 loginForm.addEventListener("submit", (event) => {
   event.preventDefault();
-  const selectedUser = users[roleSelect.value];
-  const validCredentials =
-    usernameInput.value.trim() === selectedUser.username &&
-    passwordInput.value === selectedUser.password;
-  if (!validCredentials) {
-    credentialHint.textContent = "Credenciales incorrectas para el rol seleccionado.";
+  const selectedUser = loadUsers().find((user) =>
+    user.username.toLowerCase() === usernameInput.value.trim().toLowerCase() &&
+    user.password === passwordInput.value
+  );
+  if (!selectedUser) {
+    credentialHint.textContent = "Usuario o contrasena incorrectos.";
     return;
   }
+  currentUser = selectedUser;
+  const roleProfile = getRoleProfile(selectedUser.role);
   welcomeTitle.textContent = `Bienvenido, ${selectedUser.name}`;
-  accessSummary.textContent = selectedUser.access;
-  permissionList.innerHTML = selectedUser.permissions.map((p) => `<li>${p}</li>`).join("");
+  accessSummary.textContent = `${roleProfile.label} - ${roleProfile.access}`;
+  permissionList.innerHTML = roleProfile.permissions.map((p) => `<li>${p}</li>`).join("");
   loginForm.hidden = true;
   sessionPanel.hidden = false;
+  credentialHint.textContent = "Sesion iniciada correctamente.";
   setModule("permissions");
   renderQuickParts();
   renderSales();
   renderRepairs();
+  renderDatabase();
+  renderUsers();
 });
 
 salesForm.addEventListener("submit", (event) => {
@@ -598,9 +713,11 @@ cancelVoidButton.addEventListener("click", closeAdminVoid);
 
 adminVoidForm.addEventListener("submit", (event) => {
   event.preventDefault();
-  const isAdmin =
-    voidAdminUser.value.trim() === users.admin.username &&
-    voidAdminPassword.value === users.admin.password;
+  const voidUser = loadUsers().find((user) =>
+    user.username.toLowerCase() === voidAdminUser.value.trim().toLowerCase() &&
+    user.password === voidAdminPassword.value
+  );
+  const isAdmin = voidUser && ["root", "admin"].includes(voidUser.role);
   if (!isAdmin) {
     adminVoidHint.textContent = "Credenciales de administrador incorrectas.";
     return;
@@ -729,12 +846,96 @@ repairsForm.addEventListener("submit", (event) => {
   renderRepairs();
 });
 
+usersForm.addEventListener("submit", (event) => {
+  event.preventDefault();
+  if (!canAccessModule("users")) {
+    usersHint.textContent = "Solo root puede guardar usuarios.";
+    return;
+  }
+
+  const formData = new FormData(usersForm);
+  const users = loadUsers();
+  const editingId = usersForm.dataset.editingId;
+  const username = formData.get("username").trim();
+  const duplicatedUser = users.find((user) =>
+    user.username.toLowerCase() === username.toLowerCase() &&
+    user.id !== editingId
+  );
+
+  if (duplicatedUser) {
+    usersHint.textContent = "Ese usuario ya existe.";
+    return;
+  }
+
+  const userData = {
+    name: formData.get("name").trim(),
+    username,
+    password: formData.get("password").trim(),
+    role: formData.get("role"),
+  };
+
+  if (editingId) {
+    const index = users.findIndex((user) => user.id === editingId);
+    if (index !== -1) {
+      users[index] = { ...users[index], ...userData };
+      if (currentUser.id === editingId) currentUser = users[index];
+    }
+    delete usersForm.dataset.editingId;
+    submitUserButton.textContent = "Guardar usuario";
+    usersHint.textContent = "Usuario actualizado correctamente.";
+  } else {
+    users.unshift({ id: crypto.randomUUID(), ...userData });
+    usersHint.textContent = "Usuario guardado correctamente.";
+  }
+
+  saveUsers(users);
+  usersForm.reset();
+  managedRoleInput.value = "user";
+  renderUsers();
+  renderDatabase();
+});
+
+usersList.addEventListener("click", (event) => {
+  if (!canAccessModule("users")) return;
+  const button = event.target.closest("[data-user-action]");
+  if (!button) return;
+
+  const users = loadUsers();
+  const user = users.find((item) => item.id === button.dataset.userId);
+  if (!user) return;
+
+  if (button.dataset.userAction === "edit") {
+    managedNameInput.value = user.name;
+    managedUsernameInput.value = user.username;
+    managedPasswordInput.value = user.password;
+    managedRoleInput.value = user.role;
+    usersForm.dataset.editingId = user.id;
+    submitUserButton.textContent = "Guardar cambios";
+    usersHint.textContent = "Editando usuario.";
+    return;
+  }
+
+  if (button.dataset.userAction === "delete") {
+    if (user.role === "root") {
+      usersHint.textContent = "El usuario root no se puede borrar.";
+      return;
+    }
+    if (!confirm(`¿Seguro que quieres borrar a ${user.username}?`)) return;
+    saveUsers(users.filter((item) => item.id !== user.id));
+    usersHint.textContent = "Usuario borrado correctamente.";
+    renderUsers();
+    renderDatabase();
+  }
+});
+
 logoutButton.addEventListener("click", () => {
+  currentUser = null;
   sessionPanel.hidden = true;
   loginForm.hidden = false;
 });
 
-setRoleDemo("admin");
+loadUsers();
+setLoginDemo();
 setColorMode(localStorage.getItem(colorModeStorageKey) || "light");
 setNextSaleNumber();
 setNextRepairNumber();
