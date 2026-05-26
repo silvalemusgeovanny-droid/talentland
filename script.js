@@ -136,6 +136,7 @@ const repairDeliveredAtInput = document.querySelector("#repairDeliveredAt");
 const repairsHint = document.querySelector("#repairsHint");
 const repairsCount = document.querySelector("#repairsCount");
 const repairsList = document.querySelector("#repairsList");
+const importRepairsDatabaseButton = document.querySelector("#importRepairsDatabase");
 const saleConfirmOverlay = document.querySelector("#saleConfirmOverlay");
 const saleConfirmList = document.querySelector("#saleConfirmList");
 const editSaleButton = document.querySelector("#editSaleButton");
@@ -423,6 +424,11 @@ function renderSales() {
 function renderRepairs() {
   const repairs = loadRepairs();
   repairsCount.textContent = `${repairs.length} registro${repairs.length === 1 ? "" : "s"}`;
+  if (importRepairsDatabaseButton) {
+    const importCount = Array.isArray(window.repairExcelDatabase) ? window.repairExcelDatabase.length : 0;
+    importRepairsDatabaseButton.hidden = !canAccessModule("database") || importCount === 0;
+    importRepairsDatabaseButton.textContent = `Importar Excel (${importCount})`;
+  }
   if (!repairs.length) {
     repairsList.innerHTML = `<p class="hint">Todavia no hay reparaciones registradas.</p>`;
     return;
@@ -443,6 +449,42 @@ function renderRepairs() {
       </article>
     `;
   }).join("");
+}
+
+function importExcelRepairs() {
+  const excelRepairs = Array.isArray(window.repairExcelDatabase) ? window.repairExcelDatabase : [];
+  if (!excelRepairs.length) {
+    repairsHint.textContent = "No se encontro la base de reparaciones del Excel.";
+    return;
+  }
+  if (!canAccessModule("database")) {
+    repairsHint.textContent = "Tu rol no puede importar la base de datos.";
+    return;
+  }
+
+  const repairs = loadRepairs();
+  const importedIds = new Set(repairs.map((repair) => repair.id));
+  let nextRepairNumber = repairs.reduce((max, repair) => Math.max(max, Number(repair.repairNumber) || 0), 0) + 1;
+  const newRepairs = excelRepairs
+    .filter((repair) => !importedIds.has(repair.id))
+    .map((repair) => ({
+      ...repair,
+      repairNumber: nextRepairNumber++,
+    }));
+
+  if (!newRepairs.length) {
+    repairsHint.textContent = "La base de Excel ya estaba importada.";
+    return;
+  }
+
+  saveRepairs([...newRepairs, ...repairs]);
+  setNextRepairNumber();
+  renderRepairBrandOptions();
+  renderRepairModelOptions();
+  renderRepairTypeOptions();
+  renderRepairs();
+  renderDatabase();
+  repairsHint.textContent = `Se importaron ${newRepairs.length} reparaciones desde Excel.`;
 }
 
 function renderDatabase() {
@@ -634,6 +676,11 @@ repairModelInput.addEventListener("change", syncKnownRepairModelCase);
 repairTypeInput.addEventListener("blur", syncKnownRepairTypeCase);
 repairTypeInput.addEventListener("change", syncKnownRepairTypeCase);
 repairStatusInput.addEventListener("change", updateRepairDeliveredAt);
+importRepairsDatabaseButton.addEventListener("click", () => {
+  const excelCount = Array.isArray(window.repairExcelDatabase) ? window.repairExcelDatabase.length : 0;
+  if (!confirm(`¿Quieres importar ${excelCount} reparaciones del Excel?`)) return;
+  importExcelRepairs();
+});
 
 loginForm.addEventListener("submit", (event) => {
   event.preventDefault();
