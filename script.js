@@ -109,6 +109,7 @@ const repairModelInput = document.querySelector("#repairModel");
 const repairModelOptions = document.querySelector("#repairModelOptions");
 const repairTypeInput = document.querySelector("#repairType");
 const repairTypeOptions = document.querySelector("#repairTypeOptions");
+const repairPriceInput = document.querySelector("#repairPrice");
 const repairStatusInput = document.querySelector("#repairStatus");
 const repairDeliveredAtInput = document.querySelector("#repairDeliveredAt");
 const repairsHint = document.querySelector("#repairsHint");
@@ -382,6 +383,7 @@ function renderRepairs() {
         <strong>Reparacion #${repair.repairNumber} - ${escapeHtml(repair.customer)}</strong>
         <span>${escapeHtml(repair.deviceType)} ${repair.brand ? `${escapeHtml(repair.brand)} ` : ""}${escapeHtml(repair.model)} | ${escapeHtml(repair.status)}</span>
         <span>${escapeHtml(repair.repairType)} | Cel. ${escapeHtml(repair.phone)}</span>
+        <span>Precio ${formatCurrency(Number(repair.repairPrice) || 0)}</span>
         <span>Ingreso ${formatRepairDateTimeInput(repair.createdAt)} | ${deliveredLabel}</span>
         ${repair.notes ? `<p>${escapeHtml(repair.notes)}</p>` : ""}
         <button class="edit-button" type="button" data-repair-id="${repair.id}">Editar</button>
@@ -580,7 +582,7 @@ confirmSaleButton.addEventListener("click", () => {
   renderSales();
   closeSaleConfirmation();
   pendingSale = null;
-  salesHint.textContent = "Venta guardada correctamente.";
+  salesHint.textContent = "Se guardo registro.";
 });
 
 salesList.addEventListener("click", (event) => {
@@ -660,6 +662,7 @@ repairsList.addEventListener("click", (event) => {
   repairBrandInput.value = repair.brand;
   repairModelInput.value = repair.model;
   repairTypeInput.value = repair.repairType;
+  repairPriceInput.value = repair.repairPrice ?? "";
   repairStatusInput.value = repair.status;
   document.querySelector("#repairDeviceType").value = repair.deviceType;
   document.querySelector("#repairNotes").value = repair.notes || "";
@@ -695,6 +698,7 @@ repairsForm.addEventListener("submit", (event) => {
         deviceType: formData.get("deviceType"),
         phone: formData.get("phone").trim(),
         brand, model, repairType, status, createdAt, deliveredAt,
+        repairPrice: Number(formData.get("repairPrice")) || 0,
         notes: formData.get("notes").trim(),
       };
     }
@@ -710,6 +714,7 @@ repairsForm.addEventListener("submit", (event) => {
       deviceType: formData.get("deviceType"),
       phone: formData.get("phone").trim(),
       brand, model, repairType, status, createdAt, deliveredAt,
+      repairPrice: Number(formData.get("repairPrice")) || 0,
       notes: formData.get("notes").trim(),
     });
     repairsHint.textContent = "Reparacion guardada correctamente.";

@@ -251,16 +251,11 @@
                 </div>
               </div>
 
-              <label for="repairNotes">Notas</label>
-             <div class="field-grid">
-                <div>
-                  <label for="repairPrice">Precio de reparacion</label>
-                  <input id="repairPrice" name="repairPrice" type="number" min="0" step="0.01" placeholder="0.00" />
-                </div>
-              </div>
+              <label for="repairPrice">Precio de reparacion</label>
+              <input id="repairPrice" name="repairPrice" type="number" min="0" step="0.01" placeholder="0.00" required />
 
               <label for="repairNotes">Notas</label>
-              <textarea id="repairNotes" name="notes" rows="4" placeholder="Observaciones, accesorios, detalles del equipo..."></textarea> <textarea id="repairNotes" name="notes" rows="4" placeholder="Observaciones, accesorios, detalles del equipo..."></textarea>
+              <textarea id="repairNotes" name="notes" rows="4" placeholder="Observaciones, accesorios, detalles del equipo..."></textarea>
 
               <button class="primary-button" type="submit" id="submitRepairs">Guardar reparacion</button>
               <p class="hint" id="repairsHint">Registra la reparacion y su estado actual.</p>
@@ -328,7 +323,7 @@
 
           <div class="sale-confirm-actions">
             <button class="secondary-button" type="button" id="editSaleButton">Editar</button>
-            <button class="primary-button" type="button" id="confirmSaleButton">OK</button>
+            <button class="primary-button" type="button" id="confirmSaleButton">Guardar</button>
           </div>
         </section>
       </div>
