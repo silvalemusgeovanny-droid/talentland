@@ -1,1 +1,4 @@
 *.xlsx
+
+.env.local
+node_modules/ 

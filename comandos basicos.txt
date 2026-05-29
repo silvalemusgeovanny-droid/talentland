@@ -1,0 +1,5 @@
+levantar servidor de node
+
+cd "C:\Users\silva\OneDrive\Escritorio\talentland\proyecto"
+npx serve .
+
