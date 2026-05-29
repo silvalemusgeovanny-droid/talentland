@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Reparaciones | Inventario y Reparaciones</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body class="parts-page">
+    <main class="parts-shell">
+      <header class="parts-header">
+        <a class="back-link" href="index.html">Volver al panel</a>
+        <div>
+          <span class="panel-kicker">Servicio tecnico</span>
+          <h1>Reparaciones</h1>
+          <p>Consulta los registros guardados e importados desde Excel.</p>
+        </div>
+      </header>
+
+      <section class="parts-summary" aria-label="Resumen de reparaciones">
+        <article>
+          <span>Total reparaciones</span>
+          <strong id="totalRepairs">0</strong>
+        </article>
+        <article>
+          <span>Valor registrado</span>
+          <strong id="totalRepairValue">$0.00</strong>
+        </article>
+        <article>
+          <span>Entregadas</span>
+          <strong id="totalDelivered">0</strong>
+        </article>
+      </section>
+
+      <section class="parts-table-card repairs-table-card">
+        <div class="table-toolbar">
+          <div>
+            <span class="panel-kicker">Consulta</span>
+            <h2>Registros de reparaciones</h2>
+          </div>
+          <input id="repairSearch" type="search" placeholder="Buscar cliente, modelo o reparacion" />
+        </div>
+
+        <div class="table-wrap">
+          <table class="repairs-table">
+            <thead>
+              <tr>
+                <th>No.</th>
+                <th>Cliente</th>
+                <th>Equipo</th>
+                <th>Modelo</th>
+                <th>Reparacion</th>
+                <th>Precio</th>
+                <th>Estado</th>
+                <th>Ingreso</th>
+              </tr>
+            </thead>
+            <tbody id="repairsTable"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <div class="date-time" aria-label="Fecha y hora actual">
+        <span id="currentDate">--/--/----</span>
+        <span id="currentTime">--:--</span>
+      </div>
+    </main>
+
+    <script src="convex-config.js"></script>
+    <script src="convex-client.js"></script>
+    <script src="reparaciones.js"></script>
+  </body>
+</html>
