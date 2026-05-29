@@ -1,4 +1,4 @@
-const themes = {
+﻿const themes = {
   admin: {
     label: "Propuesta 1",
     title: "Acceso administrativo",
@@ -96,6 +96,7 @@ const currentTime = document.querySelector("#currentTime");
 const moduleTabs = document.querySelectorAll(".module-tab");
 const modulePanels = document.querySelectorAll(".module-panel");
 const moduleShortcuts = document.querySelectorAll("[data-module-shortcut]");
+const moduleLink = document.querySelector("#moduleLink");
 const quickPartsForm = document.querySelector("#quickPartsForm");
 const quickPartsList = document.querySelector("#quickPartsList");
 const quickPartsHint = document.querySelector("#quickPartsHint");
@@ -157,6 +158,7 @@ const managedUsernameInput = document.querySelector("#managedUsername");
 const managedPasswordInput = document.querySelector("#managedPassword");
 const managedRoleInput = document.querySelector("#managedRole");
 const submitUserButton = document.querySelector("#submitUser");
+let repairExcelDatabasePromise = null;
 let pendingSale = null;
 let pendingVoidSaleId = null;
 let lastVoidedSale = null;
@@ -267,6 +269,41 @@ function saveRepairs(repairs) {
   localStorage.setItem(repairsStorageKey, JSON.stringify(repairs));
 }
 
+function normalizeRepairForCloud(repair) {
+  return {
+    sourceId: repair.sourceId || repair.id,
+    repairNumber: Number(repair.repairNumber) || 0,
+    customer: repair.customer || "Sin nombre",
+    deviceType: repair.deviceType || "Telefono",
+    phone: repair.phone || "",
+    brand: repair.brand || "",
+    model: repair.model || "Sin modelo",
+    repairType: repair.repairType || "Reparacion",
+    status: repair.status || "En proceso",
+    createdAt: repair.createdAt || new Date().toISOString(),
+    deliveredAt: repair.deliveredAt || "",
+    repairPrice: Number(repair.repairPrice) || 0,
+    notes: repair.notes || "",
+  };
+}
+
+function loadRepairExcelDatabase() {
+  if (Array.isArray(window.repairExcelDatabase)) {
+    return Promise.resolve(window.repairExcelDatabase);
+  }
+  if (repairExcelDatabasePromise) return repairExcelDatabasePromise;
+
+  repairExcelDatabasePromise = new Promise((resolve, reject) => {
+    const script = document.createElement("script");
+    script.src = "reparaciones-db.js";
+    script.onload = () => resolve(Array.isArray(window.repairExcelDatabase) ? window.repairExcelDatabase : []);
+    script.onerror = () => reject(new Error("No se pudo cargar reparaciones-db.js"));
+    document.head.append(script);
+  });
+
+  return repairExcelDatabasePromise;
+}
+
 function normalizeSystemOption(value) {
   return value.trim().replace(/\s+/g, " ").toUpperCase();
 }
@@ -349,7 +386,7 @@ function renderQuickParts() {
   quickPartsList.innerHTML = parts.map((part) => `
     <article class="compact-part-item">
       <strong>${part.name}</strong>
-      <span>${formatCurrency(part.price)} · ${part.quality} · ${part.supplier}</span>
+      <span>${formatCurrency(part.price)} Â· ${part.quality} Â· ${part.supplier}</span>
     </article>
   `).join("");
 }
@@ -426,8 +463,8 @@ function renderRepairs() {
   repairsCount.textContent = `${repairs.length} registro${repairs.length === 1 ? "" : "s"}`;
   if (importRepairsDatabaseButton) {
     const importCount = Array.isArray(window.repairExcelDatabase) ? window.repairExcelDatabase.length : 0;
-    importRepairsDatabaseButton.hidden = !canAccessModule("database") || importCount === 0;
-    importRepairsDatabaseButton.textContent = `Importar Excel (${importCount})`;
+    importRepairsDatabaseButton.hidden = !canAccessModule("database");
+    importRepairsDatabaseButton.textContent = importCount ? `Subir a Convex (${importCount})` : "Cargar base Excel";
   }
   if (!repairs.length) {
     repairsList.innerHTML = `<p class="hint">Todavia no hay reparaciones registradas.</p>`;
@@ -451,8 +488,8 @@ function renderRepairs() {
   }).join("");
 }
 
-function importExcelRepairs() {
-  const excelRepairs = Array.isArray(window.repairExcelDatabase) ? window.repairExcelDatabase : [];
+async function importExcelRepairs() {
+  const excelRepairs = await loadRepairExcelDatabase();
   if (!excelRepairs.length) {
     repairsHint.textContent = "No se encontro la base de reparaciones del Excel.";
     return;
@@ -462,29 +499,30 @@ function importExcelRepairs() {
     return;
   }
 
-  const repairs = loadRepairs();
-  const importedIds = new Set(repairs.map((repair) => repair.id));
-  let nextRepairNumber = repairs.reduce((max, repair) => Math.max(max, Number(repair.repairNumber) || 0), 0) + 1;
-  const newRepairs = excelRepairs
-    .filter((repair) => !importedIds.has(repair.id))
-    .map((repair) => ({
-      ...repair,
-      repairNumber: nextRepairNumber++,
-    }));
-
-  if (!newRepairs.length) {
-    repairsHint.textContent = "La base de Excel ya estaba importada.";
+  if (!window.repairCloud?.isConfigured()) {
+    repairsHint.textContent = "La base Excel se cargo, pero falta poner tu URL de Convex en convex-config.js para subirla.";
+    renderRepairs();
     return;
   }
 
-  saveRepairs([...newRepairs, ...repairs]);
-  setNextRepairNumber();
-  renderRepairBrandOptions();
-  renderRepairModelOptions();
-  renderRepairTypeOptions();
+  const batchSize = 200;
+  let inserted = 0;
+  let skipped = 0;
+
+  repairsHint.textContent = "Subiendo reparaciones a Convex...";
+  for (let index = 0; index < excelRepairs.length; index += batchSize) {
+    const batch = excelRepairs.slice(index, index + batchSize).map(normalizeRepairForCloud);
+    const result = await window.repairCloud.importRepairs(batch);
+    inserted += result.inserted || 0;
+    skipped += result.skipped || 0;
+    repairsHint.textContent = `Subiendo a Convex: ${Math.min(index + batchSize, excelRepairs.length)} de ${excelRepairs.length}.`;
+  }
+
+  repairsHint.textContent = `Convex listo: ${inserted} nuevas, ${skipped} ya existian.`;
   renderRepairs();
   renderDatabase();
-  repairsHint.textContent = `Se importaron ${newRepairs.length} reparaciones desde Excel.`;
+  return;
+
 }
 
 function renderDatabase() {
@@ -639,6 +677,17 @@ function setModule(moduleName) {
   }
   if (moduleName === "database") renderDatabase();
   if (moduleName === "users") renderUsers();
+  if (moduleName === "parts") {
+    moduleLink.href = "repuestos.html";
+    moduleLink.textContent = "Ver pagina completa de repuestos";
+    moduleLink.hidden = false;
+  } else if (moduleName === "repairs") {
+    moduleLink.href = "reparaciones.html";
+    moduleLink.textContent = "Ver registros de reparaciones";
+    moduleLink.hidden = false;
+  } else {
+    moduleLink.hidden = true;
+  }
 }
 
 tabButtons.forEach((button) => button.addEventListener("click", () => setTheme(button.dataset.theme)));
@@ -676,10 +725,15 @@ repairModelInput.addEventListener("change", syncKnownRepairModelCase);
 repairTypeInput.addEventListener("blur", syncKnownRepairTypeCase);
 repairTypeInput.addEventListener("change", syncKnownRepairTypeCase);
 repairStatusInput.addEventListener("change", updateRepairDeliveredAt);
-importRepairsDatabaseButton.addEventListener("click", () => {
-  const excelCount = Array.isArray(window.repairExcelDatabase) ? window.repairExcelDatabase.length : 0;
-  if (!confirm(`¿Quieres importar ${excelCount} reparaciones del Excel?`)) return;
-  importExcelRepairs();
+importRepairsDatabaseButton.addEventListener("click", async () => {
+  try {
+    const excelRepairs = await loadRepairExcelDatabase();
+    const destination = window.repairCloud?.isConfigured() ? "Convex" : "Convex cuando configures la URL";
+    if (!confirm(`Â¿Quieres preparar ${excelRepairs.length} reparaciones para ${destination}?`)) return;
+    await importExcelRepairs();
+  } catch (error) {
+    repairsHint.textContent = error.message;
+  }
 });
 
 loginForm.addEventListener("submit", (event) => {
@@ -752,7 +806,7 @@ salesList.addEventListener("click", (event) => {
   if (!voidButton) return;
   const sale = loadSales().find((item) => item.id === voidButton.dataset.id);
   const saleLabel = sale ? `Venta #${sale.saleNumber}` : "esta venta";
-  if (!confirm(`¿Seguro que quieres anular ${saleLabel}?`)) return;
+  if (!confirm(`Â¿Seguro que quieres anular ${saleLabel}?`)) return;
   openAdminVoid(voidButton.dataset.id);
 });
 
@@ -836,7 +890,7 @@ repairsList.addEventListener("click", (event) => {
   repairDeliveredAtInput.value = repair.deliveredAt ? formatRepairDateTimeInput(repair.deliveredAt) : "";
   repairNumberInput.value = repair.repairNumber;
   repairsForm.dataset.editingId = repair.id;
-  repairsHint.textContent = "Editando reparacion — guarda para confirmar los cambios.";
+  repairsHint.textContent = "Editando reparacion â€” guarda para confirmar los cambios.";
   document.querySelector("#submitRepairs").textContent = "Guardar cambios";
   repairsForm.scrollIntoView({ behavior: "smooth", block: "start" });
 });
@@ -967,7 +1021,7 @@ usersList.addEventListener("click", (event) => {
       usersHint.textContent = "El usuario root no se puede borrar.";
       return;
     }
-    if (!confirm(`¿Seguro que quieres borrar a ${user.username}?`)) return;
+    if (!confirm(`Â¿Seguro que quieres borrar a ${user.username}?`)) return;
     saveUsers(users.filter((item) => item.id !== user.id));
     usersHint.textContent = "Usuario borrado correctamente.";
     renderUsers();
