@@ -745,6 +745,7 @@ loginForm.addEventListener("submit", (event) => {
   if (!selectedUser) {
     credentialHint.textContent = "Usuario o contrasena incorrectos.";
     window.repairCloud?.registrarAuditoria("LOGIN_FALLIDO", "Intento de login fallido", usernameInput.value.trim());
+   window.repairCloud?.registrarAuditoria("LOGIN_FALLIDO", "Intento de login fallido", usernameInput.value.trim()); 
     return;
   }
   currentUser = selectedUser;
@@ -755,6 +756,7 @@ loginForm.addEventListener("submit", (event) => {
   loginForm.hidden = true;
   sessionPanel.hidden = false;
   credentialHint.textContent = "Sesion iniciada correctamente.";
+  window.repairCloud?.registrarAuditoria("LOGIN", "Sesion iniciada", selectedUser.username);
   setModule("permissions");
   renderQuickParts();
   renderSales();
@@ -925,6 +927,7 @@ repairsForm.addEventListener("submit", (event) => {
     delete repairsForm.dataset.editingId;
     document.querySelector("#submitRepairs").textContent = "Guardar reparacion";
     repairsHint.textContent = "Reparacion actualizada correctamente.";
+    window.repairCloud?.registrarAuditoria("REPARACION_EDITADA", `Reparacion editada`, currentUser?.username);
     window.repairCloud?.registrarAuditoria("REPARACION_EDITADA", `Reparacion #${repairs[repairs.findIndex((r) => r.id === editingId)]?.repairNumber} editada`, currentUser?.username);
   } else {
     const nextRepairNumber = repairs.reduce((max, r) => Math.max(max, r.repairNumber), 0) + 1;
