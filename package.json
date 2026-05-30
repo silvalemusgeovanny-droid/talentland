@@ -1,6 +1,7 @@
 {
   "scripts": {
-    "convex:dev": "convex dev"
+    "convex:dev": "convex dev",
+    "test": "vitest"
   },
   "devDependencies": {
     "convex": "^1.39.1",
