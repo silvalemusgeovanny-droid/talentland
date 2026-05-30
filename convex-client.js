@@ -24,5 +24,8 @@
     listRepairs: (args = {}) => callConvex("query", "reparaciones:list", args),
     createRepair: (repair) => callConvex("mutation", "reparaciones:create", repair),
     importRepairs: (repairs) => callConvex("mutation", "reparaciones:importBatch", { repairs }),
+    registrarAuditoria: (tipo, descripcion, usuario = "sistema", datos = "") =>
+      callConvex("mutation", "auditoria:registrar", { tipo, descripcion, usuario, datos }),
+    obtenerAuditoria: () => callConvex("query", "auditoria:obtener", {}),
   };
 })();
