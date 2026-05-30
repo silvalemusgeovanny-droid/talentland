@@ -3,6 +3,7 @@
     "convex:dev": "convex dev"
   },
   "devDependencies": {
-    "convex": "^1.39.1"
+    "convex": "^1.39.1",
+    "vitest": "^4.1.7"
   }
 }
