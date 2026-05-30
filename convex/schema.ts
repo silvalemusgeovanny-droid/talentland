@@ -19,4 +19,12 @@ export default defineSchema({
   })
     .index("by_source_id", ["sourceId"])
     .index("by_repair_number", ["repairNumber"]),
+
+  auditoria: defineTable({
+    tipo: v.string(),
+    descripcion: v.string(),
+    usuario: v.string(),
+    datos: v.string(),
+    fecha: v.string(),
+  }),
 });

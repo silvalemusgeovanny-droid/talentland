@@ -3,8 +3,23 @@ levantar servidor de node
 cd "C:\Users\silva\OneDrive\Escritorio\talentland\proyecto"
 npx serve .
 
+levantar servidor de convex
+npx convex dev
+
+si da error hay que cambiar la ruta a 
+cd C:\Users\silva\OneDrive\Escritorio\talentland\proyecto
+npx convex dev
+
 subir archivos a hithub cuando sea requerido
 
 git add .
 git commit -m "descripción de lo que cambiaste"
 git push origin master
+
+si da error dale la ruta
+
+cd C:\Users\silva\OneDrive\Escritorio\talentland\proyecto
+
+se instalo vitest para verificar que las funciones hagan su trabajo
+
+como dato desde visual studio se puede conectar a GitHub
