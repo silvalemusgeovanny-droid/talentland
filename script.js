@@ -386,7 +386,7 @@ function renderQuickParts() {
   quickPartsList.innerHTML = parts.map((part) => `
     <article class="compact-part-item">
       <strong>${part.name}</strong>
-      <span>${formatCurrency(part.price)} Â· ${part.quality} Â· ${part.supplier}</span>
+      <span>${formatCurrency(part.price)} · ${part.quality} Â· ${part.supplier}</span>
     </article>
   `).join("");
 }
@@ -729,7 +729,7 @@ importRepairsDatabaseButton.addEventListener("click", async () => {
   try {
     const excelRepairs = await loadRepairExcelDatabase();
     const destination = window.repairCloud?.isConfigured() ? "Convex" : "Convex cuando configures la URL";
-    if (!confirm(`Â¿Quieres preparar ${excelRepairs.length} reparaciones para ${destination}?`)) return;
+    if (!confirm(`¿Quieres preparar ${excelRepairs.length} reparaciones para ${destination}?`)) return;
     await importExcelRepairs();
   } catch (error) {
     repairsHint.textContent = error.message;
@@ -892,7 +892,7 @@ repairsList.addEventListener("click", (event) => {
   repairDeliveredAtInput.value = repair.deliveredAt ? formatRepairDateTimeInput(repair.deliveredAt) : "";
   repairNumberInput.value = repair.repairNumber;
   repairsForm.dataset.editingId = repair.id;
-  repairsHint.textContent = "Editando reparacion â€” guarda para confirmar los cambios.";
+  repairsHint.textContent = "Editando reparacion ” guarda para confirmar los cambios.";
   document.querySelector("#submitRepairs").textContent = "Guardar cambios";
   repairsForm.scrollIntoView({ behavior: "smooth", block: "start" });
 });
