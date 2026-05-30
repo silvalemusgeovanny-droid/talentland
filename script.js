@@ -809,7 +809,7 @@ salesList.addEventListener("click", (event) => {
   if (!voidButton) return;
   const sale = loadSales().find((item) => item.id === voidButton.dataset.id);
   const saleLabel = sale ? `Venta #${sale.saleNumber}` : "esta venta";
-  if (!confirm(`Â¿Seguro que quieres anular ${saleLabel}?`)) return;
+  if (!confirm(`¿Seguro que quieres anular ${saleLabel}?`)) return;
   openAdminVoid(voidButton.dataset.id);
 });
 
