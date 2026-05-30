@@ -8,6 +8,7 @@
  * @module
  */
 
+import type * as auditoria from "../auditoria.js";
 import type * as reparaciones from "../reparaciones.js";
 
 import type {
@@ -17,6 +18,7 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  auditoria: typeof auditoria;
   reparaciones: typeof reparaciones;
 }>;
 
