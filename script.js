@@ -386,7 +386,7 @@ function renderQuickParts() {
   quickPartsList.innerHTML = parts.map((part) => `
     <article class="compact-part-item">
       <strong>${part.name}</strong>
-      <span>${formatCurrency(part.price)} · ${part.quality} Â· ${part.supplier}</span>
+      <span>${formatCurrency(part.price)} · ${part.quality} · ${part.supplier}</span>
     </article>
   `).join("");
 }
@@ -744,7 +744,6 @@ loginForm.addEventListener("submit", (event) => {
   );
   if (!selectedUser) {
     credentialHint.textContent = "Usuario o contrasena incorrectos.";
-    window.repairCloud?.registrarAuditoria("LOGIN_FALLIDO", "Intento de login fallido", usernameInput.value.trim());
    window.repairCloud?.registrarAuditoria("LOGIN_FALLIDO", "Intento de login fallido", usernameInput.value.trim()); 
     return;
   }
@@ -1030,7 +1029,7 @@ usersList.addEventListener("click", (event) => {
       usersHint.textContent = "El usuario root no se puede borrar.";
       return;
     }
-    if (!confirm(`Â¿Seguro que quieres borrar a ${user.username}?`)) return;
+    if (!confirm(`¿Seguro que quieres borrar a ${user.username}?`)) return;
     saveUsers(users.filter((item) => item.id !== user.id));
     usersHint.textContent = "Usuario borrado correctamente.";
     renderUsers();
