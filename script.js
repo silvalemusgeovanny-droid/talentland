@@ -893,6 +893,7 @@ repairsList.addEventListener("click", (event) => {
   repairDeliveredAtInput.value = repair.deliveredAt ? formatRepairDateTimeInput(repair.deliveredAt) : "";
   repairNumberInput.value = repair.repairNumber;
   repairsForm.dataset.editingId = repair.id;
+  updateRepairDeliveredAt();
   repairsHint.textContent = "Editando reparacion ” guarda para confirmar los cambios.";
   document.querySelector("#submitRepairs").textContent = "Guardar cambios";
   repairsForm.scrollIntoView({ behavior: "smooth", block: "start" });
