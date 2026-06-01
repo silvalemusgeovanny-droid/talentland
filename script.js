@@ -753,11 +753,14 @@ loginForm.addEventListener("submit", (event) => {
   welcomeTitle.textContent = `Bienvenido, ${selectedUser.name}`;
   accessSummary.textContent = `${roleProfile.label} - ${roleProfile.access}`;
   permissionList.innerHTML = roleProfile.permissions.map((p) => `<li>${p}</li>`).join("");
+  credentialHint.textContent = "Sesion iniciada correctamente.";
   loginForm.hidden = true;
   sessionPanel.hidden = false;
-  credentialHint.textContent = "Sesion iniciada correctamente.";
   window.repairCloud?.registrarAuditoria("LOGIN", "Sesion iniciada", selectedUser.username);
   setModule("permissions");
+  credentialHint.textContent = "Sesion iniciada correctamente.";
+  window.repairCloud?.registrarAuditoria("LOGIN", "Sesion iniciada", selectedUser.username);
+ 
   renderQuickParts();
   renderSales();
   renderRepairs();
