@@ -1,4 +1,4 @@
-﻿const themes = {
+const themes = {
   admin: {
     label: "Propuesta 1",
     title: "Acceso administrativo",
