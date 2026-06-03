@@ -165,6 +165,12 @@ body.login-dark .side-repair-item {
   background: #17242e;
 }
 
+body.login-dark #sideRepairSearch {
+  border-color: rgb(255 255 255 / 14%);
+  background: #0f1820;
+  color: #f4f8fa;
+}
+
 body.login-dark .side-repair-item strong {
   color: #f4f8fa;
 }
@@ -407,9 +413,17 @@ p {
   font-weight: 700;
 }
 
+#sideRepairSearch {
+  width: 100%;
+  min-height: 42px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #ffffff;
+}
+
 .side-repairs-list {
   display: grid;
-  max-height: min(58vh, 560px);
+  max-height: min(52vh, 500px);
   gap: 10px;
   overflow: auto;
   padding-right: 4px;

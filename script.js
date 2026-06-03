@@ -87,6 +87,7 @@ const themeCopy = document.querySelector("#themeCopy");
 const accessCard = document.querySelector("#accessCard");
 const sideRepairsPanel = document.querySelector("#sideRepairsPanel");
 const sideRepairsList = document.querySelector("#sideRepairsList");
+const sideRepairSearch = document.querySelector("#sideRepairSearch");
 const usernameInput = document.querySelector("#username");
 const passwordInput = document.querySelector("#password");
 const credentialHint = document.querySelector("#credentialHint");
@@ -182,6 +183,7 @@ let pendingSale = null;
 let pendingVoidSaleId = null;
 let lastVoidedSale = null;
 let undoTimerId = null;
+let sideRepairSearchTimer = null;
 let currentUser = null;
 
 const starterParts = [
@@ -412,12 +414,19 @@ function loadRepairs() {
   return savedRepairs ? JSON.parse(savedRepairs) : [];
 }
 
-async function loadRepairsFromSource(limit = 200) {
+async function loadRepairsFromSource(limit = 200, search = "") {
   if (window.repairCloud?.isConfigured()) {
-    return await window.repairCloud.listRepairs({ limit });
+    return await window.repairCloud.listRepairs({ limit, search });
   }
 
-  return loadRepairs();
+  const repairs = loadRepairs();
+  const term = search.trim().toLowerCase();
+  if (!term) return repairs;
+
+  return repairs.filter((repair) =>
+    [repair.customer, repair.deviceType, repair.brand, repair.model, repair.repairType, repair.status, repair.notes]
+      .some((field) => String(field || "").toLowerCase().includes(term)),
+  );
 }
 
 function saveRepairs(repairs) {
@@ -716,20 +725,21 @@ async function renderRepairs() {
 
 async function renderSideRepairs() {
   let repairs = [];
+  const search = sideRepairSearch.value.trim();
 
   try {
-    repairs = await loadRepairsFromSource(20);
+    repairs = await loadRepairsFromSource(50, search);
   } catch (error) {
     sideRepairsList.innerHTML = `<p class="hint">${escapeHtml(error.message)}</p>`;
     return;
   }
 
   if (!repairs.length) {
-    sideRepairsList.innerHTML = `<p class="hint">Todavia no hay reparaciones registradas.</p>`;
+    sideRepairsList.innerHTML = `<p class="hint">No hay reparaciones con esa busqueda.</p>`;
     return;
   }
 
-  sideRepairsList.innerHTML = repairs.slice(0, 20).map((repair) => `
+  sideRepairsList.innerHTML = repairs.slice(0, 50).map((repair) => `
     <article class="side-repair-item">
       <strong>#${repair.repairNumber || ""} ${escapeHtml(repair.customer || "Sin nombre")}</strong>
       <span>${escapeHtml([repair.brand, repair.model].filter(Boolean).join(" ") || repair.deviceType || "Equipo")}</span>
@@ -951,6 +961,11 @@ function setModule(moduleName) {
 
 tabButtons.forEach((button) => button.addEventListener("click", () => setTheme(button.dataset.theme)));
 moduleTabs.forEach((button) => button.addEventListener("click", () => setModule(button.dataset.module)));
+
+sideRepairSearch.addEventListener("input", () => {
+  clearTimeout(sideRepairSearchTimer);
+  sideRepairSearchTimer = setTimeout(renderSideRepairs, 220);
+});
 
 moduleShortcuts.forEach((button) => {
   button.addEventListener("click", () => {
