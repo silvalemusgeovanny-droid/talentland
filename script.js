@@ -412,6 +412,14 @@ function loadRepairs() {
   return savedRepairs ? JSON.parse(savedRepairs) : [];
 }
 
+async function loadRepairsFromSource(limit = 200) {
+  if (window.repairCloud?.isConfigured()) {
+    return await window.repairCloud.listRepairs({ limit });
+  }
+
+  return loadRepairs();
+}
+
 function saveRepairs(repairs) {
   localStorage.setItem(repairsStorageKey, JSON.stringify(repairs));
 }
@@ -616,8 +624,13 @@ function setNextSaleNumber() {
   saleNumberInput.value = loadSales().reduce((max, sale) => Math.max(max, sale.saleNumber), 0) + 1;
 }
 
-function setNextRepairNumber() {
-  repairNumberInput.value = loadRepairs().reduce((max, repair) => Math.max(max, repair.repairNumber), 0) + 1;
+async function setNextRepairNumber() {
+  try {
+    const repairs = await loadRepairsFromSource(1);
+    repairNumberInput.value = repairs.reduce((max, repair) => Math.max(max, repair.repairNumber), 0) + 1;
+  } catch {
+    repairNumberInput.value = loadRepairs().reduce((max, repair) => Math.max(max, repair.repairNumber), 0) + 1;
+  }
 }
 
 function setRepairCreatedAt() {
@@ -662,8 +675,17 @@ function renderSales() {
   }).join("");
 }
 
-function renderRepairs() {
-  const repairs = loadRepairs();
+async function renderRepairs() {
+  let repairs = [];
+
+  try {
+    repairs = await loadRepairsFromSource(200);
+  } catch (error) {
+    repairsCount.textContent = "Error";
+    repairsList.innerHTML = `<p class="hint">${escapeHtml(error.message)}</p>`;
+    return;
+  }
+
   repairsCount.textContent = `${repairs.length} registro${repairs.length === 1 ? "" : "s"}`;
   if (importRepairsDatabaseButton) {
     const importCount = Array.isArray(window.repairExcelDatabase) ? window.repairExcelDatabase.length : 0;
@@ -686,14 +708,22 @@ function renderRepairs() {
         <span>Precio ${formatCurrency(Number(repair.repairPrice) || 0)}</span>
         <span>Ingreso ${formatRepairDateTimeInput(repair.createdAt)} | ${deliveredLabel}</span>
         ${repair.notes ? `<p>${escapeHtml(repair.notes)}</p>` : ""}
-        <button class="edit-button" type="button" data-repair-id="${repair.id}">Editar</button>
+        ${window.repairCloud?.isConfigured() ? "" : `<button class="edit-button" type="button" data-repair-id="${repair.id}">Editar</button>`}
       </article>
     `;
   }).join("");
 }
 
-function renderSideRepairs() {
-  const repairs = loadRepairs();
+async function renderSideRepairs() {
+  let repairs = [];
+
+  try {
+    repairs = await loadRepairsFromSource(20);
+  } catch (error) {
+    sideRepairsList.innerHTML = `<p class="hint">${escapeHtml(error.message)}</p>`;
+    return;
+  }
+
   if (!repairs.length) {
     sideRepairsList.innerHTML = `<p class="hint">Todavia no hay reparaciones registradas.</p>`;
     return;
@@ -1164,7 +1194,7 @@ repairsList.addEventListener("click", (event) => {
   repairsForm.scrollIntoView({ behavior: "smooth", block: "start" });
 });
 
-repairsForm.addEventListener("submit", (event) => {
+repairsForm.addEventListener("submit", async (event) => {
   event.preventDefault();
   const formData = new FormData(repairsForm);
   const repairs = loadRepairs();
@@ -1195,8 +1225,8 @@ repairsForm.addEventListener("submit", (event) => {
     window.repairCloud?.registrarAuditoria("REPARACION_EDITADA", `Reparacion editada`, currentUser?.username);
     window.repairCloud?.registrarAuditoria("REPARACION_EDITADA", `Reparacion #${repairs[repairs.findIndex((r) => r.id === editingId)]?.repairNumber} editada`, currentUser?.username);
   } else {
-    const nextRepairNumber = repairs.reduce((max, r) => Math.max(max, r.repairNumber), 0) + 1;
-    repairs.unshift({
+    const nextRepairNumber = Number(repairNumberInput.value) || repairs.reduce((max, r) => Math.max(max, r.repairNumber), 0) + 1;
+    const repairData = {
       id: crypto.randomUUID(),
       repairNumber: nextRepairNumber,
       customer: formData.get("customer").trim(),
@@ -1205,11 +1235,17 @@ repairsForm.addEventListener("submit", (event) => {
       brand, model, repairType, status, createdAt, deliveredAt,
       repairPrice: Number(formData.get("repairPrice")) || 0,
       notes: formData.get("notes").trim(),
-    });
+    };
+
+    if (window.repairCloud?.isConfigured()) {
+      await window.repairCloud.createRepair(normalizeRepairForCloud(repairData));
+    } else {
+      repairs.unshift(repairData);
+    }
     repairsHint.textContent = "Reparacion guardada correctamente.";
   }
 
-  saveRepairs(repairs);
+  if (!window.repairCloud?.isConfigured() || editingId) saveRepairs(repairs);
   repairsForm.reset();
   repairDeliveredAtInput.dataset.value = "";
   setNextRepairNumber();
