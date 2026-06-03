@@ -414,18 +414,25 @@ function loadRepairs() {
   return savedRepairs ? JSON.parse(savedRepairs) : [];
 }
 
+function normalizeSearch(value) {
+  return String(value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+}
+
 async function loadRepairsFromSource(limit = 200, search = "") {
   if (window.repairCloud?.isConfigured()) {
     return await window.repairCloud.listRepairs({ limit, search });
   }
 
   const repairs = loadRepairs();
-  const term = search.trim().toLowerCase();
+  const term = normalizeSearch(search.trim());
   if (!term) return repairs;
 
   return repairs.filter((repair) =>
-    [repair.customer, repair.deviceType, repair.brand, repair.model, repair.repairType, repair.status, repair.notes]
-      .some((field) => String(field || "").toLowerCase().includes(term)),
+    [repair.customer, repair.deviceType, repair.brand, repair.model, repair.repairType, repair.status, repair.notes, repair.repairNumber]
+      .some((field) => normalizeSearch(field).includes(term)),
   );
 }
 
@@ -728,7 +735,7 @@ async function renderSideRepairs() {
   const search = sideRepairSearch.value.trim();
 
   try {
-    repairs = await loadRepairsFromSource(50, search);
+    repairs = await loadRepairsFromSource(search ? 10000 : 50, search);
   } catch (error) {
     sideRepairsList.innerHTML = `<p class="hint">${escapeHtml(error.message)}</p>`;
     return;
@@ -739,7 +746,11 @@ async function renderSideRepairs() {
     return;
   }
 
-  sideRepairsList.innerHTML = repairs.slice(0, 50).map((repair) => `
+  const resultSummary = search
+    ? `<p class="hint">${repairs.length} coincidencia${repairs.length === 1 ? "" : "s"}.</p>`
+    : "";
+
+  sideRepairsList.innerHTML = resultSummary + repairs.map((repair) => `
     <article class="side-repair-item">
       <strong>#${repair.repairNumber || ""} ${escapeHtml(repair.customer || "Sin nombre")}</strong>
       <span>${escapeHtml([repair.brand, repair.model].filter(Boolean).join(" ") || repair.deviceType || "Equipo")}</span>
