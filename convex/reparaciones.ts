@@ -17,17 +17,27 @@ const repairFields = {
   notes: v.string(),
 };
 
+function normalizeSearch(value: string) {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+}
+
 export const list = query({
   args: {
     search: v.optional(v.string()),
     limit: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
-    const search = (args.search || "").trim().toLowerCase();
+    const search = normalizeSearch((args.search || "").trim());
     const limit = args.limit || 200;
-    const repairs = await ctx.db.query("reparaciones").order("desc").take(limit);
 
-    if (!search) return repairs;
+    if (!search) {
+      return await ctx.db.query("reparaciones").order("desc").take(limit);
+    }
+
+    const repairs = await ctx.db.query("reparaciones").order("desc").take(10000);
 
     return repairs.filter((repair) =>
       [
@@ -38,7 +48,8 @@ export const list = query({
         repair.repairType,
         repair.status,
         repair.notes,
-      ].some((field) => field.toLowerCase().includes(search)),
+        String(repair.repairNumber),
+      ].some((field) => normalizeSearch(field || "").includes(search)),
     );
   },
 });
