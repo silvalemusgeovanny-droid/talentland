@@ -18,6 +18,7 @@ const themes = {
 
 const usersStorageKey = "systemUsers";
 const sessionTokenStorageKey = "repairSessionToken";
+const authModeStorageKey = "repairAuthMode";
 const defaultUsers = [
   {
     id: "root-user",
@@ -83,6 +84,9 @@ const tabButtons = document.querySelectorAll(".tab-button");
 const themeLabel = document.querySelector("#themeLabel");
 const themeTitle = document.querySelector("#themeTitle");
 const themeCopy = document.querySelector("#themeCopy");
+const accessCard = document.querySelector("#accessCard");
+const sideRepairsPanel = document.querySelector("#sideRepairsPanel");
+const sideRepairsList = document.querySelector("#sideRepairsList");
 const usernameInput = document.querySelector("#username");
 const passwordInput = document.querySelector("#password");
 const credentialHint = document.querySelector("#credentialHint");
@@ -104,6 +108,20 @@ const quickPartsHint = document.querySelector("#quickPartsHint");
 const partsStorageKey = "inventoryParts";
 const colorModeToggle = document.querySelector("#colorModeToggle");
 const colorModeStorageKey = "loginColorMode";
+const notesStorageKey = "pendingNotes";
+const notesSnoozeStorageKey = "pendingNotesSnoozeUntil";
+const notesToggle = document.querySelector("#notesToggle");
+const notesBadge = document.querySelector("#notesBadge");
+const notesOverlay = document.querySelector("#notesOverlay");
+const notesForm = document.querySelector("#notesForm");
+const noteTextInput = document.querySelector("#noteText");
+const notesList = document.querySelector("#notesList");
+const closeNotesButton = document.querySelector("#closeNotesButton");
+const pendingAlert = document.querySelector("#pendingAlert");
+const pendingAlertTitle = document.querySelector("#pendingAlertTitle");
+const pendingAlertCopy = document.querySelector("#pendingAlertCopy");
+const openNotesFromAlert = document.querySelector("#openNotesFromAlert");
+const snoozePendingAlert = document.querySelector("#snoozePendingAlert");
 const salesStorageKey = "inventorySales";
 const salesForm = document.querySelector("#salesForm");
 const saleNumberInput = document.querySelector("#saleNumber");
@@ -229,6 +247,14 @@ function clearSessionToken() {
   localStorage.removeItem(sessionTokenStorageKey);
 }
 
+function saveAuthMode(mode) {
+  localStorage.setItem(authModeStorageKey, mode);
+}
+
+function getSavedAuthMode() {
+  return localStorage.getItem(authModeStorageKey);
+}
+
 function getRoleProfile(role) {
   return roleProfiles[role] || roleProfiles.user;
 }
@@ -253,6 +279,7 @@ function applyAuthenticatedUser(user, message = "Sesion iniciada correctamente."
   renderRepairs();
   renderDatabase();
   renderUsers();
+  renderNotes();
 }
 
 async function signIn(username, password) {
@@ -261,6 +288,7 @@ async function signIn(username, password) {
     const sessionToken = generateSessionToken();
     const user = await window.repairCloud.login(username, password, sessionToken);
     saveSessionToken(sessionToken);
+    saveAuthMode("convex");
     return user;
   }
 
@@ -270,15 +298,24 @@ async function signIn(username, password) {
   );
 
   if (!selectedUser) throw new Error("Usuario o contrasena incorrectos.");
+  saveAuthMode("local");
   return selectedUser;
 }
 
 async function restoreSession() {
-  if (!window.repairCloud?.isConfigured()) return;
+  if (!window.repairCloud?.isConfigured()) {
+    saveAuthMode("local");
+    return;
+  }
+
+  if (getSavedAuthMode() === "local") {
+    credentialHint.textContent = "Ahora hay conexion con Convex. Tu sesion anterior fue local; vuelve a iniciar sesion para validarla en Convex.";
+    return;
+  }
 
   const sessionToken = getSavedSessionToken();
   if (!sessionToken) {
-    credentialHint.textContent = "Inicia sesion con tu usuario de Convex.";
+    credentialHint.textContent = "Modo Convex | Inicia sesion con tu usuario.";
     return;
   }
 
@@ -295,10 +332,22 @@ async function restoreSession() {
   }
 }
 
+async function warnIfLocalSessionCanUseConvex() {
+  if (getSavedAuthMode() !== "local" || !window.repairCloud?.isConfigured()) return;
+
+  try {
+    await window.repairCloud.seedUsers();
+    credentialHint.textContent = "Conexion recuperada con Convex. Esta sesion fue validada localmente; cierra sesion e inicia de nuevo para usar Convex.";
+  } catch {
+    credentialHint.textContent = "Modo local | Convex aun no esta disponible.";
+  }
+}
+
 function setLoginDemo() {
   usernameInput.value = "root";
   passwordInput.value = "root123";
-  credentialHint.textContent = "Demo root: root / root123 | admin: admin / admin123 | usuario: usuario / user123";
+  const authMode = window.repairCloud?.isConfigured() ? "Modo Convex" : "Modo local";
+  credentialHint.textContent = `${authMode} | root: root / root123 | admin: admin / admin123 | usuario: usuario / user123`;
 }
 
 function updateDateTime() {
@@ -325,6 +374,28 @@ function loadParts() {
 
 function saveParts(parts) {
   localStorage.setItem(partsStorageKey, JSON.stringify(parts));
+}
+
+function loadNotes() {
+  const savedNotes = localStorage.getItem(notesStorageKey);
+  return savedNotes ? JSON.parse(savedNotes) : [];
+}
+
+function saveNotes(notes) {
+  localStorage.setItem(notesStorageKey, JSON.stringify(notes));
+}
+
+function getPendingNotes() {
+  return loadNotes().filter((note) => !note.done);
+}
+
+function isPendingAlertSnoozed() {
+  return Number(localStorage.getItem(notesSnoozeStorageKey) || 0) > Date.now();
+}
+
+function snoozeNotesAlert() {
+  localStorage.setItem(notesSnoozeStorageKey, String(Date.now() + 60 * 60 * 1000));
+  renderNotes();
 }
 
 function loadSales() {
@@ -467,6 +538,63 @@ function renderQuickParts() {
   `).join("");
 }
 
+function formatNoteDate(value) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "Sin fecha";
+  return new Intl.DateTimeFormat("es-MX", {
+    day: "2-digit",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(date);
+}
+
+function renderNotes() {
+  const notes = loadNotes();
+  const pendingNotes = notes.filter((note) => !note.done);
+  const hasSession = Boolean(currentUser);
+
+  notesToggle.hidden = !hasSession;
+  notesBadge.hidden = !hasSession || pendingNotes.length === 0;
+  notesBadge.textContent = hasSession ? pendingNotes.length : 0;
+  pendingAlert.hidden = !hasSession || pendingNotes.length === 0 || isPendingAlertSnoozed();
+
+  if (pendingNotes.length) {
+    pendingAlertTitle.textContent = `${pendingNotes.length} pendiente${pendingNotes.length === 1 ? "" : "s"} activo${pendingNotes.length === 1 ? "" : "s"}`;
+    pendingAlertCopy.textContent = pendingNotes[0].text;
+  }
+
+  if (!notes.length) {
+    notesList.innerHTML = `<p class="hint">Todavia no hay notas pendientes.</p>`;
+    return;
+  }
+
+  notesList.innerHTML = notes.map((note) => `
+    <article class="note-item ${note.done ? "done" : ""}">
+      <p>${escapeHtml(note.text)}</p>
+      <span>${note.done ? "Completada" : "Pendiente"} | ${formatNoteDate(note.createdAt)}</span>
+      <div class="note-actions">
+        <button class="edit-button" type="button" data-note-action="toggle" data-note-id="${note.id}">
+          ${note.done ? "Reabrir" : "Completar"}
+        </button>
+        <button class="delete-button" type="button" data-note-action="delete" data-note-id="${note.id}">Borrar</button>
+      </div>
+    </article>
+  `).join("");
+}
+
+function openNotesPanel() {
+  if (!currentUser) return;
+  notesOverlay.hidden = false;
+  renderNotes();
+  noteTextInput.focus();
+}
+
+function closeNotesPanel() {
+  notesOverlay.hidden = true;
+  notesForm.reset();
+}
+
 function getSaleValues() {
   const quantity = Number(saleQuantityInput.value) || 0;
   const price = Number(salePriceInput.value) || 0;
@@ -562,6 +690,30 @@ function renderRepairs() {
       </article>
     `;
   }).join("");
+}
+
+function renderSideRepairs() {
+  const repairs = loadRepairs();
+  if (!repairs.length) {
+    sideRepairsList.innerHTML = `<p class="hint">Todavia no hay reparaciones registradas.</p>`;
+    return;
+  }
+
+  sideRepairsList.innerHTML = repairs.slice(0, 20).map((repair) => `
+    <article class="side-repair-item">
+      <strong>#${repair.repairNumber || ""} ${escapeHtml(repair.customer || "Sin nombre")}</strong>
+      <span>${escapeHtml([repair.brand, repair.model].filter(Boolean).join(" ") || repair.deviceType || "Equipo")}</span>
+      <span>${escapeHtml(repair.repairType || "Reparacion")} | ${escapeHtml(repair.status || "En proceso")}</span>
+      <b>${formatCurrency(Number(repair.repairPrice) || 0)}</b>
+    </article>
+  `).join("");
+}
+
+function setLeftPanelForModule(moduleName) {
+  const showRepairsPanel = moduleName === "repairs" && Boolean(currentUser);
+  accessCard.hidden = showRepairsPanel;
+  sideRepairsPanel.hidden = !showRepairsPanel;
+  if (showRepairsPanel) renderSideRepairs();
 }
 
 async function importExcelRepairs() {
@@ -764,6 +916,7 @@ function setModule(moduleName) {
   } else {
     moduleLink.hidden = true;
   }
+  setLeftPanelForModule(moduleName);
 }
 
 tabButtons.forEach((button) => button.addEventListener("click", () => setTheme(button.dataset.theme)));
@@ -784,6 +937,52 @@ moduleShortcuts.forEach((button) => {
 colorModeToggle.addEventListener("click", () => {
   const nextMode = document.body.classList.contains("login-dark") ? "light" : "dark";
   setColorMode(nextMode);
+});
+
+notesToggle.addEventListener("click", openNotesPanel);
+openNotesFromAlert.addEventListener("click", openNotesPanel);
+closeNotesButton.addEventListener("click", closeNotesPanel);
+snoozePendingAlert.addEventListener("click", snoozeNotesAlert);
+
+notesForm.addEventListener("submit", (event) => {
+  event.preventDefault();
+  const noteText = noteTextInput.value.trim();
+  if (!noteText) return;
+
+  const notes = loadNotes();
+  notes.unshift({
+    id: crypto.randomUUID(),
+    text: noteText,
+    done: false,
+    createdAt: new Date().toISOString(),
+  });
+  saveNotes(notes);
+  localStorage.removeItem(notesSnoozeStorageKey);
+  notesForm.reset();
+  renderNotes();
+});
+
+notesList.addEventListener("click", (event) => {
+  const button = event.target.closest("[data-note-action]");
+  if (!button) return;
+
+  const notes = loadNotes();
+  const noteId = button.dataset.noteId;
+  const action = button.dataset.noteAction;
+
+  if (action === "toggle") {
+    const note = notes.find((item) => item.id === noteId);
+    if (note) note.done = !note.done;
+  }
+
+  if (action === "delete") {
+    saveNotes(notes.filter((item) => item.id !== noteId));
+    renderNotes();
+    return;
+  }
+
+  saveNotes(notes);
+  renderNotes();
 });
 
 [saleQuantityInput, salePriceInput, saleDiscountInput, saleReceivedInput].forEach((input) => {
@@ -1017,6 +1216,7 @@ repairsForm.addEventListener("submit", (event) => {
   setRepairCreatedAt();
   updateRepairDeliveredAt();
   renderRepairs();
+  renderSideRepairs();
 });
 
 usersForm.addEventListener("submit", (event) => {
@@ -1111,9 +1311,13 @@ logoutButton.addEventListener("click", async () => {
     }
   }
   clearSessionToken();
+  saveAuthMode("");
   currentUser = null;
   sessionPanel.hidden = true;
   loginForm.hidden = false;
+  closeNotesPanel();
+  renderNotes();
+  setLeftPanelForModule("permissions");
 });
 
 loadUsers();
@@ -1130,5 +1334,8 @@ renderSales();
 renderRepairs();
 updateDateTime();
 renderQuickParts();
+renderNotes();
 restoreSession();
+window.addEventListener("online", warnIfLocalSessionCanUseConvex);
+warnIfLocalSessionCanUseConvex();
 setInterval(updateDateTime, 1000);
