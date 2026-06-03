@@ -61,9 +61,9 @@ textarea {
   border-left: 1px solid rgb(23 32 38 / 14%);
 }
 
-.color-mode-toggle {
+.color-mode-toggle,
+.notes-toggle {
   position: fixed;
-  right: 18px;
   bottom: 14px;
   z-index: 10;
   display: grid;
@@ -79,6 +79,40 @@ textarea {
   backdrop-filter: blur(12px);
   cursor: pointer;
   font-size: 0.78rem;
+  font-weight: 900;
+}
+
+.color-mode-toggle {
+  right: 18px;
+}
+
+.notes-toggle {
+  right: 68px;
+}
+
+.notes-toggle[hidden],
+.notes-toggle span[hidden] {
+  display: none;
+}
+
+.notes-toggle svg {
+  width: 22px;
+  height: 22px;
+}
+
+.notes-toggle span {
+  position: absolute;
+  top: -7px;
+  right: -7px;
+  display: grid;
+  min-width: 20px;
+  height: 20px;
+  place-items: center;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: #d0342c;
+  color: #ffffff;
+  font-size: 0.7rem;
   font-weight: 900;
 }
 
@@ -120,6 +154,27 @@ body.login-dark .proposal-tabs,
 body.login-dark .role-grid article {
   border-color: rgb(255 255 255 / 12%);
   background: #17242e;
+}
+
+body.login-dark .side-panel-heading p {
+  color: #a9b8c2;
+}
+
+body.login-dark .side-repair-item {
+  border-color: rgb(255 255 255 / 12%);
+  background: #17242e;
+}
+
+body.login-dark .side-repair-item strong {
+  color: #f4f8fa;
+}
+
+body.login-dark .side-repair-item span {
+  color: #a9b8c2;
+}
+
+body.login-dark .side-repair-item b {
+  color: #ffd166;
 }
 
 body.login-dark .tab-button {
@@ -188,7 +243,8 @@ body.login-dark .compact-part-item span {
 }
 
 body.login-dark .date-time,
-body.login-dark .color-mode-toggle {
+body.login-dark .color-mode-toggle,
+body.login-dark .notes-toggle {
   border-color: rgb(255 255 255 / 14%);
   background: rgb(17 28 36 / 82%);
   color: #f4f8fa;
@@ -201,6 +257,10 @@ body.login-dark .date-time span + span {
 
 body.login-dark .mode-icon {
   color: #ffd166;
+}
+
+body.login-dark .notes-toggle svg {
+  color: #f4f8fa;
 }
 
 body.login-dark .moon-icon {
@@ -293,6 +353,11 @@ p {
   gap: 16px;
 }
 
+.access-card[hidden],
+.side-repairs-panel[hidden] {
+  display: none;
+}
+
 .access-card h2 {
   font-size: 1rem;
 }
@@ -318,6 +383,61 @@ p {
 .role-grid strong {
   display: block;
   margin: 6px 0;
+}
+
+.side-repairs-panel {
+  display: grid;
+  min-height: 0;
+  gap: 16px;
+}
+
+.side-panel-heading {
+  display: grid;
+  gap: 6px;
+}
+
+.side-panel-heading h2 {
+  font-size: 1.05rem;
+}
+
+.side-panel-heading p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.side-repairs-list {
+  display: grid;
+  max-height: min(58vh, 560px);
+  gap: 10px;
+  overflow: auto;
+  padding-right: 4px;
+}
+
+.side-repair-item {
+  display: grid;
+  gap: 5px;
+  padding: 13px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #f7fafb;
+}
+
+.side-repair-item strong {
+  color: var(--ink);
+  font-size: 0.92rem;
+}
+
+.side-repair-item span {
+  color: var(--muted);
+  font-size: 0.8rem;
+  font-weight: 800;
+}
+
+.side-repair-item b {
+  color: var(--accent);
+  font-size: 0.86rem;
 }
 
 .login-stage {
@@ -877,6 +997,136 @@ body.login-dark .inline-action-button,
   font-weight: 900;
 }
 
+.pending-alert {
+  position: fixed;
+  right: 18px;
+  bottom: 66px;
+  z-index: 28;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  gap: 10px;
+  align-items: center;
+  width: min(520px, calc(100vw - 36px));
+  padding: 12px;
+  border: 1px solid #f0c3b5;
+  border-radius: 8px;
+  background: #fff6f2;
+  color: #472214;
+  box-shadow: 0 18px 48px rgb(77 31 12 / 18%);
+}
+
+.pending-alert[hidden] {
+  display: none;
+}
+
+.pending-alert-icon {
+  display: grid;
+  width: 40px;
+  height: 40px;
+  place-items: center;
+  border-radius: 8px;
+  background: #d0342c;
+  color: #ffffff;
+  animation: alertPulse 1s infinite;
+}
+
+.pending-alert-icon svg {
+  width: 24px;
+  height: 24px;
+}
+
+.pending-alert strong,
+.pending-alert span {
+  display: block;
+}
+
+.pending-alert span {
+  color: #77422b;
+  font-size: 0.86rem;
+  font-weight: 800;
+}
+
+.pending-alert button {
+  min-height: 34px;
+  border: 1px solid rgb(71 34 20 / 16%);
+  border-radius: 8px;
+  background: #ffffff;
+  color: #472214;
+  cursor: pointer;
+  font-weight: 900;
+}
+
+.notes-card {
+  max-width: 620px;
+}
+
+.notes-form {
+  display: grid;
+  gap: 10px;
+}
+
+.notes-list {
+  display: grid;
+  max-height: 300px;
+  gap: 10px;
+  overflow: auto;
+}
+
+.note-item {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #f7fafb;
+}
+
+.note-item.done {
+  opacity: 0.68;
+}
+
+.note-item.done p {
+  text-decoration: line-through;
+}
+
+.note-item p {
+  margin: 0;
+  color: var(--ink);
+  font-weight: 800;
+}
+
+.note-item span {
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.note-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.note-actions button {
+  min-height: 32px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 900;
+}
+
+@keyframes alertPulse {
+  0%,
+  100% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgb(208 52 44 / 45%);
+  }
+
+  50% {
+    transform: scale(1.04);
+    box-shadow: 0 0 0 9px rgb(208 52 44 / 0%);
+  }
+}
+
 .technical .compact-part-item,
 .visual .compact-part-item {
   background: rgb(255 255 255 / 14%);
@@ -931,6 +1181,28 @@ body.login-dark .undo-bar {
 
 body.login-dark .undo-bar small {
   color: #a9b8c2;
+}
+
+body.login-dark .pending-alert,
+body.login-dark .note-item {
+  border-color: rgb(255 255 255 / 16%);
+  background: #14212a;
+  color: #f4f8fa;
+}
+
+body.login-dark .pending-alert span,
+body.login-dark .note-item span {
+  color: #a9b8c2;
+}
+
+body.login-dark .pending-alert button {
+  border-color: rgb(255 255 255 / 14%);
+  background: #22323d;
+  color: #ffffff;
+}
+
+body.login-dark .note-item p {
+  color: #f4f8fa;
 }
 
 .hint {
@@ -1217,6 +1489,20 @@ body.login-dark .edit-button,
     left: 12px;
     bottom: 10px;
     font-size: 0.72rem;
+  }
+
+  .color-mode-toggle {
+    right: 12px;
+  }
+
+  .notes-toggle {
+    right: 62px;
+  }
+
+  .pending-alert {
+    right: 12px;
+    bottom: 62px;
+    grid-template-columns: auto minmax(0, 1fr);
   }
 
   .field-grid {

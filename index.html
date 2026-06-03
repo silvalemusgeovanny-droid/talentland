@@ -17,7 +17,7 @@
           </div>
         </div>
 
-        <div class="access-card">
+        <div class="access-card" id="accessCard">
           <h2>Niveles de acceso</h2>
           <div class="role-grid">
             <article>
@@ -37,6 +37,15 @@
             </article>
           </div>
         </div>
+
+        <aside class="side-repairs-panel" id="sideRepairsPanel" hidden>
+          <div class="side-panel-heading">
+            <span class="panel-kicker">Servicio tecnico</span>
+            <h2>Reparaciones registradas</h2>
+            <p>Lista rapida mientras capturas o editas una reparacion.</p>
+          </div>
+          <div class="side-repairs-list" id="sideRepairsList"></div>
+        </aside>
       </section>
 
       <section class="login-stage admin" id="loginStage">
@@ -315,6 +324,21 @@
       </div>
 
       <button
+        class="notes-toggle"
+        type="button"
+        id="notesToggle"
+        aria-label="Abrir notas pendientes"
+        title="Notas pendientes"
+        hidden
+      >
+        <svg aria-hidden="true" viewBox="0 0 24 24">
+          <path d="M7 3h7l4 4v14H7z" fill="none" stroke="currentColor" stroke-linejoin="round" stroke-width="2" />
+          <path d="M14 3v5h5M10 12h6M10 16h6" fill="none" stroke="currentColor" stroke-linecap="round" stroke-width="2" />
+        </svg>
+        <span id="notesBadge" hidden>0</span>
+      </button>
+
+      <button
         class="color-mode-toggle"
         type="button"
         id="colorModeToggle"
@@ -356,6 +380,43 @@
           <div class="sale-confirm-actions">
             <button class="secondary-button" type="button" id="editSaleButton">Editar</button>
             <button class="primary-button" type="button" id="confirmSaleButton">Guardar</button>
+          </div>
+        </section>
+      </div>
+
+      <aside class="pending-alert" id="pendingAlert" role="status" hidden>
+        <div class="pending-alert-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24">
+            <path d="M7 17h10M8 17l1-7h6l1 7M10 10V7a2 2 0 0 1 4 0v3" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" />
+            <path d="M5 10 3.5 8.5M19 10l1.5-1.5M12 3V1.5" fill="none" stroke="currentColor" stroke-linecap="round" stroke-width="2" />
+          </svg>
+        </div>
+        <div>
+          <strong id="pendingAlertTitle">Pendientes activos</strong>
+          <span id="pendingAlertCopy">Tienes notas por revisar.</span>
+        </div>
+        <button type="button" id="openNotesFromAlert">Ver</button>
+        <button type="button" id="snoozePendingAlert">Ocultar 1 h</button>
+      </aside>
+
+      <div class="sale-confirm-overlay" id="notesOverlay" hidden>
+        <section class="sale-confirm-card notes-card" role="dialog" aria-modal="true" aria-labelledby="notesTitle">
+          <div>
+            <span class="panel-kicker">Pendientes</span>
+            <h2 id="notesTitle">Notas por hacer</h2>
+            <p class="hint">Escribe recordatorios internos y marca lo resuelto.</p>
+          </div>
+
+          <form class="notes-form" id="notesForm">
+            <label for="noteText">Nota</label>
+            <textarea id="noteText" name="noteText" rows="4" placeholder="Ej. Llamar al cliente, revisar repuesto, confirmar entrega..." required></textarea>
+            <button class="primary-button" type="submit">Guardar nota</button>
+          </form>
+
+          <div class="notes-list" id="notesList"></div>
+
+          <div class="sale-confirm-actions">
+            <button class="secondary-button" type="button" id="closeNotesButton">Cerrar</button>
           </div>
         </section>
       </div>
