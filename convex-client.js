@@ -24,6 +24,12 @@
     listRepairs: (args = {}) => callConvex("query", "reparaciones:list", args),
     createRepair: (repair) => callConvex("mutation", "reparaciones:create", repair),
     importRepairs: (repairs) => callConvex("mutation", "reparaciones:importBatch", { repairs }),
+    seedUsers: () => callConvex("mutation", "auth:seedDefaultUsers", {}),
+    login: (username, password, sessionToken) =>
+      callConvex("mutation", "auth:login", { username, password, sessionToken }),
+    currentSession: (sessionToken) => callConvex("query", "auth:currentSession", { sessionToken }),
+    logout: (sessionToken) => callConvex("mutation", "auth:logout", { sessionToken }),
+    verifyAdmin: (username, password) => callConvex("mutation", "auth:verifyAdmin", { username, password }),
     registrarAuditoria: (tipo, descripcion, usuario = "sistema", datos = "") =>
       callConvex("mutation", "auditoria:registrar", { tipo, descripcion, usuario, datos }),
     obtenerAuditoria: () => callConvex("query", "auditoria:obtener", {}),

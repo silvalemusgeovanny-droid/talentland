@@ -17,6 +17,7 @@ const themes = {
 };
 
 const usersStorageKey = "systemUsers";
+const sessionTokenStorageKey = "repairSessionToken";
 const defaultUsers = [
   {
     id: "root-user",
@@ -210,6 +211,24 @@ function saveUsers(users) {
   localStorage.setItem(usersStorageKey, JSON.stringify(users));
 }
 
+function generateSessionToken() {
+  const bytes = new Uint8Array(32);
+  crypto.getRandomValues(bytes);
+  return Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("");
+}
+
+function getSavedSessionToken() {
+  return localStorage.getItem(sessionTokenStorageKey);
+}
+
+function saveSessionToken(token) {
+  localStorage.setItem(sessionTokenStorageKey, token);
+}
+
+function clearSessionToken() {
+  localStorage.removeItem(sessionTokenStorageKey);
+}
+
 function getRoleProfile(role) {
   return roleProfiles[role] || roleProfiles.user;
 }
@@ -217,6 +236,63 @@ function getRoleProfile(role) {
 function canAccessModule(moduleName) {
   if (!currentUser) return false;
   return getRoleProfile(currentUser.role).modules.includes(moduleName);
+}
+
+function applyAuthenticatedUser(user, message = "Sesion iniciada correctamente.") {
+  currentUser = user;
+  const roleProfile = getRoleProfile(user.role);
+  welcomeTitle.textContent = `Bienvenido, ${user.name}`;
+  accessSummary.textContent = `${roleProfile.label} - ${roleProfile.access}`;
+  permissionList.innerHTML = roleProfile.permissions.map((p) => `<li>${p}</li>`).join("");
+  loginForm.hidden = true;
+  sessionPanel.hidden = false;
+  credentialHint.textContent = message;
+  setModule("permissions");
+  renderQuickParts();
+  renderSales();
+  renderRepairs();
+  renderDatabase();
+  renderUsers();
+}
+
+async function signIn(username, password) {
+  if (window.repairCloud?.isConfigured()) {
+    await window.repairCloud.seedUsers();
+    const sessionToken = generateSessionToken();
+    const user = await window.repairCloud.login(username, password, sessionToken);
+    saveSessionToken(sessionToken);
+    return user;
+  }
+
+  const selectedUser = loadUsers().find((user) =>
+    user.username.toLowerCase() === username.trim().toLowerCase() &&
+    user.password === password
+  );
+
+  if (!selectedUser) throw new Error("Usuario o contrasena incorrectos.");
+  return selectedUser;
+}
+
+async function restoreSession() {
+  if (!window.repairCloud?.isConfigured()) return;
+
+  const sessionToken = getSavedSessionToken();
+  if (!sessionToken) {
+    credentialHint.textContent = "Inicia sesion con tu usuario de Convex.";
+    return;
+  }
+
+  try {
+    const user = await window.repairCloud.currentSession(sessionToken);
+    if (!user) {
+      clearSessionToken();
+      credentialHint.textContent = "Tu sesion expiro. Inicia sesion nuevamente.";
+      return;
+    }
+    applyAuthenticatedUser(user, "Sesion recuperada desde Convex.");
+  } catch (error) {
+    credentialHint.textContent = error.message;
+  }
 }
 
 function setLoginDemo() {
@@ -736,32 +812,19 @@ importRepairsDatabaseButton.addEventListener("click", async () => {
   }
 });
 
-loginForm.addEventListener("submit", (event) => {
+loginForm.addEventListener("submit", async (event) => {
   event.preventDefault();
-  const selectedUser = loadUsers().find((user) =>
-    user.username.toLowerCase() === usernameInput.value.trim().toLowerCase() &&
-    user.password === passwordInput.value
-  );
-  if (!selectedUser) {
-    credentialHint.textContent = "Usuario o contrasena incorrectos.";
-   window.repairCloud?.registrarAuditoria("LOGIN_FALLIDO", "Intento de login fallido", usernameInput.value.trim()); 
+
+  try {
+    credentialHint.textContent = "Validando credenciales...";
+    const selectedUser = await signIn(usernameInput.value, passwordInput.value);
+    applyAuthenticatedUser(selectedUser);
+    window.repairCloud?.registrarAuditoria("LOGIN", "Sesion iniciada", selectedUser.username);
+  } catch (error) {
+    credentialHint.textContent = error.message;
+    window.repairCloud?.registrarAuditoria("LOGIN_FALLIDO", "Intento de login fallido", usernameInput.value.trim());
     return;
   }
-  currentUser = selectedUser;
-  const roleProfile = getRoleProfile(selectedUser.role);
-  welcomeTitle.textContent = `Bienvenido, ${selectedUser.name}`;
-  accessSummary.textContent = `${roleProfile.label} - ${roleProfile.access}`;
-  permissionList.innerHTML = roleProfile.permissions.map((p) => `<li>${p}</li>`).join("");
-  loginForm.hidden = true;
-  sessionPanel.hidden = false;
-  credentialHint.textContent = "Sesion iniciada correctamente.";
-  setModule("permissions");
-  window.repairCloud?.registrarAuditoria("LOGIN", "Sesion iniciada", selectedUser.username);
-  renderQuickParts();
-  renderSales();
-  renderRepairs();
-  renderDatabase();
-  renderUsers();
 });
 
 salesForm.addEventListener("submit", (event) => {
@@ -814,13 +877,16 @@ salesList.addEventListener("click", (event) => {
 
 cancelVoidButton.addEventListener("click", closeAdminVoid);
 
-adminVoidForm.addEventListener("submit", (event) => {
+adminVoidForm.addEventListener("submit", async (event) => {
   event.preventDefault();
-  const voidUser = loadUsers().find((user) =>
-    user.username.toLowerCase() === voidAdminUser.value.trim().toLowerCase() &&
-    user.password === voidAdminPassword.value
-  );
-  const isAdmin = voidUser && ["root", "admin"].includes(voidUser.role);
+  const isAdmin = window.repairCloud?.isConfigured()
+    ? await window.repairCloud.verifyAdmin(voidAdminUser.value, voidAdminPassword.value)
+    : loadUsers().some((user) =>
+        user.username.toLowerCase() === voidAdminUser.value.trim().toLowerCase() &&
+        user.password === voidAdminPassword.value &&
+        ["root", "admin"].includes(user.role)
+      );
+
   if (!isAdmin) {
     adminVoidHint.textContent = "Credenciales de administrador incorrectas.";
     return;
@@ -1035,7 +1101,16 @@ usersList.addEventListener("click", (event) => {
   }
 });
 
-logoutButton.addEventListener("click", () => {
+logoutButton.addEventListener("click", async () => {
+  const sessionToken = getSavedSessionToken();
+  if (sessionToken && window.repairCloud?.isConfigured()) {
+    try {
+      await window.repairCloud.logout(sessionToken);
+    } catch (error) {
+      credentialHint.textContent = error.message;
+    }
+  }
+  clearSessionToken();
   currentUser = null;
   sessionPanel.hidden = true;
   loginForm.hidden = false;
@@ -1055,4 +1130,5 @@ renderSales();
 renderRepairs();
 updateDateTime();
 renderQuickParts();
+restoreSession();
 setInterval(updateDateTime, 1000);

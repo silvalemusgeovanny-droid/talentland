@@ -9,6 +9,7 @@
  */
 
 import type * as auditoria from "../auditoria.js";
+import type * as auth from "../auth.js";
 import type * as reparaciones from "../reparaciones.js";
 
 import type {
@@ -19,6 +20,7 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   auditoria: typeof auditoria;
+  auth: typeof auth;
   reparaciones: typeof reparaciones;
 }>;
 
