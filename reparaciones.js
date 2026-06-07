@@ -7,6 +7,8 @@ const totalRepairValue = document.querySelector("#totalRepairValue");
 const totalDelivered = document.querySelector("#totalDelivered");
 const currentDate = document.querySelector("#currentDate");
 const currentTime = document.querySelector("#currentTime");
+const colorModeToggle = document.querySelector("#colorModeToggle");
+const colorModeStorageKey = "loginColorMode";
 
 function loadRepairs() {
   const savedRepairs = localStorage.getItem(repairsStorageKey);
@@ -49,6 +51,16 @@ function updateDateTime() {
   const now = new Date();
   currentDate.textContent = new Intl.DateTimeFormat("es-MX", { day: "2-digit", month: "short", year: "numeric" }).format(now);
   currentTime.textContent = new Intl.DateTimeFormat("es-MX", { hour: "2-digit", minute: "2-digit" }).format(now);
+}
+
+function setColorMode(mode) {
+  const isDarkMode = mode === "dark";
+  document.body.classList.toggle("login-dark", isDarkMode);
+  const toggleLabel = isDarkMode ? "Cambiar a modo dia" : "Cambiar a modo noche";
+  colorModeToggle.setAttribute("aria-label", toggleLabel);
+  colorModeToggle.setAttribute("title", toggleLabel);
+  colorModeToggle.setAttribute("aria-pressed", String(isDarkMode));
+  localStorage.setItem(colorModeStorageKey, isDarkMode ? "dark" : "light");
 }
 
 function getFilteredRepairs(repairs, search = repairSearch.value) {
@@ -99,7 +111,12 @@ async function renderRepairs() {
 }
 
 repairSearch.addEventListener("input", renderRepairs);
+colorModeToggle.addEventListener("click", () => {
+  const nextMode = document.body.classList.contains("login-dark") ? "light" : "dark";
+  setColorMode(nextMode);
+});
 
+setColorMode(localStorage.getItem(colorModeStorageKey) || "light");
 updateDateTime();
 setInterval(updateDateTime, 1000);
 renderRepairs();
