@@ -18,6 +18,7 @@ const themes = {
 
 const usersStorageKey = "systemUsers";
 const sessionTokenStorageKey = "repairSessionToken";
+const currentUserStorageKey = "repairCurrentUser";
 const authModeStorageKey = "repairAuthMode";
 const defaultUsers = [
   {
@@ -265,6 +266,19 @@ function clearSessionToken() {
   localStorage.removeItem(sessionTokenStorageKey);
 }
 
+function saveCurrentUser(user) {
+  localStorage.setItem(currentUserStorageKey, JSON.stringify({
+    id: user.id || user._id || "",
+    username: user.username || "",
+    name: user.name || user.username || "Usuario",
+    role: user.role || "user",
+  }));
+}
+
+function clearCurrentUser() {
+  localStorage.removeItem(currentUserStorageKey);
+}
+
 function saveAuthMode(mode) {
   localStorage.setItem(authModeStorageKey, mode);
 }
@@ -284,6 +298,7 @@ function canAccessModule(moduleName) {
 
 function applyAuthenticatedUser(user, message = "Sesion iniciada correctamente.") {
   currentUser = user;
+  saveCurrentUser(user);
   const roleProfile = getRoleProfile(user.role);
   welcomeTitle.textContent = `Bienvenido, ${user.name}`;
   accessSummary.textContent = `${roleProfile.label} - ${roleProfile.access}`;
@@ -659,7 +674,7 @@ function renderNotes() {
   notesList.innerHTML = notes.map((note) => `
     <article class="note-item ${note.done ? "done" : ""}">
       <p>${escapeHtml(note.text)}</p>
-      <span>${note.done ? "Completada" : "Pendiente"} | ${formatNoteDate(note.createdAt)}</span>
+      <span>${note.done ? "Completada" : "Pendiente"} | ${formatNoteDate(note.createdAt)} | Creada por ${escapeHtml(note.authorName || "Sin autor")}</span>
       <div class="note-actions">
         <button class="edit-button" type="button" data-note-action="toggle" data-note-id="${note.id}">
           ${note.done ? "Reabrir" : "Completar"}
@@ -1072,6 +1087,8 @@ notesForm.addEventListener("submit", (event) => {
   notes.unshift({
     id: crypto.randomUUID(),
     text: noteText,
+    authorName: currentUser?.name || currentUser?.username || "Usuario",
+    authorUsername: currentUser?.username || "",
     done: false,
     createdAt: new Date().toISOString(),
   });
@@ -1457,6 +1474,7 @@ logoutButton.addEventListener("click", async () => {
     }
   }
   clearSessionToken();
+  clearCurrentUser();
   saveAuthMode("");
   currentUser = null;
   sessionPanel.hidden = true;
