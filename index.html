@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Login | Inventario y Reparaciones</title>
-    <link rel="stylesheet" href="styles.css?v=customer-price-1" />
+    <link rel="stylesheet" href="styles.css?v=parts-brand-1" />
   </head>
   <body>
     <main class="app-shell">
@@ -165,6 +165,10 @@
               <label for="quickPartName">Repuesto</label>
               <input id="quickPartName" name="partName" type="text" list="quickPartTypeOptions" placeholder="Pantalla, bateria, motor..." required />
               <datalist id="quickPartTypeOptions"></datalist>
+
+              <label for="quickBrand">Marca</label>
+              <input id="quickBrand" name="brand" type="text" list="quickBrandOptions" placeholder="Samsung, Apple, HP..." required />
+              <datalist id="quickBrandOptions"></datalist>
 
               <div class="field-grid">
                 <div>
@@ -465,10 +469,10 @@
     </main>
 
 
-<script src="reparaciones-db.js?v=customer-price-1"></script>
-    <script src="convex-config.js?v=customer-price-1"></script>
-    <script src="convex-client.js?v=customer-price-1"></script>
+<script src="reparaciones-db.js?v=parts-brand-1"></script>
+    <script src="convex-config.js?v=parts-brand-1"></script>
+    <script src="convex-client.js?v=parts-brand-1"></script>
     <script src="https://unpkg.com/convex/dist/browser.js"></script>
-    <script src="script.js?v=customer-price-1"></script>
+    <script src="script.js?v=parts-brand-1"></script>
   </body>
 </html>

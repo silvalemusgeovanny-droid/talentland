@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Repuestos | Inventario y Reparaciones</title>
-    <link rel="stylesheet" href="styles.css?v=customer-price-1" />
+    <link rel="stylesheet" href="styles.css?v=parts-brand-1" />
   </head>
   <body class="parts-page">
     <main class="parts-shell">
@@ -43,6 +43,10 @@
           <label for="partName">Nombre del repuesto</label>
           <input id="partName" name="partName" type="text" list="partTypeOptions" placeholder="Pantalla, bateria, tarjeta, motor..." required />
           <datalist id="partTypeOptions"></datalist>
+
+          <label for="brand">Marca</label>
+          <input id="brand" name="brand" type="text" list="brandOptions" placeholder="Samsung, Apple, HP..." required />
+          <datalist id="brandOptions"></datalist>
 
           <label for="category">Categoria</label>
           <select id="category" name="category" required>
@@ -99,6 +103,7 @@
               <thead>
                 <tr>
                   <th>Repuesto</th>
+                  <th>Marca</th>
                   <th>Categoria</th>
                   <th>Calidad</th>
                   <th>Proveedor</th>
@@ -120,6 +125,6 @@
       </div>
     </main>
 
-    <script src="repuestos.js?v=customer-price-1"></script>
+    <script src="repuestos.js?v=parts-brand-1"></script>
   </body>
 </html>
