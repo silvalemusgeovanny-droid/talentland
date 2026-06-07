@@ -46,4 +46,14 @@ export default defineSchema({
     datos: v.string(),
     fecha: v.string(),
   }),
+
+  notas: defineTable({
+    sourceId: v.optional(v.string()),
+    text: v.string(),
+    authorName: v.string(),
+    authorUsername: v.string(),
+    done: v.boolean(),
+    createdAt: v.string(),
+    updatedAt: v.string(),
+  }).index("by_source_id", ["sourceId"]),
 });

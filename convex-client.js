@@ -33,5 +33,10 @@
     registrarAuditoria: (tipo, descripcion, usuario = "sistema", datos = "") =>
       callConvex("mutation", "auditoria:registrar", { tipo, descripcion, usuario, datos }),
     obtenerAuditoria: () => callConvex("query", "auditoria:obtener", {}),
+    listNotes: () => callConvex("query", "notas:list", {}),
+    createNote: (note) => callConvex("mutation", "notas:create", note),
+    importNotes: (notes) => callConvex("mutation", "notas:importBatch", { notes }),
+    toggleNote: (id, done) => callConvex("mutation", "notas:toggle", { id, done, updatedAt: new Date().toISOString() }),
+    removeNote: (id) => callConvex("mutation", "notas:remove", { id }),
   };
 })();

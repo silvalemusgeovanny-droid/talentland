@@ -192,6 +192,7 @@ let lastVoidedSale = null;
 let undoTimerId = null;
 let sideRepairSearchTimer = null;
 let currentUser = null;
+let notesCloudMigrationDone = false;
 
 const starterParts = [
   {
@@ -466,8 +467,40 @@ function migrateLegacyNoteAuthors(user) {
   if (changed) saveNotes(migratedNotes);
 }
 
-function getPendingNotes() {
-  return loadNotes().filter((note) => !note.done);
+function normalizeNoteForCloud(note, user = currentUser) {
+  const now = new Date().toISOString();
+  return {
+    sourceId: note.sourceId || note.id || crypto.randomUUID(),
+    text: sanitizeNoteText(note.text),
+    authorName: note.authorName || user?.name || user?.username || "Usuario",
+    authorUsername: note.authorUsername || user?.username || "",
+    done: Boolean(note.done),
+    createdAt: note.createdAt || now,
+    updatedAt: note.updatedAt || now,
+  };
+}
+
+async function migrateLocalNotesToCloud(user = currentUser) {
+  if (notesCloudMigrationDone || !window.repairCloud?.isConfigured() || !user) return;
+  migrateLegacyNoteAuthors(user);
+  const notes = loadNotes()
+    .filter((note) => !note._id)
+    .map((note) => normalizeNoteForCloud(note, user))
+    .filter((note) => note.text);
+  if (notes.length) await window.repairCloud.importNotes(notes);
+  notesCloudMigrationDone = true;
+}
+
+async function loadNotesFromSource() {
+  if (window.repairCloud?.isConfigured() && currentUser) {
+    await migrateLocalNotesToCloud(currentUser);
+    const cloudNotes = await window.repairCloud.listNotes();
+    const notes = cloudNotes.map((note) => ({ ...note, id: note._id || note.id }));
+    saveNotes(notes);
+    return notes;
+  }
+
+  return loadNotes();
 }
 
 function isPendingAlertSnoozed() {
@@ -666,8 +699,14 @@ function formatNoteDate(value) {
   }).format(date);
 }
 
-function renderNotes() {
-  const notes = loadNotes();
+async function renderNotes() {
+  let notes = [];
+  try {
+    notes = await loadNotesFromSource();
+  } catch (error) {
+    notes = loadNotes();
+    notesList.innerHTML = `<p class="hint">${escapeHtml(error.message)}</p>`;
+  }
   const pendingNotes = notes.filter((note) => !note.done);
   const hasSession = Boolean(currentUser);
 
@@ -1093,21 +1132,35 @@ openNotesFromAlert.addEventListener("click", openNotesPanel);
 closeNotesButton.addEventListener("click", closeNotesPanel);
 snoozePendingAlert.addEventListener("click", snoozeNotesAlert);
 
-notesForm.addEventListener("submit", (event) => {
+notesForm.addEventListener("submit", async (event) => {
   event.preventDefault();
   const noteText = sanitizeNoteText(noteTextInput.value);
   if (!noteText) return;
 
   const notes = loadNotes();
-  notes.unshift({
+  const note = {
     id: crypto.randomUUID(),
     text: noteText,
     authorName: currentUser?.name || currentUser?.username || "Usuario",
     authorUsername: currentUser?.username || "",
     done: false,
     createdAt: new Date().toISOString(),
-  });
-  saveNotes(notes);
+    updatedAt: new Date().toISOString(),
+  };
+
+  try {
+    if (window.repairCloud?.isConfigured() && currentUser) {
+      await window.repairCloud.createNote(normalizeNoteForCloud(note, currentUser));
+    } else {
+      notes.unshift(note);
+      saveNotes(notes);
+    }
+  } catch (error) {
+    notes.unshift(note);
+    saveNotes(notes);
+    credentialHint.textContent = `Nota guardada localmente: ${error.message}`;
+  }
+
   localStorage.removeItem(notesSnoozeStorageKey);
   notesForm.reset();
   renderNotes();
@@ -1118,26 +1171,37 @@ noteTextInput.addEventListener("input", () => {
   if (noteTextInput.value !== safeText) noteTextInput.value = safeText;
 });
 
-notesList.addEventListener("click", (event) => {
+notesList.addEventListener("click", async (event) => {
   const button = event.target.closest("[data-note-action]");
   if (!button) return;
 
   const notes = loadNotes();
   const noteId = button.dataset.noteId;
   const action = button.dataset.noteAction;
+  const note = notes.find((item) => String(item.id || item._id) === noteId);
 
   if (action === "toggle") {
-    const note = notes.find((item) => item.id === noteId);
-    if (note) note.done = !note.done;
+    if (!note) return;
+    const nextDone = !note.done;
+    if (window.repairCloud?.isConfigured() && note._id) {
+      await window.repairCloud.toggleNote(note._id, nextDone);
+    } else {
+      note.done = nextDone;
+      note.updatedAt = new Date().toISOString();
+      saveNotes(notes);
+    }
   }
 
   if (action === "delete") {
-    saveNotes(notes.filter((item) => item.id !== noteId));
+    if (window.repairCloud?.isConfigured() && note?._id) {
+      await window.repairCloud.removeNote(note._id);
+    } else {
+      saveNotes(notes.filter((item) => String(item.id || item._id) !== noteId));
+    }
     renderNotes();
     return;
   }
 
-  saveNotes(notes);
   renderNotes();
 });
 
