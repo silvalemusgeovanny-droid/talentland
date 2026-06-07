@@ -5,6 +5,7 @@ const starterParts = [
     id: crypto.randomUUID(),
     name: "Pantalla iPhone 11",
     brand: "Apple",
+    model: "Iphone 11",
     category: "Celular",
     price: 1250,
     customerPrice: 1650,
@@ -18,6 +19,7 @@ const starterParts = [
     id: crypto.randomUUID(),
     name: "Bateria laptop HP",
     brand: "Hp",
+    model: "Laptop hp",
     category: "Computadora",
     price: 890,
     customerPrice: 1190,
@@ -31,6 +33,7 @@ const starterParts = [
     id: crypto.randomUUID(),
     name: "Capacitor lavadora",
     brand: "Generica",
+    model: "Lavadora",
     category: "Electrodomestico",
     price: 180,
     customerPrice: 280,
@@ -48,6 +51,8 @@ const partNameInput = document.querySelector("#partName");
 const partTypeOptions = document.querySelector("#partTypeOptions");
 const brandInput = document.querySelector("#brand");
 const brandOptions = document.querySelector("#brandOptions");
+const modelInput = document.querySelector("#model");
+const modelOptions = document.querySelector("#modelOptions");
 const publishedAtInput = document.querySelector("#publishedAt");
 const updatedAtInput = document.querySelector("#updatedAt");
 const partSearch = document.querySelector("#partSearch");
@@ -128,6 +133,15 @@ function syncBrandText() {
   brandInput.value = normalizePartType(brandInput.value);
 }
 
+function renderModelOptions() {
+  const models = [...new Set(loadParts().map((part) => normalizePartType(part.model)).filter(Boolean))].sort();
+  modelOptions.innerHTML = models.map((model) => `<option value="${model}"></option>`).join("");
+}
+
+function syncModelText() {
+  modelInput.value = normalizePartType(modelInput.value);
+}
+
 function formatCurrency(value) {
   return new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN" }).format(value);
 }
@@ -154,7 +168,7 @@ function getFilteredParts(parts) {
   const term = partSearch.value.trim().toLowerCase();
   if (!term) return parts;
   return parts.filter((part) =>
-    [part.name, part.brand, part.category, part.quality, part.supplier].some((field) =>
+    [part.name, part.brand, part.model, part.category, part.quality, part.supplier].some((field) =>
       field.toLowerCase().includes(term),
     ),
   );
@@ -171,7 +185,7 @@ function renderParts() {
   totalProviders.textContent = providers.size;
 
   if (!filteredParts.length) {
-    partsTable.innerHTML = `<tr><td class="empty-table" colspan="11">No hay repuestos con esa busqueda.</td></tr>`;
+    partsTable.innerHTML = `<tr><td class="empty-table" colspan="12">No hay repuestos con esa busqueda.</td></tr>`;
     return;
   }
 
@@ -179,6 +193,7 @@ function renderParts() {
     <tr>
       <td><strong>${part.name}</strong></td>
       <td>${part.brand || "Sin marca"}</td>
+      <td>${part.model || "Sin modelo"}</td>
       <td>${part.category}</td>
       <td><span class="quality-pill">${part.quality}</span></td>
       <td>${part.supplier}</td>
@@ -215,6 +230,7 @@ partsForm.addEventListener("submit", (event) => {
         ...parts[index],
         name: normalizePartType(formData.get("partName")),
         brand: normalizePartType(formData.get("brand")),
+        model: normalizePartType(formData.get("model")),
         category: formData.get("category"),
         price: Number(formData.get("price")),
         customerPrice: Number(formData.get("customerPrice")) || 0,
@@ -234,6 +250,7 @@ partsForm.addEventListener("submit", (event) => {
       id: crypto.randomUUID(),
       name: normalizePartType(formData.get("partName")),
       brand: normalizePartType(formData.get("brand")),
+      model: normalizePartType(formData.get("model")),
       category: formData.get("category"),
       price: Number(formData.get("price")),
       customerPrice: Number(formData.get("customerPrice")) || 0,
@@ -251,6 +268,7 @@ partsForm.addEventListener("submit", (event) => {
   resetPartDates();
   renderPartTypeOptions();
   renderBrandOptions();
+  renderModelOptions();
   renderParts();
 });
 
@@ -262,6 +280,7 @@ partsTable.addEventListener("click", (event) => {
     if (!part) return;
     document.querySelector("#partName").value = part.name;
     document.querySelector("#brand").value = part.brand || "";
+    document.querySelector("#model").value = part.model || "";
     document.querySelector("#category").value = part.category;
     document.querySelector("#price").value = part.price;
     document.querySelector("#customerPrice").value = part.customerPrice ?? "";
@@ -309,10 +328,13 @@ partNameInput.addEventListener("blur", syncPartTypeText);
 partNameInput.addEventListener("change", syncPartTypeText);
 brandInput.addEventListener("blur", syncBrandText);
 brandInput.addEventListener("change", syncBrandText);
+modelInput.addEventListener("blur", syncModelText);
+modelInput.addEventListener("change", syncModelText);
 
 updateDateTime();
 setInterval(updateDateTime, 1000);
 renderPartTypeOptions();
 renderBrandOptions();
+renderModelOptions();
 resetPartDates();
 renderParts();

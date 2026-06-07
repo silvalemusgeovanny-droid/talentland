@@ -110,6 +110,8 @@ const quickPartNameInput = document.querySelector("#quickPartName");
 const quickPartTypeOptions = document.querySelector("#quickPartTypeOptions");
 const quickBrandInput = document.querySelector("#quickBrand");
 const quickBrandOptions = document.querySelector("#quickBrandOptions");
+const quickModelInput = document.querySelector("#quickModel");
+const quickModelOptions = document.querySelector("#quickModelOptions");
 const partsStorageKey = "inventoryParts";
 const colorModeToggle = document.querySelector("#colorModeToggle");
 const colorModeStorageKey = "loginColorMode";
@@ -195,6 +197,7 @@ const starterParts = [
     id: crypto.randomUUID(),
     name: "Pantalla iPhone 11",
     brand: "Apple",
+    model: "Iphone 11",
     category: "Celular",
     price: 1250,
     customerPrice: 1650,
@@ -208,6 +211,7 @@ const starterParts = [
     id: crypto.randomUUID(),
     name: "Bateria laptop HP",
     brand: "Hp",
+    model: "Laptop hp",
     category: "Computadora",
     price: 890,
     customerPrice: 1190,
@@ -414,6 +418,15 @@ function syncQuickBrandText() {
   quickBrandInput.value = normalizePartType(quickBrandInput.value);
 }
 
+function renderQuickModelOptions() {
+  const models = [...new Set(loadParts().map((part) => normalizePartType(part.model)).filter(Boolean))].sort();
+  quickModelOptions.innerHTML = models.map((model) => `<option value="${escapeHtml(model)}"></option>`).join("");
+}
+
+function syncQuickModelText() {
+  quickModelInput.value = normalizePartType(quickModelInput.value);
+}
+
 function loadNotes() {
   const savedNotes = localStorage.getItem(notesStorageKey);
   return savedNotes ? JSON.parse(savedNotes) : [];
@@ -593,7 +606,7 @@ function renderQuickParts() {
   quickPartsList.innerHTML = parts.map((part) => `
     <article class="compact-part-item">
       <strong>${part.name}</strong>
-      <span>${part.brand || "Sin marca"} | Costo ${formatCurrency(part.price)} | Cliente ${formatCurrency(Number(part.customerPrice) || 0)} | ${part.quality} | ${part.supplier}</span>
+      <span>${part.brand || "Sin marca"} ${part.model || ""} | Costo ${formatCurrency(part.price)} | Cliente ${formatCurrency(Number(part.customerPrice) || 0)} | ${part.quality} | ${part.supplier}</span>
     </article>
   `).join("");
 }
@@ -1081,6 +1094,8 @@ quickPartNameInput.addEventListener("blur", syncQuickPartTypeText);
 quickPartNameInput.addEventListener("change", syncQuickPartTypeText);
 quickBrandInput.addEventListener("blur", syncQuickBrandText);
 quickBrandInput.addEventListener("change", syncQuickBrandText);
+quickModelInput.addEventListener("blur", syncQuickModelText);
+quickModelInput.addEventListener("change", syncQuickModelText);
 
 [saleQuantityInput, salePriceInput, saleDiscountInput, saleReceivedInput].forEach((input) => {
   input.addEventListener("input", updateSaleTotals);
@@ -1224,6 +1239,7 @@ quickPartsForm.addEventListener("submit", (event) => {
     id: crypto.randomUUID(),
     name: normalizePartType(formData.get("partName")),
     brand: normalizePartType(formData.get("brand")),
+    model: normalizePartType(formData.get("model")),
     category: "Repuesto",
     price: Number(formData.get("price")),
     customerPrice: Number(formData.get("customerPrice")) || 0,
@@ -1238,6 +1254,7 @@ quickPartsForm.addEventListener("submit", (event) => {
   quickPartsHint.textContent = "Repuesto guardado correctamente.";
   renderQuickPartTypeOptions();
   renderQuickBrandOptions();
+  renderQuickModelOptions();
   renderQuickParts();
 });
 
@@ -1445,6 +1462,7 @@ renderRepairs();
 updateDateTime();
 renderQuickPartTypeOptions();
 renderQuickBrandOptions();
+renderQuickModelOptions();
 renderQuickParts();
 renderNotes();
 restoreSession();
