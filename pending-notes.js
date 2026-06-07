@@ -2,6 +2,7 @@
 const notesStorageKey = "pendingNotes";
 const notesSnoozeStorageKey = "pendingNotesSnoozeUntil";
 const sessionTokenStorageKey = "repairSessionToken";
+const currentUserStorageKey = "repairCurrentUser";
 
 function escapeHtml(value) {
   return String(value)
@@ -33,6 +34,16 @@ function loadNotes() {
 
 function saveNotes(notes) {
   localStorage.setItem(notesStorageKey, JSON.stringify(notes));
+}
+
+function getCurrentUser() {
+  const savedUser = localStorage.getItem(currentUserStorageKey);
+  if (!savedUser) return null;
+  try {
+    return JSON.parse(savedUser);
+  } catch {
+    return null;
+  }
 }
 
 function isPendingAlertSnoozed() {
@@ -128,7 +139,7 @@ function setupPendingNotes() {
   function renderNotes() {
     const notes = loadNotes();
     const pendingNotes = notes.filter((note) => !note.done);
-    const hasSession = Boolean(localStorage.getItem(sessionTokenStorageKey));
+    const hasSession = Boolean(localStorage.getItem(sessionTokenStorageKey) || getCurrentUser());
 
     notesToggle.hidden = !hasSession;
     notesBadge.hidden = !hasSession || pendingNotes.length === 0;
@@ -148,7 +159,7 @@ function setupPendingNotes() {
     notesList.innerHTML = notes.map((note) => `
       <article class="note-item ${note.done ? "done" : ""}">
         <p>${escapeHtml(note.text)}</p>
-        <span>${note.done ? "Completada" : "Pendiente"} | ${formatNoteDate(note.createdAt)}</span>
+        <span>${note.done ? "Completada" : "Pendiente"} | ${formatNoteDate(note.createdAt)} | Creada por ${escapeHtml(note.authorName || "Sin autor")}</span>
         <div class="note-actions">
           <button class="edit-button" type="button" data-note-action="toggle" data-note-id="${note.id}">
             ${note.done ? "Reabrir" : "Completar"}
@@ -160,7 +171,7 @@ function setupPendingNotes() {
   }
 
   function openNotesPanel() {
-    if (!localStorage.getItem(sessionTokenStorageKey)) return;
+    if (!localStorage.getItem(sessionTokenStorageKey) && !getCurrentUser()) return;
     notesOverlay.hidden = false;
     renderNotes();
     noteTextInput.focus();
@@ -185,9 +196,12 @@ function setupPendingNotes() {
     if (!noteText) return;
 
     const notes = loadNotes();
+    const currentUser = getCurrentUser();
     notes.unshift({
       id: crypto.randomUUID(),
       text: noteText,
+      authorName: currentUser?.name || currentUser?.username || "Usuario",
+      authorUsername: currentUser?.username || "",
       done: false,
       createdAt: new Date().toISOString(),
     });
@@ -226,7 +240,7 @@ function setupPendingNotes() {
   });
 
   window.addEventListener("storage", (event) => {
-    if ([notesStorageKey, notesSnoozeStorageKey, sessionTokenStorageKey].includes(event.key)) renderNotes();
+    if ([notesStorageKey, notesSnoozeStorageKey, sessionTokenStorageKey, currentUserStorageKey].includes(event.key)) renderNotes();
   });
 
   renderNotes();
