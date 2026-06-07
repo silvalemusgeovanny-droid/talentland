@@ -12,6 +12,20 @@ function escapeHtml(value) {
     .replaceAll("'", "&#039;");
 }
 
+function sanitizeNoteText(value) {
+  return String(value || "")
+    .replace(/[^\p{L}\p{N}\s.,;:¿?¡!()\-]/gu, "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 280);
+}
+
+function cleanNoteTextInput(value) {
+  return String(value || "")
+    .replace(/[^\p{L}\p{N}\s.,;:¿?¡!()\-]/gu, "")
+    .slice(0, 280);
+}
+
 function loadNotes() {
   const savedNotes = localStorage.getItem(notesStorageKey);
   return savedNotes ? JSON.parse(savedNotes) : [];
@@ -80,7 +94,7 @@ function createPendingNotesUi() {
 
           <form class="notes-form" id="notesForm">
             <label for="noteText">Nota</label>
-            <textarea id="noteText" name="noteText" rows="4" placeholder="Ej. Llamar al cliente, revisar repuesto, confirmar entrega..." required></textarea>
+            <textarea id="noteText" name="noteText" rows="4" maxlength="280" placeholder="Ej. Llamar al cliente, revisar repuesto, confirmar entrega..." required></textarea>
             <button class="primary-button" type="submit">Guardar nota</button>
           </form>
 
@@ -167,7 +181,7 @@ function setupPendingNotes() {
 
   notesForm.addEventListener("submit", (event) => {
     event.preventDefault();
-    const noteText = noteTextInput.value.trim();
+    const noteText = sanitizeNoteText(noteTextInput.value);
     if (!noteText) return;
 
     const notes = loadNotes();
@@ -181,6 +195,11 @@ function setupPendingNotes() {
     localStorage.removeItem(notesSnoozeStorageKey);
     notesForm.reset();
     renderNotes();
+  });
+
+  noteTextInput.addEventListener("input", () => {
+    const safeText = cleanNoteTextInput(noteTextInput.value);
+    if (noteTextInput.value !== safeText) noteTextInput.value = safeText;
   });
 
   notesList.addEventListener("click", (event) => {
