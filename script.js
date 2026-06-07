@@ -578,6 +578,20 @@ function escapeHtml(value) {
     .replaceAll("'", "&#039;");
 }
 
+function sanitizeNoteText(value) {
+  return String(value || "")
+    .replace(/[^\p{L}\p{N}\s.,;:¿?¡!()\-]/gu, "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 280);
+}
+
+function cleanNoteTextInput(value) {
+  return String(value || "")
+    .replace(/[^\p{L}\p{N}\s.,;:¿?¡!()\-]/gu, "")
+    .slice(0, 280);
+}
+
 function formatCurrency(value) {
   return new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN" }).format(value);
 }
@@ -1051,7 +1065,7 @@ snoozePendingAlert.addEventListener("click", snoozeNotesAlert);
 
 notesForm.addEventListener("submit", (event) => {
   event.preventDefault();
-  const noteText = noteTextInput.value.trim();
+  const noteText = sanitizeNoteText(noteTextInput.value);
   if (!noteText) return;
 
   const notes = loadNotes();
@@ -1065,6 +1079,11 @@ notesForm.addEventListener("submit", (event) => {
   localStorage.removeItem(notesSnoozeStorageKey);
   notesForm.reset();
   renderNotes();
+});
+
+noteTextInput.addEventListener("input", () => {
+  const safeText = cleanNoteTextInput(noteTextInput.value);
+  if (noteTextInput.value !== safeText) noteTextInput.value = safeText;
 });
 
 notesList.addEventListener("click", (event) => {
