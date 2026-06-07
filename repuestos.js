@@ -11,6 +11,8 @@ const starterParts = [
     stock: 4,
     quality: "Premium",
     supplier: "TecnoPartes MX",
+    publishedAt: new Date().toISOString(),
+    updatedAt: "",
   },
   {
     id: crypto.randomUUID(),
@@ -22,6 +24,8 @@ const starterParts = [
     stock: 3,
     quality: "Original",
     supplier: "CompuRefacciones",
+    publishedAt: new Date().toISOString(),
+    updatedAt: "",
   },
   {
     id: crypto.randomUUID(),
@@ -33,6 +37,8 @@ const starterParts = [
     stock: 8,
     quality: "Generica",
     supplier: "ElectroStock",
+    publishedAt: new Date().toISOString(),
+    updatedAt: "",
   },
 ];
 
@@ -42,6 +48,8 @@ const partNameInput = document.querySelector("#partName");
 const partTypeOptions = document.querySelector("#partTypeOptions");
 const brandInput = document.querySelector("#brand");
 const brandOptions = document.querySelector("#brandOptions");
+const publishedAtInput = document.querySelector("#publishedAt");
+const updatedAtInput = document.querySelector("#updatedAt");
 const partSearch = document.querySelector("#partSearch");
 const totalParts = document.querySelector("#totalParts");
 const totalValue = document.querySelector("#totalValue");
@@ -124,6 +132,24 @@ function formatCurrency(value) {
   return new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN" }).format(value);
 }
 
+function formatPartDate(value) {
+  if (!value) return "Sin fecha";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "Sin fecha";
+  return new Intl.DateTimeFormat("es-MX", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(date);
+}
+
+function resetPartDates() {
+  publishedAtInput.value = "Automatico al guardar";
+  updatedAtInput.value = "Sin modificaciones";
+}
+
 function getFilteredParts(parts) {
   const term = partSearch.value.trim().toLowerCase();
   if (!term) return parts;
@@ -145,7 +171,7 @@ function renderParts() {
   totalProviders.textContent = providers.size;
 
   if (!filteredParts.length) {
-    partsTable.innerHTML = `<tr><td class="empty-table" colspan="9">No hay repuestos con esa busqueda.</td></tr>`;
+    partsTable.innerHTML = `<tr><td class="empty-table" colspan="11">No hay repuestos con esa busqueda.</td></tr>`;
     return;
   }
 
@@ -159,6 +185,8 @@ function renderParts() {
       <td>${formatCurrency(part.price)}</td>
       <td>${formatCurrency(Number(part.customerPrice) || 0)}</td>
       <td>${part.stock}</td>
+      <td>${formatPartDate(part.publishedAt)}</td>
+      <td>${formatPartDate(part.updatedAt)}</td>
       <td>
         <button class="edit-button" type="button" data-id="${part.id}">Editar</button>
         <button class="delete-button" type="button" data-id="${part.id}">Eliminar</button>
@@ -182,6 +210,7 @@ partsForm.addEventListener("submit", (event) => {
   if (editingId) {
     const index = parts.findIndex((p) => p.id === editingId);
     if (index !== -1) {
+      const now = new Date().toISOString();
       parts[index] = {
         ...parts[index],
         name: normalizePartType(formData.get("partName")),
@@ -192,12 +221,15 @@ partsForm.addEventListener("submit", (event) => {
         stock: Number(formData.get("stock")),
         quality: formData.get("quality"),
         supplier: formData.get("supplier").trim(),
+        publishedAt: parts[index].publishedAt || now,
+        updatedAt: now,
       };
     }
     delete partsForm.dataset.editingId;
     document.querySelector("#submitParts").textContent = "Guardar repuesto";
     partsHint.textContent = "Repuesto actualizado correctamente.";
   } else {
+    const now = new Date().toISOString();
     parts.unshift({
       id: crypto.randomUUID(),
       name: normalizePartType(formData.get("partName")),
@@ -208,12 +240,15 @@ partsForm.addEventListener("submit", (event) => {
       stock: Number(formData.get("stock")),
       quality: formData.get("quality"),
       supplier: formData.get("supplier").trim(),
+      publishedAt: now,
+      updatedAt: "",
     });
     partsHint.textContent = "Repuesto guardado correctamente.";
   }
 
   saveParts(parts);
   partsForm.reset();
+  resetPartDates();
   renderPartTypeOptions();
   renderBrandOptions();
   renderParts();
@@ -233,6 +268,8 @@ partsTable.addEventListener("click", (event) => {
     document.querySelector("#stock").value = part.stock;
     document.querySelector("#quality").value = part.quality;
     document.querySelector("#supplier").value = part.supplier;
+    publishedAtInput.value = formatPartDate(part.publishedAt);
+    updatedAtInput.value = formatPartDate(part.updatedAt);
     partsForm.dataset.editingId = part.id;
     partsHint.textContent = "Editando repuesto — haz clic en Guardar para confirmar los cambios.";
     document.querySelector("#submitParts").textContent = "Guardar cambios";
@@ -277,4 +314,5 @@ updateDateTime();
 setInterval(updateDateTime, 1000);
 renderPartTypeOptions();
 renderBrandOptions();
+resetPartDates();
 renderParts();

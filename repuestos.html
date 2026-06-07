@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Repuestos | Inventario y Reparaciones</title>
-    <link rel="stylesheet" href="styles.css?v=parts-brand-1" />
+    <link rel="stylesheet" href="styles.css?v=parts-dates-1" />
   </head>
   <body class="parts-page">
     <main class="parts-shell">
@@ -48,6 +48,9 @@
           <input id="brand" name="brand" type="text" list="brandOptions" placeholder="Samsung, Apple, HP..." required />
           <datalist id="brandOptions"></datalist>
 
+          <label for="supplier">Proveedor</label>
+          <input id="supplier" name="supplier" type="text" placeholder="Nombre del proveedor" required />
+
           <label for="category">Categoria</label>
           <select id="category" name="category" required>
             <option value="Celular">Celular</option>
@@ -82,8 +85,16 @@
             </div>
           </div>
 
-          <label for="supplier">Proveedor</label>
-          <input id="supplier" name="supplier" type="text" placeholder="Nombre del proveedor" required />
+          <div class="field-grid">
+            <div>
+              <label for="publishedAt">Fecha de publicacion</label>
+              <input id="publishedAt" name="publishedAt" type="text" value="Automatico al guardar" readonly aria-readonly="true" />
+            </div>
+            <div>
+              <label for="updatedAt">Ultima modificacion</label>
+              <input id="updatedAt" name="updatedAt" type="text" value="Sin modificaciones" readonly aria-readonly="true" />
+            </div>
+          </div>
 
           <button class="primary-button" type="submit" id="submitParts">Guardar repuesto</button>
           <p class="hint" id="partsHint">Los datos se guardan en este navegador como demo.</p>
@@ -110,6 +121,8 @@
                   <th>Valor</th>
                   <th>Cliente final</th>
                   <th>Existencia</th>
+                  <th>Publicacion</th>
+                  <th>Modificacion</th>
                   <th></th>
                 </tr>
               </thead>
@@ -125,6 +138,6 @@
       </div>
     </main>
 
-    <script src="repuestos.js?v=parts-brand-1"></script>
+    <script src="repuestos.js?v=parts-dates-1"></script>
   </body>
 </html>
