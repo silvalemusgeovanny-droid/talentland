@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Login | Inventario y Reparaciones</title>
-    <link rel="stylesheet" href="styles.css?v=parts-dates-1" />
+    <link rel="stylesheet" href="styles.css?v=parts-model-1" />
   </head>
   <body>
     <main class="app-shell">
@@ -169,6 +169,10 @@
               <label for="quickBrand">Marca</label>
               <input id="quickBrand" name="brand" type="text" list="quickBrandOptions" placeholder="Samsung, Apple, HP..." required />
               <datalist id="quickBrandOptions"></datalist>
+
+              <label for="quickModel">Modelo</label>
+              <input id="quickModel" name="model" type="text" list="quickModelOptions" placeholder="A12, iPhone 11, Pavilion..." required />
+              <datalist id="quickModelOptions"></datalist>
 
               <label for="quickSupplier">Proveedor</label>
               <input id="quickSupplier" name="supplier" type="text" placeholder="Nombre del proveedor" required />
@@ -469,10 +473,10 @@
     </main>
 
 
-<script src="reparaciones-db.js?v=parts-dates-1"></script>
-    <script src="convex-config.js?v=parts-dates-1"></script>
-    <script src="convex-client.js?v=parts-dates-1"></script>
+<script src="reparaciones-db.js?v=parts-model-1"></script>
+    <script src="convex-config.js?v=parts-model-1"></script>
+    <script src="convex-client.js?v=parts-model-1"></script>
     <script src="https://unpkg.com/convex/dist/browser.js"></script>
-    <script src="script.js?v=parts-dates-1"></script>
+    <script src="script.js?v=parts-model-1"></script>
   </body>
 </html>
