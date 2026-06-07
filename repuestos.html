@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Repuestos | Inventario y Reparaciones</title>
-    <link rel="stylesheet" href="styles.css?v=repair-search-2" />
+    <link rel="stylesheet" href="styles.css?v=parts-types-1" />
   </head>
   <body class="parts-page">
     <main class="parts-shell">
@@ -41,7 +41,8 @@
           </div>
 
           <label for="partName">Nombre del repuesto</label>
-          <input id="partName" name="partName" type="text" placeholder="Pantalla, bateria, tarjeta, motor..." required />
+          <input id="partName" name="partName" type="text" list="partTypeOptions" placeholder="Pantalla, bateria, tarjeta, motor..." required />
+          <datalist id="partTypeOptions"></datalist>
 
           <label for="category">Categoria</label>
           <select id="category" name="category" required>
@@ -110,6 +111,6 @@
       </div>
     </main>
 
-    <script src="repuestos.js?v=repair-search-2"></script>
+    <script src="repuestos.js?v=parts-types-1"></script>
   </body>
 </html>

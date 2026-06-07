@@ -106,6 +106,8 @@ const moduleLink = document.querySelector("#moduleLink");
 const quickPartsForm = document.querySelector("#quickPartsForm");
 const quickPartsList = document.querySelector("#quickPartsList");
 const quickPartsHint = document.querySelector("#quickPartsHint");
+const quickPartNameInput = document.querySelector("#quickPartName");
+const quickPartTypeOptions = document.querySelector("#quickPartTypeOptions");
 const partsStorageKey = "inventoryParts";
 const colorModeToggle = document.querySelector("#colorModeToggle");
 const colorModeStorageKey = "loginColorMode";
@@ -376,6 +378,21 @@ function loadParts() {
 
 function saveParts(parts) {
   localStorage.setItem(partsStorageKey, JSON.stringify(parts));
+}
+
+function normalizePartType(value) {
+  const cleanedValue = String(value || "").trim().replace(/\s+/g, " ").toLowerCase();
+  if (!cleanedValue) return "";
+  return cleanedValue.charAt(0).toUpperCase() + cleanedValue.slice(1);
+}
+
+function renderQuickPartTypeOptions() {
+  const partTypes = [...new Set(loadParts().map((part) => normalizePartType(part.name)).filter(Boolean))].sort();
+  quickPartTypeOptions.innerHTML = partTypes.map((partType) => `<option value="${escapeHtml(partType)}"></option>`).join("");
+}
+
+function syncQuickPartTypeText() {
+  quickPartNameInput.value = normalizePartType(quickPartNameInput.value);
 }
 
 function loadNotes() {
@@ -1041,6 +1058,9 @@ notesList.addEventListener("click", (event) => {
   renderNotes();
 });
 
+quickPartNameInput.addEventListener("blur", syncQuickPartTypeText);
+quickPartNameInput.addEventListener("change", syncQuickPartTypeText);
+
 [saleQuantityInput, salePriceInput, saleDiscountInput, saleReceivedInput].forEach((input) => {
   input.addEventListener("input", updateSaleTotals);
 });
@@ -1180,7 +1200,7 @@ quickPartsForm.addEventListener("submit", (event) => {
   const parts = loadParts();
   parts.unshift({
     id: crypto.randomUUID(),
-    name: formData.get("partName").trim(),
+    name: normalizePartType(formData.get("partName")),
     category: "Repuesto",
     price: Number(formData.get("price")),
     stock: 1,
@@ -1190,6 +1210,7 @@ quickPartsForm.addEventListener("submit", (event) => {
   saveParts(parts);
   quickPartsForm.reset();
   quickPartsHint.textContent = "Repuesto guardado correctamente.";
+  renderQuickPartTypeOptions();
   renderQuickParts();
 });
 
@@ -1395,6 +1416,7 @@ updateSaleTotals();
 renderSales();
 renderRepairs();
 updateDateTime();
+renderQuickPartTypeOptions();
 renderQuickParts();
 renderNotes();
 restoreSession();
