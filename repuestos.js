@@ -4,6 +4,7 @@ const starterParts = [
   {
     id: crypto.randomUUID(),
     name: "Pantalla iPhone 11",
+    brand: "Apple",
     category: "Celular",
     price: 1250,
     customerPrice: 1650,
@@ -14,6 +15,7 @@ const starterParts = [
   {
     id: crypto.randomUUID(),
     name: "Bateria laptop HP",
+    brand: "Hp",
     category: "Computadora",
     price: 890,
     customerPrice: 1190,
@@ -24,6 +26,7 @@ const starterParts = [
   {
     id: crypto.randomUUID(),
     name: "Capacitor lavadora",
+    brand: "Generica",
     category: "Electrodomestico",
     price: 180,
     customerPrice: 280,
@@ -37,6 +40,8 @@ const partsForm = document.querySelector("#partsForm");
 const partsTable = document.querySelector("#partsTable");
 const partNameInput = document.querySelector("#partName");
 const partTypeOptions = document.querySelector("#partTypeOptions");
+const brandInput = document.querySelector("#brand");
+const brandOptions = document.querySelector("#brandOptions");
 const partSearch = document.querySelector("#partSearch");
 const totalParts = document.querySelector("#totalParts");
 const totalValue = document.querySelector("#totalValue");
@@ -92,7 +97,7 @@ function saveParts(parts) {
 }
 
 function normalizePartType(value) {
-  const cleanedValue = value.trim().replace(/\s+/g, " ").toLowerCase();
+  const cleanedValue = String(value || "").trim().replace(/\s+/g, " ").toLowerCase();
   if (!cleanedValue) return "";
   return cleanedValue.charAt(0).toUpperCase() + cleanedValue.slice(1);
 }
@@ -106,6 +111,15 @@ function syncPartTypeText() {
   partNameInput.value = normalizePartType(partNameInput.value);
 }
 
+function renderBrandOptions() {
+  const brands = [...new Set(loadParts().map((part) => normalizePartType(part.brand)).filter(Boolean))].sort();
+  brandOptions.innerHTML = brands.map((brand) => `<option value="${brand}"></option>`).join("");
+}
+
+function syncBrandText() {
+  brandInput.value = normalizePartType(brandInput.value);
+}
+
 function formatCurrency(value) {
   return new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN" }).format(value);
 }
@@ -114,7 +128,7 @@ function getFilteredParts(parts) {
   const term = partSearch.value.trim().toLowerCase();
   if (!term) return parts;
   return parts.filter((part) =>
-    [part.name, part.category, part.quality, part.supplier].some((field) =>
+    [part.name, part.brand, part.category, part.quality, part.supplier].some((field) =>
       field.toLowerCase().includes(term),
     ),
   );
@@ -131,13 +145,14 @@ function renderParts() {
   totalProviders.textContent = providers.size;
 
   if (!filteredParts.length) {
-    partsTable.innerHTML = `<tr><td class="empty-table" colspan="8">No hay repuestos con esa busqueda.</td></tr>`;
+    partsTable.innerHTML = `<tr><td class="empty-table" colspan="9">No hay repuestos con esa busqueda.</td></tr>`;
     return;
   }
 
   partsTable.innerHTML = filteredParts.map((part) => `
     <tr>
       <td><strong>${part.name}</strong></td>
+      <td>${part.brand || "Sin marca"}</td>
       <td>${part.category}</td>
       <td><span class="quality-pill">${part.quality}</span></td>
       <td>${part.supplier}</td>
@@ -170,6 +185,7 @@ partsForm.addEventListener("submit", (event) => {
       parts[index] = {
         ...parts[index],
         name: normalizePartType(formData.get("partName")),
+        brand: normalizePartType(formData.get("brand")),
         category: formData.get("category"),
         price: Number(formData.get("price")),
         customerPrice: Number(formData.get("customerPrice")) || 0,
@@ -185,6 +201,7 @@ partsForm.addEventListener("submit", (event) => {
     parts.unshift({
       id: crypto.randomUUID(),
       name: normalizePartType(formData.get("partName")),
+      brand: normalizePartType(formData.get("brand")),
       category: formData.get("category"),
       price: Number(formData.get("price")),
       customerPrice: Number(formData.get("customerPrice")) || 0,
@@ -198,6 +215,7 @@ partsForm.addEventListener("submit", (event) => {
   saveParts(parts);
   partsForm.reset();
   renderPartTypeOptions();
+  renderBrandOptions();
   renderParts();
 });
 
@@ -208,6 +226,7 @@ partsTable.addEventListener("click", (event) => {
     const part = parts.find((p) => p.id === editButton.dataset.id);
     if (!part) return;
     document.querySelector("#partName").value = part.name;
+    document.querySelector("#brand").value = part.brand || "";
     document.querySelector("#category").value = part.category;
     document.querySelector("#price").value = part.price;
     document.querySelector("#customerPrice").value = part.customerPrice ?? "";
@@ -251,8 +270,11 @@ partsTable.addEventListener("click", (event) => {
 partSearch.addEventListener("input", renderParts);
 partNameInput.addEventListener("blur", syncPartTypeText);
 partNameInput.addEventListener("change", syncPartTypeText);
+brandInput.addEventListener("blur", syncBrandText);
+brandInput.addEventListener("change", syncBrandText);
 
 updateDateTime();
 setInterval(updateDateTime, 1000);
 renderPartTypeOptions();
+renderBrandOptions();
 renderParts();
