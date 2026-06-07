@@ -194,6 +194,7 @@ const starterParts = [
     name: "Pantalla iPhone 11",
     category: "Celular",
     price: 1250,
+    customerPrice: 1650,
     stock: 4,
     quality: "Premium",
     supplier: "TecnoPartes MX",
@@ -203,6 +204,7 @@ const starterParts = [
     name: "Bateria laptop HP",
     category: "Computadora",
     price: 890,
+    customerPrice: 1190,
     stock: 3,
     quality: "Original",
     supplier: "CompuRefacciones",
@@ -574,7 +576,7 @@ function renderQuickParts() {
   quickPartsList.innerHTML = parts.map((part) => `
     <article class="compact-part-item">
       <strong>${part.name}</strong>
-      <span>${formatCurrency(part.price)} · ${part.quality} · ${part.supplier}</span>
+      <span>Costo ${formatCurrency(part.price)} | Cliente ${formatCurrency(Number(part.customerPrice) || 0)} | ${part.quality} | ${part.supplier}</span>
     </article>
   `).join("");
 }
@@ -1203,7 +1205,8 @@ quickPartsForm.addEventListener("submit", (event) => {
     name: normalizePartType(formData.get("partName")),
     category: "Repuesto",
     price: Number(formData.get("price")),
-    stock: 1,
+    customerPrice: Number(formData.get("customerPrice")) || 0,
+    stock: Number(formData.get("stock")) || 1,
     quality: formData.get("quality"),
     supplier: formData.get("supplier").trim(),
   });

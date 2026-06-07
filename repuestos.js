@@ -6,6 +6,7 @@ const starterParts = [
     name: "Pantalla iPhone 11",
     category: "Celular",
     price: 1250,
+    customerPrice: 1650,
     stock: 4,
     quality: "Premium",
     supplier: "TecnoPartes MX",
@@ -15,6 +16,7 @@ const starterParts = [
     name: "Bateria laptop HP",
     category: "Computadora",
     price: 890,
+    customerPrice: 1190,
     stock: 3,
     quality: "Original",
     supplier: "CompuRefacciones",
@@ -24,6 +26,7 @@ const starterParts = [
     name: "Capacitor lavadora",
     category: "Electrodomestico",
     price: 180,
+    customerPrice: 280,
     stock: 8,
     quality: "Generica",
     supplier: "ElectroStock",
@@ -128,7 +131,7 @@ function renderParts() {
   totalProviders.textContent = providers.size;
 
   if (!filteredParts.length) {
-    partsTable.innerHTML = `<tr><td class="empty-table" colspan="7">No hay repuestos con esa busqueda.</td></tr>`;
+    partsTable.innerHTML = `<tr><td class="empty-table" colspan="8">No hay repuestos con esa busqueda.</td></tr>`;
     return;
   }
 
@@ -139,6 +142,7 @@ function renderParts() {
       <td><span class="quality-pill">${part.quality}</span></td>
       <td>${part.supplier}</td>
       <td>${formatCurrency(part.price)}</td>
+      <td>${formatCurrency(Number(part.customerPrice) || 0)}</td>
       <td>${part.stock}</td>
       <td>
         <button class="edit-button" type="button" data-id="${part.id}">Editar</button>
@@ -168,6 +172,7 @@ partsForm.addEventListener("submit", (event) => {
         name: normalizePartType(formData.get("partName")),
         category: formData.get("category"),
         price: Number(formData.get("price")),
+        customerPrice: Number(formData.get("customerPrice")) || 0,
         stock: Number(formData.get("stock")),
         quality: formData.get("quality"),
         supplier: formData.get("supplier").trim(),
@@ -182,6 +187,7 @@ partsForm.addEventListener("submit", (event) => {
       name: normalizePartType(formData.get("partName")),
       category: formData.get("category"),
       price: Number(formData.get("price")),
+      customerPrice: Number(formData.get("customerPrice")) || 0,
       stock: Number(formData.get("stock")),
       quality: formData.get("quality"),
       supplier: formData.get("supplier").trim(),
@@ -204,6 +210,7 @@ partsTable.addEventListener("click", (event) => {
     document.querySelector("#partName").value = part.name;
     document.querySelector("#category").value = part.category;
     document.querySelector("#price").value = part.price;
+    document.querySelector("#customerPrice").value = part.customerPrice ?? "";
     document.querySelector("#stock").value = part.stock;
     document.querySelector("#quality").value = part.quality;
     document.querySelector("#supplier").value = part.supplier;
