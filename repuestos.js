@@ -32,6 +32,8 @@ const starterParts = [
 
 const partsForm = document.querySelector("#partsForm");
 const partsTable = document.querySelector("#partsTable");
+const partNameInput = document.querySelector("#partName");
+const partTypeOptions = document.querySelector("#partTypeOptions");
 const partSearch = document.querySelector("#partSearch");
 const totalParts = document.querySelector("#totalParts");
 const totalValue = document.querySelector("#totalValue");
@@ -84,6 +86,21 @@ function loadParts() {
 
 function saveParts(parts) {
   localStorage.setItem(storageKey, JSON.stringify(parts));
+}
+
+function normalizePartType(value) {
+  const cleanedValue = value.trim().replace(/\s+/g, " ").toLowerCase();
+  if (!cleanedValue) return "";
+  return cleanedValue.charAt(0).toUpperCase() + cleanedValue.slice(1);
+}
+
+function renderPartTypeOptions() {
+  const partTypes = [...new Set(loadParts().map((part) => normalizePartType(part.name)).filter(Boolean))].sort();
+  partTypeOptions.innerHTML = partTypes.map((partType) => `<option value="${partType}"></option>`).join("");
+}
+
+function syncPartTypeText() {
+  partNameInput.value = normalizePartType(partNameInput.value);
 }
 
 function formatCurrency(value) {
@@ -148,7 +165,7 @@ partsForm.addEventListener("submit", (event) => {
     if (index !== -1) {
       parts[index] = {
         ...parts[index],
-        name: formData.get("partName").trim(),
+        name: normalizePartType(formData.get("partName")),
         category: formData.get("category"),
         price: Number(formData.get("price")),
         stock: Number(formData.get("stock")),
@@ -162,7 +179,7 @@ partsForm.addEventListener("submit", (event) => {
   } else {
     parts.unshift({
       id: crypto.randomUUID(),
-      name: formData.get("partName").trim(),
+      name: normalizePartType(formData.get("partName")),
       category: formData.get("category"),
       price: Number(formData.get("price")),
       stock: Number(formData.get("stock")),
@@ -174,6 +191,7 @@ partsForm.addEventListener("submit", (event) => {
 
   saveParts(parts);
   partsForm.reset();
+  renderPartTypeOptions();
   renderParts();
 });
 
@@ -224,7 +242,10 @@ partsTable.addEventListener("click", (event) => {
 });
 
 partSearch.addEventListener("input", renderParts);
+partNameInput.addEventListener("blur", syncPartTypeText);
+partNameInput.addEventListener("change", syncPartTypeText);
 
 updateDateTime();
 setInterval(updateDateTime, 1000);
+renderPartTypeOptions();
 renderParts();
