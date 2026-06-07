@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Reparaciones | Inventario y Reparaciones</title>
-    <link rel="stylesheet" href="styles.css?v=repuestos-polish-1" />
+    <link rel="stylesheet" href="styles.css?v=global-notes-1" />
   </head>
   <body class="parts-page">
     <main class="parts-shell">
@@ -64,10 +64,41 @@
         <span id="currentDate">--/--/----</span>
         <span id="currentTime">--:--</span>
       </div>
+
+      <button
+        class="color-mode-toggle"
+        type="button"
+        id="colorModeToggle"
+        aria-label="Cambiar a modo noche"
+        aria-pressed="false"
+        title="Cambiar a modo noche"
+      >
+        <svg class="mode-icon moon-icon" aria-hidden="true" viewBox="0 0 24 24">
+          <path
+            d="M20.3 15.4A8.2 8.2 0 0 1 8.6 3.7a8.9 8.9 0 1 0 11.7 11.7Z"
+            fill="none"
+            stroke="currentColor"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2.4"
+          />
+        </svg>
+        <svg class="mode-icon sun-icon" aria-hidden="true" viewBox="0 0 24 24">
+          <circle cx="12" cy="12" r="4.2" fill="none" stroke="currentColor" stroke-width="2.4" />
+          <path
+            d="M12 2.2v2.2M12 19.6v2.2M4.4 4.4 6 6M18 18l1.6 1.6M2.2 12h2.2M19.6 12h2.2M4.4 19.6 6 18M18 6l1.6-1.6"
+            fill="none"
+            stroke="currentColor"
+            stroke-linecap="round"
+            stroke-width="2.4"
+          />
+        </svg>
+      </button>
     </main>
 
     <script src="convex-config.js?v=parts-model-1"></script>
     <script src="convex-client.js?v=parts-model-1"></script>
-    <script src="reparaciones.js?v=parts-model-1"></script>
+    <script src="pending-notes.js?v=global-notes-1"></script>
+    <script src="reparaciones.js?v=global-notes-1"></script>
   </body>
 </html>

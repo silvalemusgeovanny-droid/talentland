@@ -62,6 +62,8 @@ const totalProviders = document.querySelector("#totalProviders");
 const partsHint = document.querySelector("#partsHint");
 const currentDate = document.querySelector("#currentDate");
 const currentTime = document.querySelector("#currentTime");
+const colorModeToggle = document.querySelector("#colorModeToggle");
+const colorModeStorageKey = "loginColorMode";
 let lastDeletedPart = null;
 let undoTimerId = null;
 
@@ -216,6 +218,16 @@ function updateDateTime() {
   currentTime.textContent = new Intl.DateTimeFormat("es-MX", { hour: "2-digit", minute: "2-digit" }).format(now);
 }
 
+function setColorMode(mode) {
+  const isDarkMode = mode === "dark";
+  document.body.classList.toggle("login-dark", isDarkMode);
+  const toggleLabel = isDarkMode ? "Cambiar a modo dia" : "Cambiar a modo noche";
+  colorModeToggle.setAttribute("aria-label", toggleLabel);
+  colorModeToggle.setAttribute("title", toggleLabel);
+  colorModeToggle.setAttribute("aria-pressed", String(isDarkMode));
+  localStorage.setItem(colorModeStorageKey, isDarkMode ? "dark" : "light");
+}
+
 partsForm.addEventListener("submit", (event) => {
   event.preventDefault();
   const formData = new FormData(partsForm);
@@ -330,7 +342,12 @@ brandInput.addEventListener("blur", syncBrandText);
 brandInput.addEventListener("change", syncBrandText);
 modelInput.addEventListener("blur", syncModelText);
 modelInput.addEventListener("change", syncModelText);
+colorModeToggle.addEventListener("click", () => {
+  const nextMode = document.body.classList.contains("login-dark") ? "light" : "dark";
+  setColorMode(nextMode);
+});
 
+setColorMode(localStorage.getItem(colorModeStorageKey) || "light");
 updateDateTime();
 setInterval(updateDateTime, 1000);
 renderPartTypeOptions();
