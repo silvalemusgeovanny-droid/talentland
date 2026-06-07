@@ -299,6 +299,7 @@ function canAccessModule(moduleName) {
 function applyAuthenticatedUser(user, message = "Sesion iniciada correctamente.") {
   currentUser = user;
   saveCurrentUser(user);
+  migrateLegacyNoteAuthors(user);
   const roleProfile = getRoleProfile(user.role);
   welcomeTitle.textContent = `Bienvenido, ${user.name}`;
   accessSummary.textContent = `${roleProfile.label} - ${roleProfile.access}`;
@@ -449,6 +450,20 @@ function loadNotes() {
 
 function saveNotes(notes) {
   localStorage.setItem(notesStorageKey, JSON.stringify(notes));
+}
+
+function migrateLegacyNoteAuthors(user) {
+  if (!user) return;
+  const authorName = user.name || user.username || "Usuario";
+  const authorUsername = user.username || "";
+  const notes = loadNotes();
+  let changed = false;
+  const migratedNotes = notes.map((note) => {
+    if (note.authorName) return note;
+    changed = true;
+    return { ...note, authorName, authorUsername };
+  });
+  if (changed) saveNotes(migratedNotes);
 }
 
 function getPendingNotes() {

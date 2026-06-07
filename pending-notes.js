@@ -46,6 +46,20 @@ function getCurrentUser() {
   }
 }
 
+function migrateLegacyNoteAuthors(user) {
+  if (!user) return;
+  const authorName = user.name || user.username || "Usuario";
+  const authorUsername = user.username || "";
+  const notes = loadNotes();
+  let changed = false;
+  const migratedNotes = notes.map((note) => {
+    if (note.authorName) return note;
+    changed = true;
+    return { ...note, authorName, authorUsername };
+  });
+  if (changed) saveNotes(migratedNotes);
+}
+
 function isPendingAlertSnoozed() {
   return Number(localStorage.getItem(notesSnoozeStorageKey) || 0) > Date.now();
 }
@@ -137,9 +151,11 @@ function setupPendingNotes() {
   const snoozePendingAlert = document.querySelector("#snoozePendingAlert");
 
   function renderNotes() {
+    const currentUser = getCurrentUser();
+    migrateLegacyNoteAuthors(currentUser);
     const notes = loadNotes();
     const pendingNotes = notes.filter((note) => !note.done);
-    const hasSession = Boolean(localStorage.getItem(sessionTokenStorageKey) || getCurrentUser());
+    const hasSession = Boolean(localStorage.getItem(sessionTokenStorageKey) || currentUser);
 
     notesToggle.hidden = !hasSession;
     notesBadge.hidden = !hasSession || pendingNotes.length === 0;
