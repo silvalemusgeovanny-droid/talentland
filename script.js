@@ -201,6 +201,8 @@ const starterParts = [
     stock: 4,
     quality: "Premium",
     supplier: "TecnoPartes MX",
+    publishedAt: new Date().toISOString(),
+    updatedAt: "",
   },
   {
     id: crypto.randomUUID(),
@@ -212,6 +214,8 @@ const starterParts = [
     stock: 3,
     quality: "Original",
     supplier: "CompuRefacciones",
+    publishedAt: new Date().toISOString(),
+    updatedAt: "",
   },
 ];
 
@@ -1215,6 +1219,7 @@ quickPartsForm.addEventListener("submit", (event) => {
   event.preventDefault();
   const formData = new FormData(quickPartsForm);
   const parts = loadParts();
+  const now = new Date().toISOString();
   parts.unshift({
     id: crypto.randomUUID(),
     name: normalizePartType(formData.get("partName")),
@@ -1225,6 +1230,8 @@ quickPartsForm.addEventListener("submit", (event) => {
     stock: Number(formData.get("stock")) || 1,
     quality: formData.get("quality"),
     supplier: formData.get("supplier").trim(),
+    publishedAt: now,
+    updatedAt: "",
   });
   saveParts(parts);
   quickPartsForm.reset();
