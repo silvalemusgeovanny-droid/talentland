@@ -115,6 +115,7 @@ const quickModelSelect = document.querySelector("#quickModelSelect");
 const quickModelInput = document.querySelector("#quickModel");
 const quickSupplierSelect = document.querySelector("#quickSupplierSelect");
 const quickSupplierInput = document.querySelector("#quickSupplier");
+const quickCategoryInput = document.querySelector("#quickCategory");
 const partsStorageKey = "inventoryParts";
 const newOptionValue = "__new__";
 const colorModeToggle = document.querySelector("#colorModeToggle");
@@ -203,7 +204,7 @@ const starterParts = [
     name: "Pantalla iPhone 11",
     brand: "Apple",
     model: "Iphone 11",
-    category: "Celular",
+    category: "Telefono",
     price: 1250,
     customerPrice: 1650,
     stock: 4,
@@ -418,6 +419,18 @@ function normalizePartType(value) {
   const cleanedValue = String(value || "").trim().replace(/\s+/g, " ").toLowerCase();
   if (!cleanedValue) return "";
   return cleanedValue.charAt(0).toUpperCase() + cleanedValue.slice(1);
+}
+
+function normalizeCategory(value) {
+  const categoryMap = {
+    Celular: "Telefono",
+    Telefono: "Telefono",
+    Tablet: "Tablet",
+    Computadora: "Computadora",
+    Electrodomestico: "Bocina",
+    Bocina: "Bocina",
+  };
+  return categoryMap[value] || "Telefono";
 }
 
 function getUniquePartValues(field) {
@@ -1401,7 +1414,7 @@ quickPartsForm.addEventListener("submit", (event) => {
     name: normalizePartType(formData.get("partName")),
     brand: normalizePartType(formData.get("brand")),
     model: normalizePartType(formData.get("model")),
-    category: "Repuesto",
+    category: normalizeCategory(formData.get("category")),
     price: Number(formData.get("price")),
     customerPrice: Number(formData.get("customerPrice")) || 0,
     stock: Number(formData.get("stock")) || 1,
