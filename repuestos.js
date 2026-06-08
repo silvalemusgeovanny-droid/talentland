@@ -115,7 +115,7 @@ function saveParts(parts) {
   localStorage.setItem(storageKey, JSON.stringify(parts));
 }
 
-function parseMoney(value) {
+function parseMoneyCents(value) {
   const normalizedValue = String(value ?? "").trim().replace(",", ".");
   const match = normalizedValue.match(/^(\d+)(?:\.(\d+))?$/);
   if (!match) return 0;
@@ -123,19 +123,45 @@ function parseMoney(value) {
   const pesos = Number(match[1]);
   const decimalDigits = `${match[2] || ""}000`;
   const cents = Number(decimalDigits.slice(0, 2)) + (Number(decimalDigits[2]) >= 5 ? 1 : 0);
-  return pesos + cents / 100;
+  return pesos * 100 + cents;
+}
+
+function centsToMoney(cents) {
+  return (Number(cents) || 0) / 100;
+}
+
+function parseMoney(value) {
+  return centsToMoney(parseMoneyCents(value));
+}
+
+function getMoneyCents(part, moneyField, centsField) {
+  const cents = Number(part?.[centsField]);
+  if (Number.isInteger(cents)) return cents;
+  return parseMoneyCents(part?.[moneyField]);
+}
+
+function formatCurrencyCents(cents) {
+  return formatCurrency(centsToMoney(cents));
+}
+
+function formatMoneyInput(cents) {
+  return centsToMoney(cents).toFixed(2);
 }
 
 function normalizePartForCloud(part) {
   const now = new Date().toISOString();
+  const priceCents = getMoneyCents(part, "price", "priceCents");
+  const customerPriceCents = getMoneyCents(part, "customerPrice", "customerPriceCents");
   return {
     sourceId: part.sourceId || part.id || crypto.randomUUID(),
     name: normalizePartType(part.name),
     brand: normalizePartType(part.brand),
     model: normalizePartType(part.model),
     category: normalizeCategory(part.category),
-    price: parseMoney(part.price),
-    customerPrice: parseMoney(part.customerPrice),
+    price: centsToMoney(priceCents),
+    priceCents,
+    customerPrice: centsToMoney(customerPriceCents),
+    customerPriceCents,
     stock: Number(part.stock) || 0,
     quality: normalizeQuality(part.quality || "Original"),
     supplier: normalizePartType(part.supplier),
@@ -314,14 +340,18 @@ function syncPartSelectFields() {
 
 function getPartFormValues() {
   syncPartSelectFields();
+  const priceCents = parseMoneyCents(document.querySelector("#price").value);
+  const customerPriceCents = parseMoneyCents(document.querySelector("#customerPrice").value);
   return {
     name: normalizePartType(partNameInput.value),
     brand: normalizePartType(brandInput.value),
     model: normalizePartType(modelInput.value),
     supplier: normalizePartType(supplierInput.value),
     category: normalizeCategory(document.querySelector("#category").value),
-    price: parseMoney(document.querySelector("#price").value),
-    customerPrice: parseMoney(document.querySelector("#customerPrice").value),
+    price: centsToMoney(priceCents),
+    priceCents,
+    customerPrice: centsToMoney(customerPriceCents),
+    customerPriceCents,
     stock: Number(document.querySelector("#stock").value),
     quality: normalizeQuality(document.querySelector("#quality").value),
   };
@@ -435,11 +465,11 @@ function getFilteredParts(parts) {
 function renderParts() {
   const parts = loadParts();
   const filteredParts = getFilteredParts(parts);
-  const inventoryValue = parts.reduce((sum, part) => sum + part.price * part.stock, 0);
+  const inventoryValueCents = parts.reduce((sum, part) => sum + getMoneyCents(part, "price", "priceCents") * part.stock, 0);
   const providers = new Set(parts.map((part) => part.supplier.trim().toLowerCase()));
 
   totalParts.textContent = parts.length;
-  totalValue.textContent = formatCurrency(inventoryValue);
+  totalValue.textContent = formatCurrencyCents(inventoryValueCents);
   totalProviders.textContent = providers.size;
 
   if (!filteredParts.length) {
@@ -455,8 +485,8 @@ function renderParts() {
       <td>${normalizeCategory(part.category)}</td>
       <td><span class="quality-pill ${getQualityClass(part.quality)}">${normalizeQuality(part.quality)}</span></td>
       <td>${part.supplier}</td>
-      <td>${formatCurrency(part.price)}</td>
-      <td>${formatCurrency(Number(part.customerPrice) || 0)}</td>
+      <td>${formatCurrencyCents(getMoneyCents(part, "price", "priceCents"))}</td>
+      <td>${formatCurrencyCents(getMoneyCents(part, "customerPrice", "customerPriceCents"))}</td>
       <td>${part.stock}</td>
       <td>${formatPartDate(part.publishedAt)}</td>
       <td>${formatPartDate(part.updatedAt)}</td>
@@ -574,8 +604,8 @@ partsTable.addEventListener("click", async (event) => {
     setSelectValueForEditingWithSuggestions(brandSelect, brandInput, part.brand || "", "brand", "brandEditOptions");
     setSelectValueForEditingWithSuggestions(modelSelect, modelInput, part.model || "", "model", "modelEditOptions");
     document.querySelector("#category").value = normalizeCategory(part.category);
-    document.querySelector("#price").value = part.price;
-    document.querySelector("#customerPrice").value = part.customerPrice ?? "";
+    document.querySelector("#price").value = formatMoneyInput(getMoneyCents(part, "price", "priceCents"));
+    document.querySelector("#customerPrice").value = formatMoneyInput(getMoneyCents(part, "customerPrice", "customerPriceCents"));
     document.querySelector("#stock").value = part.stock;
     document.querySelector("#quality").value = normalizeQuality(part.quality);
     setSelectValueForEditingWithSuggestions(supplierSelect, supplierInput, part.supplier, "supplier", "supplierEditOptions");
