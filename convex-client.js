@@ -28,6 +28,7 @@
     login: (username, password, sessionToken) =>
       callConvex("mutation", "auth:login", { username, password, sessionToken }),
     currentSession: (sessionToken) => callConvex("query", "auth:currentSession", { sessionToken }),
+    heartbeatPresence: (sessionToken) => callConvex("mutation", "auth:heartbeatPresence", { sessionToken }),
     logout: (sessionToken) => callConvex("mutation", "auth:logout", { sessionToken }),
     verifyAdmin: (username, password) => callConvex("mutation", "auth:verifyAdmin", { username, password }),
     registrarAuditoria: (tipo, descripcion, usuario = "sistema", datos = "") =>

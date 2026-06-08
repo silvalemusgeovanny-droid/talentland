@@ -96,6 +96,7 @@ const loginForm = document.querySelector("#loginForm");
 const sessionPanel = document.querySelector("#sessionPanel");
 const welcomeTitle = document.querySelector("#welcomeTitle");
 const accessSummary = document.querySelector("#accessSummary");
+const onlinePresence = document.querySelector("#onlinePresence");
 const permissionList = document.querySelector("#permissionList");
 const logoutButton = document.querySelector("#logoutButton");
 const currentDate = document.querySelector("#currentDate");
@@ -198,6 +199,8 @@ let sideRepairSearchTimer = null;
 let currentUser = null;
 let notesCloudMigrationDone = false;
 let partsCloudMigrationDone = false;
+let presenceTimer = null;
+const presenceHeartbeatMs = 25000;
 
 const starterParts = [
   {
@@ -302,6 +305,57 @@ function canAccessModule(moduleName) {
   return getRoleProfile(currentUser.role).modules.includes(moduleName);
 }
 
+function formatPresenceNames(users) {
+  const usernames = users.map((user) => user.username || user.name).filter(Boolean);
+  if (usernames.length <= 2) return usernames.join(" y ");
+  return `${usernames.slice(0, -1).join(", ")} y ${usernames.at(-1)}`;
+}
+
+function renderOnlinePresence(users = []) {
+  if (!onlinePresence) return;
+  if (users.length < 2) {
+    onlinePresence.hidden = true;
+    onlinePresence.textContent = "";
+    return;
+  }
+
+  onlinePresence.hidden = false;
+  onlinePresence.textContent = `${users.length} en linea (${formatPresenceNames(users)})`;
+}
+
+async function refreshPresence() {
+  if (!currentUser || !window.repairCloud?.isConfigured()) {
+    renderOnlinePresence([]);
+    return;
+  }
+
+  const sessionToken = getSavedSessionToken();
+  if (!sessionToken) {
+    renderOnlinePresence([]);
+    return;
+  }
+
+  try {
+    const users = await window.repairCloud.heartbeatPresence(sessionToken);
+    renderOnlinePresence(Array.isArray(users) ? users : []);
+  } catch {
+    renderOnlinePresence([]);
+  }
+}
+
+function stopPresenceUpdates() {
+  if (presenceTimer) clearInterval(presenceTimer);
+  presenceTimer = null;
+  renderOnlinePresence([]);
+}
+
+function startPresenceUpdates() {
+  stopPresenceUpdates();
+  refreshPresence();
+  if (!window.repairCloud?.isConfigured()) return;
+  presenceTimer = setInterval(refreshPresence, presenceHeartbeatMs);
+}
+
 function applyAuthenticatedUser(user, message = "Sesion iniciada correctamente.") {
   currentUser = user;
   saveCurrentUser(user);
@@ -320,6 +374,7 @@ function applyAuthenticatedUser(user, message = "Sesion iniciada correctamente."
   renderDatabase();
   renderUsers();
   renderNotes();
+  startPresenceUpdates();
 }
 
 async function signIn(username, password) {
@@ -1722,6 +1777,7 @@ usersList.addEventListener("click", (event) => {
 
 logoutButton.addEventListener("click", async () => {
   const sessionToken = getSavedSessionToken();
+  stopPresenceUpdates();
   if (sessionToken && window.repairCloud?.isConfigured()) {
     try {
       await window.repairCloud.logout(sessionToken);

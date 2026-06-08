@@ -21,6 +21,15 @@ export default defineSchema({
     lastSeenAt: v.string(),
   }).index("by_token_hash", ["tokenHash"]),
 
+  presencias: defineTable({
+    tokenHash: v.string(),
+    userId: v.id("usuarios"),
+    username: v.string(),
+    name: v.string(),
+    role: v.string(),
+    lastSeenAt: v.number(),
+  }).index("by_token_hash", ["tokenHash"]),
+
   reparaciones: defineTable({
     sourceId: v.optional(v.string()),
     repairNumber: v.number(),
