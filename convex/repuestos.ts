@@ -8,7 +8,9 @@ const partFields = {
   model: v.string(),
   category: v.string(),
   price: v.number(),
+  priceCents: v.optional(v.number()),
   customerPrice: v.number(),
+  customerPriceCents: v.optional(v.number()),
   stock: v.number(),
   quality: v.string(),
   supplier: v.string(),
@@ -65,6 +67,38 @@ function normalizeQuality(value = "") {
   return quality || "Original";
 }
 
+function parseMoneyCents(value: unknown) {
+  const normalizedValue = String(value ?? "").trim().replace(",", ".");
+  const match = normalizedValue.match(/^(\d+)(?:\.(\d+))?$/);
+  if (!match) return 0;
+
+  const pesos = Number(match[1]);
+  const decimalDigits = `${match[2] || ""}000`;
+  const cents = Number(decimalDigits.slice(0, 2)) + (Number(decimalDigits[2]) >= 5 ? 1 : 0);
+  return pesos * 100 + cents;
+}
+
+function centsToMoney(cents: number) {
+  return cents / 100;
+}
+
+function getMoneyCents(part: any, moneyField: string, centsField: string) {
+  const cents = Number(part?.[centsField]);
+  if (Number.isInteger(cents)) return cents;
+  return parseMoneyCents(part?.[moneyField]);
+}
+
+function normalizeMoneyFields(part: any) {
+  const priceCents = getMoneyCents(part, "price", "priceCents");
+  const customerPriceCents = getMoneyCents(part, "customerPrice", "customerPriceCents");
+  return {
+    price: centsToMoney(priceCents),
+    priceCents,
+    customerPrice: centsToMoney(customerPriceCents),
+    customerPriceCents,
+  };
+}
+
 export const list = query({
   args: {},
   handler: async (ctx) => {
@@ -75,7 +109,7 @@ export const list = query({
 export const create = mutation({
   args: partFields,
   handler: async (ctx, args) => {
-    const part = { ...args, quality: normalizeQuality(args.quality) };
+    const part = { ...args, ...normalizeMoneyFields(args), quality: normalizeQuality(args.quality) };
     if (hasModelSupplierConflict(part)) throw modelSupplierConflictError();
 
     const duplicate = await findDuplicatePart(ctx, part);
@@ -103,7 +137,9 @@ export const update = mutation({
       model: v.string(),
       category: v.string(),
       price: v.number(),
+      priceCents: v.optional(v.number()),
       customerPrice: v.number(),
+      customerPriceCents: v.optional(v.number()),
       stock: v.number(),
       quality: v.string(),
       supplier: v.string(),
@@ -112,7 +148,7 @@ export const update = mutation({
     }),
   },
   handler: async (ctx, args) => {
-    const patch = { ...args.patch, quality: normalizeQuality(args.patch.quality) };
+    const patch = { ...args.patch, ...normalizeMoneyFields(args.patch), quality: normalizeQuality(args.patch.quality) };
     if (hasModelSupplierConflict(patch)) throw modelSupplierConflictError();
 
     const duplicate = await findDuplicatePart(ctx, patch, String(args.id));
@@ -140,7 +176,7 @@ export const importBatch = mutation({
     let skipped = 0;
 
     for (const rawPart of args.parts) {
-      const part = { ...rawPart, quality: normalizeQuality(rawPart.quality) };
+      const part = { ...rawPart, ...normalizeMoneyFields(rawPart), quality: normalizeQuality(rawPart.quality) };
       if (hasModelSupplierConflict(part)) {
         skipped += 1;
         continue;

@@ -471,7 +471,7 @@ function saveParts(parts) {
   localStorage.setItem(partsStorageKey, JSON.stringify(parts));
 }
 
-function parseMoney(value) {
+function parseMoneyCents(value) {
   const normalizedValue = String(value ?? "").trim().replace(",", ".");
   const match = normalizedValue.match(/^(\d+)(?:\.(\d+))?$/);
   if (!match) return 0;
@@ -479,7 +479,25 @@ function parseMoney(value) {
   const pesos = Number(match[1]);
   const decimalDigits = `${match[2] || ""}000`;
   const cents = Number(decimalDigits.slice(0, 2)) + (Number(decimalDigits[2]) >= 5 ? 1 : 0);
-  return pesos + cents / 100;
+  return pesos * 100 + cents;
+}
+
+function centsToMoney(cents) {
+  return (Number(cents) || 0) / 100;
+}
+
+function parseMoney(value) {
+  return centsToMoney(parseMoneyCents(value));
+}
+
+function getMoneyCents(part, moneyField, centsField) {
+  const cents = Number(part?.[centsField]);
+  if (Number.isInteger(cents)) return cents;
+  return parseMoneyCents(part?.[moneyField]);
+}
+
+function formatCurrencyCents(cents) {
+  return formatCurrency(centsToMoney(cents));
 }
 
 function normalizePartType(value) {
@@ -558,14 +576,18 @@ function isDuplicateError(error) {
 
 function normalizePartForCloud(part) {
   const now = new Date().toISOString();
+  const priceCents = getMoneyCents(part, "price", "priceCents");
+  const customerPriceCents = getMoneyCents(part, "customerPrice", "customerPriceCents");
   return {
     sourceId: part.sourceId || part.id || crypto.randomUUID(),
     name: normalizePartType(part.name),
     brand: normalizePartType(part.brand),
     model: normalizePartType(part.model),
     category: normalizeCategory(part.category),
-    price: parseMoney(part.price),
-    customerPrice: parseMoney(part.customerPrice),
+    price: centsToMoney(priceCents),
+    priceCents,
+    customerPrice: centsToMoney(customerPriceCents),
+    customerPriceCents,
     stock: Number(part.stock) || 0,
     quality: normalizeQuality(part.quality || "Original"),
     supplier: normalizePartType(part.supplier),
@@ -906,7 +928,7 @@ function renderQuickParts() {
   quickPartsList.innerHTML = parts.map((part) => `
     <article class="compact-part-item">
       <strong>${part.name}</strong>
-      <span>${part.brand || "Sin marca"} ${part.model || ""} | Costo ${formatCurrency(part.price)} | Cliente ${formatCurrency(Number(part.customerPrice) || 0)} | <span class="quality-pill ${getQualityClass(part.quality)}">${normalizeQuality(part.quality)}</span> | ${part.supplier}</span>
+      <span>${part.brand || "Sin marca"} ${part.model || ""} | Costo ${formatCurrencyCents(getMoneyCents(part, "price", "priceCents"))} | Cliente ${formatCurrencyCents(getMoneyCents(part, "customerPrice", "customerPriceCents"))} | <span class="quality-pill ${getQualityClass(part.quality)}">${normalizeQuality(part.quality)}</span> | ${part.supplier}</span>
     </article>
   `).join("");
 }
@@ -1580,14 +1602,18 @@ quickPartsForm.addEventListener("submit", async (event) => {
   const formData = new FormData(quickPartsForm);
   const parts = loadParts();
   const now = new Date().toISOString();
+  const priceCents = parseMoneyCents(formData.get("price"));
+  const customerPriceCents = parseMoneyCents(formData.get("customerPrice"));
   const part = {
     id: crypto.randomUUID(),
     name: normalizePartType(formData.get("partName")),
     brand: normalizePartType(formData.get("brand")),
     model: normalizePartType(formData.get("model")),
     category: normalizeCategory(formData.get("category")),
-    price: parseMoney(formData.get("price")),
-    customerPrice: parseMoney(formData.get("customerPrice")),
+    price: centsToMoney(priceCents),
+    priceCents,
+    customerPrice: centsToMoney(customerPriceCents),
+    customerPriceCents,
     stock: Number(formData.get("stock")) || 1,
     quality: normalizeQuality(formData.get("quality")),
     supplier: normalizePartType(formData.get("supplier")),
