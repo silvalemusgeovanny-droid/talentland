@@ -169,6 +169,12 @@ function setSelectValue(select, input, value) {
   syncManualField(select, input);
 }
 
+function setSelectValueForEditing(select, input, value) {
+  input.value = normalizePartType(value);
+  select.value = newOptionValue;
+  syncManualField(select, input);
+}
+
 function renderPartTypeOptions() {
   renderSelectOptions(partNameSelect, getUniquePartValues("name"), "Selecciona un repuesto");
   syncManualField(partNameSelect, partNameInput);
@@ -360,15 +366,15 @@ partsTable.addEventListener("click", (event) => {
     const parts = loadParts();
     const part = parts.find((p) => p.id === editButton.dataset.id);
     if (!part) return;
-    setSelectValue(partNameSelect, partNameInput, part.name);
-    setSelectValue(brandSelect, brandInput, part.brand || "");
-    setSelectValue(modelSelect, modelInput, part.model || "");
+    setSelectValueForEditing(partNameSelect, partNameInput, part.name);
+    setSelectValueForEditing(brandSelect, brandInput, part.brand || "");
+    setSelectValueForEditing(modelSelect, modelInput, part.model || "");
     document.querySelector("#category").value = normalizeCategory(part.category);
     document.querySelector("#price").value = part.price;
     document.querySelector("#customerPrice").value = part.customerPrice ?? "";
     document.querySelector("#stock").value = part.stock;
     document.querySelector("#quality").value = part.quality;
-    setSelectValue(supplierSelect, supplierInput, part.supplier);
+    setSelectValueForEditing(supplierSelect, supplierInput, part.supplier);
     publishedAtInput.value = formatPartDate(part.publishedAt);
     updatedAtInput.value = formatPartDate(part.updatedAt);
     partsForm.dataset.editingId = part.id;
