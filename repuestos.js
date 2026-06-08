@@ -338,19 +338,32 @@ function formatPartDate(value) {
   }).format(date);
 }
 
+function normalizePartSearch(value = "") {
+  return String(value ?? "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim()
+    .toLowerCase();
+}
+
+function getPartSearchText(part) {
+  return [part.name, part.brand, part.model, part.category, part.quality, part.supplier]
+    .map(normalizePartSearch)
+    .join(" ");
+}
+
 function resetPartDates() {
   publishedAtInput.value = "Automatico al guardar";
   updatedAtInput.value = "Sin modificaciones";
 }
 
 function getFilteredParts(parts) {
-  const term = partSearch.value.trim().toLowerCase();
-  if (!term) return parts;
-  return parts.filter((part) =>
-    [part.name, part.brand, part.model, part.category, part.quality, part.supplier].some((field) =>
-      field.toLowerCase().includes(term),
-    ),
-  );
+  const terms = normalizePartSearch(partSearch.value).split(/\s+/).filter(Boolean);
+  if (!terms.length) return parts;
+  return parts.filter((part) => {
+    const searchText = getPartSearchText(part);
+    return terms.every((term) => searchText.includes(term));
+  });
 }
 
 function renderParts() {
