@@ -146,11 +146,6 @@ function normalizePartForCloud(part) {
 
 async function migrateLocalPartsToCloud() {
   if (partsCloudMigrationDone || !window.repairCloud?.isConfigured()) return;
-  const parts = loadParts()
-    .filter((part) => !part._id)
-    .map(normalizePartForCloud)
-    .filter((part) => part.name && part.supplier);
-  if (parts.length) await window.repairCloud.importParts(parts);
   partsCloudMigrationDone = true;
 }
 
