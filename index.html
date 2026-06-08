@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Login | Inventario y Reparaciones</title>
-    <link rel="stylesheet" href="styles.css?v=global-notes-1" />
+    <link rel="stylesheet" href="styles.css?v=parts-selects-1" />
   </head>
   <body>
     <main class="app-shell">
@@ -162,20 +162,21 @@
 
           <section class="module-panel compact-parts" id="partsModule">
             <form class="compact-parts-form" id="quickPartsForm">
-              <label for="quickPartName">Repuesto</label>
-              <input id="quickPartName" name="partName" type="text" list="quickPartTypeOptions" placeholder="Pantalla, bateria, motor..." required />
-              <datalist id="quickPartTypeOptions"></datalist>
+              <label for="quickPartNameSelect">Repuesto</label>
+              <select id="quickPartNameSelect" data-manual-target="quickPartName" required></select>
+              <input id="quickPartName" class="manual-option-field" name="partName" type="text" placeholder="Escribe el repuesto nuevo" required hidden />
 
-              <label for="quickBrand">Marca</label>
-              <input id="quickBrand" name="brand" type="text" list="quickBrandOptions" placeholder="Samsung, Apple, HP..." required />
-              <datalist id="quickBrandOptions"></datalist>
+              <label for="quickBrandSelect">Marca</label>
+              <select id="quickBrandSelect" data-manual-target="quickBrand" required></select>
+              <input id="quickBrand" class="manual-option-field" name="brand" type="text" placeholder="Escribe la marca nueva" required hidden />
 
-              <label for="quickModel">Modelo</label>
-              <input id="quickModel" name="model" type="text" list="quickModelOptions" placeholder="A12, iPhone 11, Pavilion..." required />
-              <datalist id="quickModelOptions"></datalist>
+              <label for="quickModelSelect">Modelo</label>
+              <select id="quickModelSelect" data-manual-target="quickModel" required></select>
+              <input id="quickModel" class="manual-option-field" name="model" type="text" placeholder="Escribe el modelo nuevo" required hidden />
 
-              <label for="quickSupplier">Proveedor</label>
-              <input id="quickSupplier" name="supplier" type="text" placeholder="Nombre del proveedor" required />
+              <label for="quickSupplierSelect">Proveedor</label>
+              <select id="quickSupplierSelect" data-manual-target="quickSupplier" required></select>
+              <input id="quickSupplier" class="manual-option-field" name="supplier" type="text" placeholder="Escribe el proveedor nuevo" required hidden />
 
               <div class="field-grid">
                 <div>
@@ -477,6 +478,6 @@
     <script src="convex-config.js?v=parts-model-1"></script>
     <script src="convex-client.js?v=notes-convex-1"></script>
     <script src="https://unpkg.com/convex/dist/browser.js"></script>
-    <script src="script.js?v=notes-convex-1"></script>
+    <script src="script.js?v=parts-selects-1"></script>
   </body>
 </html>
