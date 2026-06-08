@@ -1607,10 +1607,55 @@ body.login-dark tbody tr:hover {
   place-items: center;
   padding: 0 10px;
   border-radius: 999px;
+  border: 1px solid rgb(17 105 79 / 14%);
   background: #e8f3ef;
   color: #11694f;
   font-size: 0.82rem;
   font-weight: 900;
+}
+
+.quality-premium {
+  border-color: rgb(156 104 26 / 18%);
+  background: #f6efe2;
+  color: #7d4b10;
+}
+
+.quality-generica,
+.quality-generico {
+  border-color: rgb(85 12 20 / 22%);
+  background: #f1e5e6;
+  color: #4f0811;
+}
+
+.quality-reacondicionada {
+  border-color: rgb(58 75 126 / 18%);
+  background: #e9edf7;
+  color: #303f75;
+}
+
+body.login-dark .quality-pill {
+  border-color: rgb(110 204 176 / 20%);
+  background: rgb(51 111 93 / 18%);
+  color: #9be0cb;
+}
+
+body.login-dark .quality-premium {
+  border-color: rgb(232 185 110 / 24%);
+  background: rgb(132 86 18 / 24%);
+  color: #f0c47d;
+}
+
+body.login-dark .quality-generica,
+body.login-dark .quality-generico {
+  border-color: rgb(130 26 38 / 42%);
+  background: rgb(82 8 17 / 38%);
+  color: #f0b6bc;
+}
+
+body.login-dark .quality-reacondicionada {
+  border-color: rgb(126 145 205 / 22%);
+  background: rgb(52 65 109 / 28%);
+  color: #bcc9f2;
 }
 
 .delete-button {
