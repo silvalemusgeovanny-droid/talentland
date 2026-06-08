@@ -31,26 +31,25 @@ function getPartDuplicateKey(part: any) {
     .join("|");
 }
 
-function getPartCrossFieldKey(part: any) {
-  return [part.name, part.brand, part.model, part.supplier, part.category, part.quality]
-    .map(normalizePartSearch)
-    .filter(Boolean)
-    .sort()
-    .join("|");
-}
-
 async function findDuplicatePart(ctx: any, part: any, currentId = "") {
   const duplicateKey = getPartDuplicateKey(part);
-  const crossFieldKey = getPartCrossFieldKey(part);
   const parts = await ctx.db.query("repuestos").take(2000);
   return parts.find((existingPart: any) => {
     if (String(existingPart._id) === currentId) return false;
-    return getPartDuplicateKey(existingPart) === duplicateKey || getPartCrossFieldKey(existingPart) === crossFieldKey;
+    return getPartDuplicateKey(existingPart) === duplicateKey;
   });
 }
 
 function duplicateError(part: any) {
   return new Error(`Duplicado: ya existe ${part.name} ${part.brand} ${part.model}.`);
+}
+
+function hasModelSupplierConflict(part: any) {
+  return Boolean(normalizePartSearch(part.model)) && normalizePartSearch(part.model) === normalizePartSearch(part.supplier);
+}
+
+function modelSupplierConflictError() {
+  return new Error("Revisa el modelo y proveedor: no pueden ser iguales.");
 }
 
 export const list = query({
@@ -63,6 +62,8 @@ export const list = query({
 export const create = mutation({
   args: partFields,
   handler: async (ctx, args) => {
+    if (hasModelSupplierConflict(args)) throw modelSupplierConflictError();
+
     const duplicate = await findDuplicatePart(ctx, args);
     if (duplicate) throw duplicateError(duplicate);
 
@@ -97,6 +98,8 @@ export const update = mutation({
     }),
   },
   handler: async (ctx, args) => {
+    if (hasModelSupplierConflict(args.patch)) throw modelSupplierConflictError();
+
     const duplicate = await findDuplicatePart(ctx, args.patch, String(args.id));
     if (duplicate) throw duplicateError(duplicate);
 
@@ -122,6 +125,11 @@ export const importBatch = mutation({
     let skipped = 0;
 
     for (const part of args.parts) {
+      if (hasModelSupplierConflict(part)) {
+        skipped += 1;
+        continue;
+      }
+
       const duplicate = await findDuplicatePart(ctx, part);
       if (duplicate) {
         skipped += 1;

@@ -369,25 +369,24 @@ function getPartDuplicateKey(part) {
     .join("|");
 }
 
-function getPartCrossFieldKey(part) {
-  return [part.name, part.brand, part.model, part.supplier, part.category, part.quality]
-    .map(normalizePartSearch)
-    .filter(Boolean)
-    .sort()
-    .join("|");
-}
-
 function findDuplicatePart(parts, part, currentId = "") {
   const duplicateKey = getPartDuplicateKey(part);
-  const crossFieldKey = getPartCrossFieldKey(part);
   return parts.find((existingPart) => {
     if (existingPart.id === currentId || existingPart._id === currentId) return false;
-    return getPartDuplicateKey(existingPart) === duplicateKey || getPartCrossFieldKey(existingPart) === crossFieldKey;
+    return getPartDuplicateKey(existingPart) === duplicateKey;
   });
 }
 
 function getDuplicateMessage(part) {
   return `Duplicado: ya existe ${part.name} ${part.brand} ${part.model}.`;
+}
+
+function hasModelSupplierConflict(part) {
+  return Boolean(normalizePartSearch(part.model)) && normalizePartSearch(part.model) === normalizePartSearch(part.supplier);
+}
+
+function getModelSupplierConflictMessage() {
+  return "Revisa el modelo y proveedor: no pueden ser iguales.";
 }
 
 function isDuplicateError(error) {
@@ -473,6 +472,11 @@ partsForm.addEventListener("submit", async (event) => {
   const formValues = getPartFormValues();
   const parts = loadParts();
   const editingId = partsForm.dataset.editingId;
+  if (hasModelSupplierConflict(formValues)) {
+    partsHint.textContent = getModelSupplierConflictMessage();
+    return;
+  }
+
   const duplicatePart = findDuplicatePart(parts, formValues, editingId);
 
   if (duplicatePart) {
