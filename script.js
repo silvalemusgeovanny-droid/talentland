@@ -445,6 +445,46 @@ function normalizeCategory(value) {
   return categoryMap[value] || "Telefono";
 }
 
+function normalizePartSearch(value = "") {
+  return String(value ?? "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-zA-Z0-9]+/g, " ")
+    .trim()
+    .toLowerCase();
+}
+
+function getPartDuplicateKey(part) {
+  return [part.name, part.brand, part.model, part.category, part.quality]
+    .map(normalizePartSearch)
+    .join("|");
+}
+
+function getPartCrossFieldKey(part) {
+  return [part.name, part.brand, part.model, part.supplier, part.category, part.quality]
+    .map(normalizePartSearch)
+    .filter(Boolean)
+    .sort()
+    .join("|");
+}
+
+function findDuplicatePart(parts, part, currentId = "") {
+  const duplicateKey = getPartDuplicateKey(part);
+  const crossFieldKey = getPartCrossFieldKey(part);
+  return parts.find((existingPart) => {
+    if (existingPart.id === currentId || existingPart._id === currentId) return false;
+    return getPartDuplicateKey(existingPart) === duplicateKey || getPartCrossFieldKey(existingPart) === crossFieldKey;
+  });
+}
+
+function getDuplicateMessage(part) {
+  return `Duplicado: ya existe ${part.name} ${part.brand} ${part.model}.`;
+}
+
+function isDuplicateError(error) {
+  return String(error?.message || "").toLowerCase().includes("duplicado");
+}
+
 function normalizePartForCloud(part) {
   const now = new Date().toISOString();
   return {
@@ -1483,6 +1523,13 @@ quickPartsForm.addEventListener("submit", async (event) => {
     publishedAt: now,
     updatedAt: "",
   };
+  const duplicatePart = findDuplicatePart(parts, part);
+
+  if (duplicatePart) {
+    quickPartsHint.textContent = getDuplicateMessage(duplicatePart);
+    return;
+  }
+
   try {
     if (window.repairCloud?.isConfigured()) {
       await window.repairCloud.createPart(normalizePartForCloud(part));
@@ -1490,6 +1537,10 @@ quickPartsForm.addEventListener("submit", async (event) => {
       parts.unshift(part);
     }
   } catch (error) {
+    if (isDuplicateError(error)) {
+      quickPartsHint.textContent = error.message;
+      return;
+    }
     parts.unshift(part);
     quickPartsHint.textContent = `Guardado localmente: ${error.message}`;
   }

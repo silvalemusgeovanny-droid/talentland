@@ -363,6 +363,37 @@ function compactPartSearch(value = "") {
   return normalizePartSearch(value).replace(/\s+/g, "");
 }
 
+function getPartDuplicateKey(part) {
+  return [part.name, part.brand, part.model, part.category, part.quality]
+    .map(normalizePartSearch)
+    .join("|");
+}
+
+function getPartCrossFieldKey(part) {
+  return [part.name, part.brand, part.model, part.supplier, part.category, part.quality]
+    .map(normalizePartSearch)
+    .filter(Boolean)
+    .sort()
+    .join("|");
+}
+
+function findDuplicatePart(parts, part, currentId = "") {
+  const duplicateKey = getPartDuplicateKey(part);
+  const crossFieldKey = getPartCrossFieldKey(part);
+  return parts.find((existingPart) => {
+    if (existingPart.id === currentId || existingPart._id === currentId) return false;
+    return getPartDuplicateKey(existingPart) === duplicateKey || getPartCrossFieldKey(existingPart) === crossFieldKey;
+  });
+}
+
+function getDuplicateMessage(part) {
+  return `Duplicado: ya existe ${part.name} ${part.brand} ${part.model}.`;
+}
+
+function isDuplicateError(error) {
+  return String(error?.message || "").toLowerCase().includes("duplicado");
+}
+
 function resetPartDates() {
   publishedAtInput.value = "Automatico al guardar";
   updatedAtInput.value = "Sin modificaciones";
@@ -442,11 +473,18 @@ partsForm.addEventListener("submit", async (event) => {
   const formValues = getPartFormValues();
   const parts = loadParts();
   const editingId = partsForm.dataset.editingId;
+  const duplicatePart = findDuplicatePart(parts, formValues, editingId);
+
+  if (duplicatePart) {
+    partsHint.textContent = getDuplicateMessage(duplicatePart);
+    return;
+  }
 
   if (editingId) {
     const index = parts.findIndex((p) => p.id === editingId);
     if (index !== -1) {
       const now = new Date().toISOString();
+      const previousPart = { ...parts[index] };
       parts[index] = {
         ...parts[index],
         ...formValues,
@@ -463,6 +501,11 @@ partsForm.addEventListener("submit", async (event) => {
           });
         }
       } catch (error) {
+        parts[index] = previousPart;
+        if (isDuplicateError(error)) {
+          partsHint.textContent = error.message;
+          return;
+        }
         partsHint.textContent = `Guardado localmente: ${error.message}`;
       }
     }
@@ -484,6 +527,10 @@ partsForm.addEventListener("submit", async (event) => {
         parts.unshift(part);
       }
     } catch (error) {
+      if (isDuplicateError(error)) {
+        partsHint.textContent = error.message;
+        return;
+      }
       parts.unshift(part);
       partsHint.textContent = `Guardado localmente: ${error.message}`;
     }
