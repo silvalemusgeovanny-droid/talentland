@@ -146,6 +146,7 @@ function getUniquePartValues(field) {
 }
 
 function renderSelectOptions(select, values, placeholder) {
+  select.hidden = false;
   select.innerHTML = [
     `<option value="">${escapeHtml(placeholder)}</option>`,
     ...values.map((value) => `<option value="${escapeHtml(value)}">${escapeHtml(value)}</option>`),
@@ -154,6 +155,7 @@ function renderSelectOptions(select, values, placeholder) {
 }
 
 function syncManualField(select, input) {
+  if (select.hidden) return;
   const isNew = select.value === newOptionValue;
   input.hidden = !isNew;
   input.required = isNew;
@@ -170,9 +172,10 @@ function setSelectValue(select, input, value) {
 }
 
 function setSelectValueForEditing(select, input, value) {
+  select.hidden = true;
+  input.hidden = false;
+  input.required = true;
   input.value = normalizePartType(value);
-  select.value = newOptionValue;
-  syncManualField(select, input);
 }
 
 function renderPartTypeOptions() {
