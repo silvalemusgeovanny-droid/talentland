@@ -26,7 +26,7 @@ function normalizePartSearch(value = "") {
 }
 
 function getPartDuplicateKey(part: any) {
-  return [part.name, part.brand, part.model, part.category, part.quality]
+  return [part.name, part.brand, part.model, part.category, normalizeQuality(part.quality)]
     .map(normalizePartSearch)
     .join("|");
 }
@@ -52,6 +52,19 @@ function modelSupplierConflictError() {
   return new Error("Revisa el modelo y proveedor: no pueden ser iguales.");
 }
 
+function normalizeQuality(value = "") {
+  const quality = String(value || "").trim();
+  const normalized = normalizePartSearch(quality);
+  if (["premium", "premiun", "gx"].includes(normalized)) return "GX";
+  if (["originall", "original"].includes(normalized)) return "Original";
+  if (["amoled", "am oled"].includes(normalized)) return "Amoled";
+  if (normalized === "oled") return "OLED";
+  if (normalized === "tft") return "TFT";
+  if (normalized === "ips") return "IPS";
+  if (["generico", "generica"].includes(normalized)) return "Generica";
+  return quality || "Original";
+}
+
 export const list = query({
   args: {},
   handler: async (ctx) => {
@@ -62,9 +75,10 @@ export const list = query({
 export const create = mutation({
   args: partFields,
   handler: async (ctx, args) => {
-    if (hasModelSupplierConflict(args)) throw modelSupplierConflictError();
+    const part = { ...args, quality: normalizeQuality(args.quality) };
+    if (hasModelSupplierConflict(part)) throw modelSupplierConflictError();
 
-    const duplicate = await findDuplicatePart(ctx, args);
+    const duplicate = await findDuplicatePart(ctx, part);
     if (duplicate) throw duplicateError(duplicate);
 
     if (args.sourceId) {
@@ -76,7 +90,7 @@ export const create = mutation({
       if (existing) return existing._id;
     }
 
-    return await ctx.db.insert("repuestos", args);
+    return await ctx.db.insert("repuestos", part);
   },
 });
 
@@ -98,12 +112,13 @@ export const update = mutation({
     }),
   },
   handler: async (ctx, args) => {
-    if (hasModelSupplierConflict(args.patch)) throw modelSupplierConflictError();
+    const patch = { ...args.patch, quality: normalizeQuality(args.patch.quality) };
+    if (hasModelSupplierConflict(patch)) throw modelSupplierConflictError();
 
-    const duplicate = await findDuplicatePart(ctx, args.patch, String(args.id));
+    const duplicate = await findDuplicatePart(ctx, patch, String(args.id));
     if (duplicate) throw duplicateError(duplicate);
 
-    await ctx.db.patch(args.id, args.patch);
+    await ctx.db.patch(args.id, patch);
   },
 });
 
@@ -124,7 +139,8 @@ export const importBatch = mutation({
     let inserted = 0;
     let skipped = 0;
 
-    for (const part of args.parts) {
+    for (const rawPart of args.parts) {
+      const part = { ...rawPart, quality: normalizeQuality(rawPart.quality) };
       if (hasModelSupplierConflict(part)) {
         skipped += 1;
         continue;

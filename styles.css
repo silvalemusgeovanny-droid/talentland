@@ -1607,17 +1607,48 @@ body.login-dark tbody tr:hover {
   place-items: center;
   padding: 0 10px;
   border-radius: 999px;
-  border: 1px solid rgb(17 105 79 / 14%);
-  background: #e8f3ef;
-  color: #11694f;
+  border: 1px solid rgb(12 72 45 / 18%);
+  background: #e4efe8;
+  color: #0b4b2d;
   font-size: 0.82rem;
   font-weight: 900;
 }
 
+.quality-original {
+  border-color: rgb(12 72 45 / 18%);
+  background: #e4efe8;
+  color: #0b4b2d;
+}
+
+.quality-gx,
 .quality-premium {
   border-color: rgb(156 104 26 / 18%);
   background: #f6efe2;
   color: #7d4b10;
+}
+
+.quality-oled {
+  border-color: rgb(67 56 146 / 18%);
+  background: #eceaf7;
+  color: #3b317f;
+}
+
+.quality-amoled {
+  border-color: rgb(17 104 94 / 18%);
+  background: #e4f2ef;
+  color: #0f6157;
+}
+
+.quality-tft {
+  border-color: rgb(70 82 95 / 18%);
+  background: #eef1f3;
+  color: #384552;
+}
+
+.quality-ips {
+  border-color: rgb(32 91 128 / 18%);
+  background: #e5eff5;
+  color: #1e587b;
 }
 
 .quality-generica,
@@ -1634,15 +1665,46 @@ body.login-dark tbody tr:hover {
 }
 
 body.login-dark .quality-pill {
-  border-color: rgb(110 204 176 / 20%);
-  background: rgb(51 111 93 / 18%);
-  color: #9be0cb;
+  border-color: rgb(72 150 103 / 26%);
+  background: rgb(13 74 45 / 30%);
+  color: #9fd7b7;
 }
 
+body.login-dark .quality-original {
+  border-color: rgb(72 150 103 / 26%);
+  background: rgb(13 74 45 / 30%);
+  color: #9fd7b7;
+}
+
+body.login-dark .quality-gx,
 body.login-dark .quality-premium {
   border-color: rgb(232 185 110 / 24%);
   background: rgb(132 86 18 / 24%);
   color: #f0c47d;
+}
+
+body.login-dark .quality-oled {
+  border-color: rgb(151 139 226 / 24%);
+  background: rgb(63 53 135 / 28%);
+  color: #c7c0f5;
+}
+
+body.login-dark .quality-amoled {
+  border-color: rgb(91 204 190 / 24%);
+  background: rgb(16 94 84 / 28%);
+  color: #a9e5dc;
+}
+
+body.login-dark .quality-tft {
+  border-color: rgb(157 171 184 / 22%);
+  background: rgb(70 82 95 / 25%);
+  color: #d0d8df;
+}
+
+body.login-dark .quality-ips {
+  border-color: rgb(96 159 201 / 24%);
+  background: rgb(28 88 126 / 28%);
+  color: #afd3eb;
 }
 
 body.login-dark .quality-generica,
