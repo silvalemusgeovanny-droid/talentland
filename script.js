@@ -197,6 +197,7 @@ let undoTimerId = null;
 let sideRepairSearchTimer = null;
 let currentUser = null;
 let notesCloudMigrationDone = false;
+let partsCloudMigrationDone = false;
 
 const starterParts = [
   {
@@ -431,6 +432,59 @@ function normalizeCategory(value) {
     Bocina: "Bocina",
   };
   return categoryMap[value] || "Telefono";
+}
+
+function normalizePartForCloud(part) {
+  const now = new Date().toISOString();
+  return {
+    sourceId: part.sourceId || part.id || crypto.randomUUID(),
+    name: normalizePartType(part.name),
+    brand: normalizePartType(part.brand),
+    model: normalizePartType(part.model),
+    category: normalizeCategory(part.category),
+    price: Number(part.price) || 0,
+    customerPrice: Number(part.customerPrice) || 0,
+    stock: Number(part.stock) || 0,
+    quality: part.quality || "Original",
+    supplier: normalizePartType(part.supplier),
+    publishedAt: part.publishedAt || now,
+    updatedAt: part.updatedAt || "",
+  };
+}
+
+async function migrateLocalPartsToCloud() {
+  if (partsCloudMigrationDone || !window.repairCloud?.isConfigured()) return;
+  const parts = loadParts()
+    .filter((part) => !part._id)
+    .map(normalizePartForCloud)
+    .filter((part) => part.name && part.supplier);
+  if (parts.length) await window.repairCloud.importParts(parts);
+  partsCloudMigrationDone = true;
+}
+
+async function loadPartsFromSource() {
+  if (window.repairCloud?.isConfigured()) {
+    await migrateLocalPartsToCloud();
+    const cloudParts = await window.repairCloud.listParts();
+    const parts = cloudParts.map((part) => ({ ...part, id: part._id || part.id }));
+    saveParts(parts);
+    return parts;
+  }
+
+  return loadParts();
+}
+
+async function refreshQuickPartsView() {
+  try {
+    await loadPartsFromSource();
+  } catch (error) {
+    quickPartsHint.textContent = `Modo local: ${error.message}`;
+  }
+  renderQuickPartTypeOptions();
+  renderQuickBrandOptions();
+  renderQuickModelOptions();
+  renderQuickSupplierOptions();
+  renderQuickParts();
 }
 
 function getUniquePartValues(field) {
@@ -1403,13 +1457,13 @@ adminVoidForm.addEventListener("submit", async (event) => {
   });
 });
 
-quickPartsForm.addEventListener("submit", (event) => {
+quickPartsForm.addEventListener("submit", async (event) => {
   event.preventDefault();
   syncQuickPartSelectFields();
   const formData = new FormData(quickPartsForm);
   const parts = loadParts();
   const now = new Date().toISOString();
-  parts.unshift({
+  const part = {
     id: crypto.randomUUID(),
     name: normalizePartType(formData.get("partName")),
     brand: normalizePartType(formData.get("brand")),
@@ -1422,15 +1476,21 @@ quickPartsForm.addEventListener("submit", (event) => {
     supplier: normalizePartType(formData.get("supplier")),
     publishedAt: now,
     updatedAt: "",
-  });
+  };
+  try {
+    if (window.repairCloud?.isConfigured()) {
+      await window.repairCloud.createPart(normalizePartForCloud(part));
+    } else {
+      parts.unshift(part);
+    }
+  } catch (error) {
+    parts.unshift(part);
+    quickPartsHint.textContent = `Guardado localmente: ${error.message}`;
+  }
   saveParts(parts);
   quickPartsForm.reset();
   quickPartsHint.textContent = "Repuesto guardado correctamente.";
-  renderQuickPartTypeOptions();
-  renderQuickBrandOptions();
-  renderQuickModelOptions();
-  renderQuickSupplierOptions();
-  renderQuickParts();
+  await refreshQuickPartsView();
 });
 
 repairsList.addEventListener("click", (event) => {
@@ -1636,11 +1696,7 @@ updateSaleTotals();
 renderSales();
 renderRepairs();
 updateDateTime();
-renderQuickPartTypeOptions();
-renderQuickBrandOptions();
-renderQuickModelOptions();
-renderQuickSupplierOptions();
-renderQuickParts();
+refreshQuickPartsView();
 renderNotes();
 restoreSession();
 window.addEventListener("online", warnIfLocalSessionCanUseConvex);

@@ -56,4 +56,19 @@ export default defineSchema({
     createdAt: v.string(),
     updatedAt: v.string(),
   }).index("by_source_id", ["sourceId"]),
+
+  repuestos: defineTable({
+    sourceId: v.optional(v.string()),
+    name: v.string(),
+    brand: v.string(),
+    model: v.string(),
+    category: v.string(),
+    price: v.number(),
+    customerPrice: v.number(),
+    stock: v.number(),
+    quality: v.string(),
+    supplier: v.string(),
+    publishedAt: v.string(),
+    updatedAt: v.string(),
+  }).index("by_source_id", ["sourceId"]),
 });

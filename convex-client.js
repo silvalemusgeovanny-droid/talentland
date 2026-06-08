@@ -38,5 +38,10 @@
     importNotes: (notes) => callConvex("mutation", "notas:importBatch", { notes }),
     toggleNote: (id, done) => callConvex("mutation", "notas:toggle", { id, done, updatedAt: new Date().toISOString() }),
     removeNote: (id) => callConvex("mutation", "notas:remove", { id }),
+    listParts: () => callConvex("query", "repuestos:list", {}),
+    createPart: (part) => callConvex("mutation", "repuestos:create", part),
+    updatePart: (id, patch) => callConvex("mutation", "repuestos:update", { id, patch }),
+    removePart: (id) => callConvex("mutation", "repuestos:remove", { id }),
+    importParts: (parts) => callConvex("mutation", "repuestos:importBatch", { parts }),
   };
 })();
