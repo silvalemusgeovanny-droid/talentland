@@ -6,7 +6,7 @@ const starterParts = [
     name: "Pantalla iPhone 11",
     brand: "Apple",
     model: "Iphone 11",
-    category: "Celular",
+    category: "Telefono",
     price: 1250,
     customerPrice: 1650,
     stock: 4,
@@ -34,7 +34,7 @@ const starterParts = [
     name: "Capacitor lavadora",
     brand: "Generica",
     model: "Lavadora",
-    category: "Electrodomestico",
+    category: "Bocina",
     price: 180,
     customerPrice: 280,
     stock: 8,
@@ -112,6 +112,18 @@ function loadParts() {
 
 function saveParts(parts) {
   localStorage.setItem(storageKey, JSON.stringify(parts));
+}
+
+function normalizeCategory(value) {
+  const categoryMap = {
+    Celular: "Telefono",
+    Telefono: "Telefono",
+    Tablet: "Tablet",
+    Computadora: "Computadora",
+    Electrodomestico: "Bocina",
+    Bocina: "Bocina",
+  };
+  return categoryMap[value] || "Telefono";
 }
 
 function normalizePartType(value) {
@@ -252,7 +264,7 @@ function renderParts() {
       <td><strong>${part.name}</strong></td>
       <td>${part.brand || "Sin marca"}</td>
       <td>${part.model || "Sin modelo"}</td>
-      <td>${part.category}</td>
+      <td>${normalizeCategory(part.category)}</td>
       <td><span class="quality-pill">${part.quality}</span></td>
       <td>${part.supplier}</td>
       <td>${formatCurrency(part.price)}</td>
@@ -300,7 +312,7 @@ partsForm.addEventListener("submit", (event) => {
         name: normalizePartType(formData.get("partName")),
         brand: normalizePartType(formData.get("brand")),
         model: normalizePartType(formData.get("model")),
-        category: formData.get("category"),
+        category: normalizeCategory(formData.get("category")),
         price: Number(formData.get("price")),
         customerPrice: Number(formData.get("customerPrice")) || 0,
         stock: Number(formData.get("stock")),
@@ -320,7 +332,7 @@ partsForm.addEventListener("submit", (event) => {
       name: normalizePartType(formData.get("partName")),
       brand: normalizePartType(formData.get("brand")),
       model: normalizePartType(formData.get("model")),
-      category: formData.get("category"),
+      category: normalizeCategory(formData.get("category")),
       price: Number(formData.get("price")),
       customerPrice: Number(formData.get("customerPrice")) || 0,
       stock: Number(formData.get("stock")),
@@ -351,7 +363,7 @@ partsTable.addEventListener("click", (event) => {
     setSelectValue(partNameSelect, partNameInput, part.name);
     setSelectValue(brandSelect, brandInput, part.brand || "");
     setSelectValue(modelSelect, modelInput, part.model || "");
-    document.querySelector("#category").value = part.category;
+    document.querySelector("#category").value = normalizeCategory(part.category);
     document.querySelector("#price").value = part.price;
     document.querySelector("#customerPrice").value = part.customerPrice ?? "";
     document.querySelector("#stock").value = part.stock;
