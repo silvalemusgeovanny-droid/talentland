@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Login | Inventario y Reparaciones</title>
-    <link rel="stylesheet" href="styles.css?v=parts-selects-1" />
+    <link rel="stylesheet" href="styles.css?v=presence-1" />
   </head>
   <body>
     <main class="app-shell">
@@ -78,6 +78,7 @@
             <span class="panel-kicker">Sesion activa</span>
             <h2 id="welcomeTitle">Bienvenido</h2>
             <p id="accessSummary"></p>
+            <p class="online-presence" id="onlinePresence" hidden></p>
           </div>
 
           <div class="module-tabs" role="tablist" aria-label="Modulos del sistema">
@@ -484,8 +485,8 @@
 
 <script src="reparaciones-db.js?v=parts-model-1"></script>
     <script src="convex-config.js?v=parts-model-1"></script>
-    <script src="convex-client.js?v=parts-convex-1"></script>
+    <script src="convex-client.js?v=presence-1"></script>
     <script src="https://unpkg.com/convex/dist/browser.js"></script>
-    <script src="script.js?v=parts-no-duplicates-2"></script>
+    <script src="script.js?v=presence-1"></script>
   </body>
 </html>

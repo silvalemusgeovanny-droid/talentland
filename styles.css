@@ -568,9 +568,11 @@ p {
 .technical .form-heading p,
 .technical .hint,
 .technical #accessSummary,
+.technical .online-presence,
 .visual .form-heading p,
 .visual .hint,
-.visual #accessSummary {
+.visual #accessSummary,
+.visual .online-presence {
   color: rgb(255 255 255 / 76%);
 }
 
@@ -1226,6 +1228,30 @@ body.login-dark .note-item p {
 .hint {
   margin-top: 12px;
   font-size: 0.88rem;
+}
+
+.online-presence {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+  color: #52626e;
+  font-size: 0.88rem;
+  font-weight: 800;
+}
+
+.online-presence[hidden] {
+  display: none;
+}
+
+.online-presence::before {
+  width: 9px;
+  height: 9px;
+  border-radius: 999px;
+  background: #1fc66a;
+  box-shadow: 0 0 0 4px rgb(31 198 106 / 15%);
+  content: "";
+  flex: 0 0 auto;
 }
 
 .session-panel {

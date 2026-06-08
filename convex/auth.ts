@@ -2,6 +2,7 @@ import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 
 const sessionDurationMs = 1000 * 60 * 60 * 12;
+const activePresenceMs = 1000 * 60;
 
 async function sha256(value: string) {
   const bytes = new TextEncoder().encode(value);
@@ -18,6 +19,29 @@ function publicUser(user: { _id?: unknown; username: string; name: string; role:
     name: user.name,
     role: user.role,
   };
+}
+
+async function getActivePresence(ctx: any) {
+  const activeSince = Date.now() - activePresenceMs;
+  const presences = await ctx.db.query("presencias").take(100);
+  const latestByUsername = new Map<string, any>();
+
+  for (const presence of presences) {
+    if (presence.lastSeenAt < activeSince) continue;
+    const existing = latestByUsername.get(presence.username);
+    if (!existing || existing.lastSeenAt < presence.lastSeenAt) {
+      latestByUsername.set(presence.username, presence);
+    }
+  }
+
+  return [...latestByUsername.values()]
+    .sort((a, b) => a.username.localeCompare(b.username))
+    .map((presence) => ({
+      username: presence.username,
+      name: presence.name,
+      role: presence.role,
+      lastSeenAt: presence.lastSeenAt,
+    }));
 }
 
 export const seedDefaultUsers = mutation({
@@ -111,6 +135,49 @@ export const currentSession = query({
   },
 });
 
+export const heartbeatPresence = mutation({
+  args: {
+    sessionToken: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const tokenHash = await sha256(args.sessionToken);
+    const session = await ctx.db
+      .query("sesiones")
+      .withIndex("by_token_hash", (q) => q.eq("tokenHash", tokenHash))
+      .unique();
+
+    if (!session || session.expiresAt < Date.now()) return [];
+
+    const user = await ctx.db.get(session.userId);
+    if (!user || !user.active) return [];
+
+    const now = Date.now();
+    await ctx.db.patch(session._id, { lastSeenAt: new Date(now).toISOString() });
+
+    const existingPresence = await ctx.db
+      .query("presencias")
+      .withIndex("by_token_hash", (q) => q.eq("tokenHash", tokenHash))
+      .unique();
+
+    const presence = {
+      tokenHash,
+      userId: user._id,
+      username: user.username,
+      name: user.name,
+      role: user.role,
+      lastSeenAt: now,
+    };
+
+    if (existingPresence) {
+      await ctx.db.patch(existingPresence._id, presence);
+    } else {
+      await ctx.db.insert("presencias", presence);
+    }
+
+    return await getActivePresence(ctx);
+  },
+});
+
 export const logout = mutation({
   args: {
     sessionToken: v.string(),
@@ -123,6 +190,13 @@ export const logout = mutation({
       .unique();
 
     if (session) await ctx.db.delete(session._id);
+
+    const presence = await ctx.db
+      .query("presencias")
+      .withIndex("by_token_hash", (q) => q.eq("tokenHash", tokenHash))
+      .unique();
+
+    if (presence) await ctx.db.delete(presence._id);
   },
 });
 
