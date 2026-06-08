@@ -68,6 +68,7 @@ const colorModeToggle = document.querySelector("#colorModeToggle");
 const colorModeStorageKey = "loginColorMode";
 let lastDeletedPart = null;
 let undoTimerId = null;
+let partsCloudMigrationDone = false;
 const newOptionValue = "__new__";
 
 function getUndoBar() {
@@ -112,6 +113,59 @@ function loadParts() {
 
 function saveParts(parts) {
   localStorage.setItem(storageKey, JSON.stringify(parts));
+}
+
+function normalizePartForCloud(part) {
+  const now = new Date().toISOString();
+  return {
+    sourceId: part.sourceId || part.id || crypto.randomUUID(),
+    name: normalizePartType(part.name),
+    brand: normalizePartType(part.brand),
+    model: normalizePartType(part.model),
+    category: normalizeCategory(part.category),
+    price: Number(part.price) || 0,
+    customerPrice: Number(part.customerPrice) || 0,
+    stock: Number(part.stock) || 0,
+    quality: part.quality || "Original",
+    supplier: normalizePartType(part.supplier),
+    publishedAt: part.publishedAt || now,
+    updatedAt: part.updatedAt || "",
+  };
+}
+
+async function migrateLocalPartsToCloud() {
+  if (partsCloudMigrationDone || !window.repairCloud?.isConfigured()) return;
+  const parts = loadParts()
+    .filter((part) => !part._id)
+    .map(normalizePartForCloud)
+    .filter((part) => part.name && part.supplier);
+  if (parts.length) await window.repairCloud.importParts(parts);
+  partsCloudMigrationDone = true;
+}
+
+async function syncPartsFromSource() {
+  if (!window.repairCloud?.isConfigured()) return loadParts();
+  await migrateLocalPartsToCloud();
+  const cloudParts = await window.repairCloud.listParts();
+  const parts = cloudParts.map((part) => ({ ...part, id: part._id || part.id }));
+  saveParts(parts);
+  return parts;
+}
+
+async function refreshPartsView() {
+  try {
+    await syncPartsFromSource();
+    partsHint.textContent = window.repairCloud?.isConfigured()
+      ? "Datos sincronizados con Convex."
+      : partsHint.textContent;
+  } catch (error) {
+    partsHint.textContent = `Modo local: ${error.message}`;
+  }
+  renderPartTypeOptions();
+  renderBrandOptions();
+  renderModelOptions();
+  renderSupplierOptions();
+  renderParts();
 }
 
 function normalizeCategory(value) {
@@ -351,7 +405,7 @@ function setColorMode(mode) {
   localStorage.setItem(colorModeStorageKey, isDarkMode ? "dark" : "light");
 }
 
-partsForm.addEventListener("submit", (event) => {
+partsForm.addEventListener("submit", async (event) => {
   event.preventDefault();
   const formValues = getPartFormValues();
   const parts = loadParts();
@@ -367,32 +421,50 @@ partsForm.addEventListener("submit", (event) => {
         publishedAt: parts[index].publishedAt || now,
         updatedAt: now,
       };
+
+      try {
+        if (window.repairCloud?.isConfigured() && parts[index]._id) {
+          await window.repairCloud.updatePart(parts[index]._id, {
+            ...formValues,
+            publishedAt: parts[index].publishedAt || now,
+            updatedAt: now,
+          });
+        }
+      } catch (error) {
+        partsHint.textContent = `Guardado localmente: ${error.message}`;
+      }
     }
     delete partsForm.dataset.editingId;
     document.querySelector("#submitParts").textContent = "Guardar repuesto";
     partsHint.textContent = "Repuesto actualizado correctamente.";
   } else {
     const now = new Date().toISOString();
-    parts.unshift({
+    const part = {
       id: crypto.randomUUID(),
       ...formValues,
       publishedAt: now,
       updatedAt: "",
-    });
+    };
+    try {
+      if (window.repairCloud?.isConfigured()) {
+        await window.repairCloud.createPart(normalizePartForCloud(part));
+      } else {
+        parts.unshift(part);
+      }
+    } catch (error) {
+      parts.unshift(part);
+      partsHint.textContent = `Guardado localmente: ${error.message}`;
+    }
     partsHint.textContent = "Repuesto guardado correctamente.";
   }
 
   saveParts(parts);
   partsForm.reset();
   resetPartDates();
-  renderPartTypeOptions();
-  renderBrandOptions();
-  renderModelOptions();
-  renderSupplierOptions();
-  renderParts();
+  await refreshPartsView();
 });
 
-partsTable.addEventListener("click", (event) => {
+partsTable.addEventListener("click", async (event) => {
   const editButton = event.target.closest(".edit-button");
   if (editButton) {
     const parts = loadParts();
@@ -428,9 +500,16 @@ partsTable.addEventListener("click", (event) => {
 
   lastDeletedPart = { part: partToDelete, index: partIndex };
   parts.splice(partIndex, 1);
+  try {
+    if (window.repairCloud?.isConfigured() && partToDelete._id) {
+      await window.repairCloud.removePart(partToDelete._id);
+    }
+  } catch (error) {
+    partsHint.textContent = `Eliminado solo localmente: ${error.message}`;
+  }
   saveParts(parts);
   partsHint.textContent = "Repuesto eliminado del listado.";
-  renderParts();
+  refreshPartsView();
 
   showUndoBar("Repuesto eliminado.", () => {
     if (!lastDeletedPart) return;
@@ -439,7 +518,7 @@ partsTable.addEventListener("click", (event) => {
     saveParts(restoredParts);
     partsHint.textContent = "Eliminacion deshecha.";
     lastDeletedPart = null;
-    renderParts();
+    refreshPartsView();
   });
 });
 
@@ -464,9 +543,5 @@ colorModeToggle.addEventListener("click", () => {
 setColorMode(localStorage.getItem(colorModeStorageKey) || "light");
 updateDateTime();
 setInterval(updateDateTime, 1000);
-renderPartTypeOptions();
-renderBrandOptions();
-renderModelOptions();
-renderSupplierOptions();
 resetPartDates();
-renderParts();
+refreshPartsView();
