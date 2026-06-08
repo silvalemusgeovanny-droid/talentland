@@ -115,6 +115,17 @@ function saveParts(parts) {
   localStorage.setItem(storageKey, JSON.stringify(parts));
 }
 
+function parseMoney(value) {
+  const normalizedValue = String(value ?? "").trim().replace(",", ".");
+  const match = normalizedValue.match(/^(\d+)(?:\.(\d+))?$/);
+  if (!match) return 0;
+
+  const pesos = Number(match[1]);
+  const decimalDigits = `${match[2] || ""}000`;
+  const cents = Number(decimalDigits.slice(0, 2)) + (Number(decimalDigits[2]) >= 5 ? 1 : 0);
+  return pesos + cents / 100;
+}
+
 function normalizePartForCloud(part) {
   const now = new Date().toISOString();
   return {
@@ -123,8 +134,8 @@ function normalizePartForCloud(part) {
     brand: normalizePartType(part.brand),
     model: normalizePartType(part.model),
     category: normalizeCategory(part.category),
-    price: Number(part.price) || 0,
-    customerPrice: Number(part.customerPrice) || 0,
+    price: parseMoney(part.price),
+    customerPrice: parseMoney(part.customerPrice),
     stock: Number(part.stock) || 0,
     quality: part.quality || "Original",
     supplier: normalizePartType(part.supplier),
@@ -314,8 +325,8 @@ function getPartFormValues() {
     model: normalizePartType(modelInput.value),
     supplier: normalizePartType(supplierInput.value),
     category: normalizeCategory(document.querySelector("#category").value),
-    price: Number(document.querySelector("#price").value),
-    customerPrice: Number(document.querySelector("#customerPrice").value) || 0,
+    price: parseMoney(document.querySelector("#price").value),
+    customerPrice: parseMoney(document.querySelector("#customerPrice").value),
     stock: Number(document.querySelector("#stock").value),
     quality: document.querySelector("#quality").value,
   };
@@ -342,6 +353,7 @@ function normalizePartSearch(value = "") {
   return String(value ?? "")
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-zA-Z0-9]+/g, " ")
     .trim()
     .toLowerCase();
 }
@@ -352,17 +364,29 @@ function getPartSearchText(part) {
     .join(" ");
 }
 
+function compactPartSearch(value = "") {
+  return normalizePartSearch(value).replace(/\s+/g, "");
+}
+
 function resetPartDates() {
   publishedAtInput.value = "Automatico al guardar";
   updatedAtInput.value = "Sin modificaciones";
 }
 
 function getFilteredParts(parts) {
-  const terms = normalizePartSearch(partSearch.value).split(/\s+/).filter(Boolean);
+  const query = normalizePartSearch(partSearch.value);
+  const terms = query.split(/\s+/).filter(Boolean);
   if (!terms.length) return parts;
+  const compactQuery = compactPartSearch(query);
+
   return parts.filter((part) => {
     const searchText = getPartSearchText(part);
-    return terms.every((term) => searchText.includes(term));
+    const compactText = compactPartSearch(searchText);
+    return (
+      searchText.includes(query) ||
+      compactText.includes(compactQuery) ||
+      terms.every((term) => searchText.includes(term) || compactText.includes(compactPartSearch(term)))
+    );
   });
 }
 

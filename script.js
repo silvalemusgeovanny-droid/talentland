@@ -416,6 +416,17 @@ function saveParts(parts) {
   localStorage.setItem(partsStorageKey, JSON.stringify(parts));
 }
 
+function parseMoney(value) {
+  const normalizedValue = String(value ?? "").trim().replace(",", ".");
+  const match = normalizedValue.match(/^(\d+)(?:\.(\d+))?$/);
+  if (!match) return 0;
+
+  const pesos = Number(match[1]);
+  const decimalDigits = `${match[2] || ""}000`;
+  const cents = Number(decimalDigits.slice(0, 2)) + (Number(decimalDigits[2]) >= 5 ? 1 : 0);
+  return pesos + cents / 100;
+}
+
 function normalizePartType(value) {
   const cleanedValue = String(value || "").trim().replace(/\s+/g, " ").toLowerCase();
   if (!cleanedValue) return "";
@@ -442,8 +453,8 @@ function normalizePartForCloud(part) {
     brand: normalizePartType(part.brand),
     model: normalizePartType(part.model),
     category: normalizeCategory(part.category),
-    price: Number(part.price) || 0,
-    customerPrice: Number(part.customerPrice) || 0,
+    price: parseMoney(part.price),
+    customerPrice: parseMoney(part.customerPrice),
     stock: Number(part.stock) || 0,
     quality: part.quality || "Original",
     supplier: normalizePartType(part.supplier),
@@ -1469,8 +1480,8 @@ quickPartsForm.addEventListener("submit", async (event) => {
     brand: normalizePartType(formData.get("brand")),
     model: normalizePartType(formData.get("model")),
     category: normalizeCategory(formData.get("category")),
-    price: Number(formData.get("price")),
-    customerPrice: Number(formData.get("customerPrice")) || 0,
+    price: parseMoney(formData.get("price")),
+    customerPrice: parseMoney(formData.get("customerPrice")),
     stock: Number(formData.get("stock")) || 1,
     quality: formData.get("quality"),
     supplier: normalizePartType(formData.get("supplier")),
