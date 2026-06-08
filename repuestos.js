@@ -146,8 +146,10 @@ function getUniquePartValues(field) {
 }
 
 function renderSelectOptions(select, values, placeholder) {
+  delete select.dataset.editing;
   select.hidden = false;
   select.disabled = false;
+  select.required = true;
   select.innerHTML = [
     `<option value="">${escapeHtml(placeholder)}</option>`,
     ...values.map((value) => `<option value="${escapeHtml(value)}">${escapeHtml(value)}</option>`),
@@ -156,6 +158,14 @@ function renderSelectOptions(select, values, placeholder) {
 }
 
 function syncManualField(select, input) {
+  if (select.dataset.editing === "true") {
+    input.hidden = false;
+    input.required = true;
+    select.required = false;
+    if (select.value && select.value !== newOptionValue) input.value = select.value;
+    if (select.value === newOptionValue) input.focus();
+    return;
+  }
   if (select.hidden) return;
   const isNew = select.value === newOptionValue;
   input.hidden = !isNew;
@@ -173,8 +183,11 @@ function setSelectValue(select, input, value) {
 }
 
 function setSelectValueForEditing(select, input, value) {
-  select.hidden = true;
-  select.disabled = true;
+  select.dataset.editing = "true";
+  select.hidden = false;
+  select.disabled = false;
+  select.required = false;
+  select.value = "";
   input.hidden = false;
   input.required = true;
   input.value = normalizePartType(value);
@@ -237,6 +250,21 @@ function syncPartSelectFields() {
   syncManualField(brandSelect, brandInput);
   syncManualField(modelSelect, modelInput);
   syncManualField(supplierSelect, supplierInput);
+}
+
+function getPartFormValues() {
+  syncPartSelectFields();
+  return {
+    name: normalizePartType(partNameInput.value),
+    brand: normalizePartType(brandInput.value),
+    model: normalizePartType(modelInput.value),
+    supplier: normalizePartType(supplierInput.value),
+    category: normalizeCategory(document.querySelector("#category").value),
+    price: Number(document.querySelector("#price").value),
+    customerPrice: Number(document.querySelector("#customerPrice").value) || 0,
+    stock: Number(document.querySelector("#stock").value),
+    quality: document.querySelector("#quality").value,
+  };
 }
 
 function formatCurrency(value) {
@@ -325,8 +353,7 @@ function setColorMode(mode) {
 
 partsForm.addEventListener("submit", (event) => {
   event.preventDefault();
-  syncPartSelectFields();
-  const formData = new FormData(partsForm);
+  const formValues = getPartFormValues();
   const parts = loadParts();
   const editingId = partsForm.dataset.editingId;
 
@@ -336,15 +363,7 @@ partsForm.addEventListener("submit", (event) => {
       const now = new Date().toISOString();
       parts[index] = {
         ...parts[index],
-        name: normalizePartType(formData.get("partName")),
-        brand: normalizePartType(formData.get("brand")),
-        model: normalizePartType(formData.get("model")),
-        category: normalizeCategory(formData.get("category")),
-        price: Number(formData.get("price")),
-        customerPrice: Number(formData.get("customerPrice")) || 0,
-        stock: Number(formData.get("stock")),
-        quality: formData.get("quality"),
-        supplier: normalizePartType(formData.get("supplier")),
+        ...formValues,
         publishedAt: parts[index].publishedAt || now,
         updatedAt: now,
       };
@@ -356,15 +375,7 @@ partsForm.addEventListener("submit", (event) => {
     const now = new Date().toISOString();
     parts.unshift({
       id: crypto.randomUUID(),
-      name: normalizePartType(formData.get("partName")),
-      brand: normalizePartType(formData.get("brand")),
-      model: normalizePartType(formData.get("model")),
-      category: normalizeCategory(formData.get("category")),
-      price: Number(formData.get("price")),
-      customerPrice: Number(formData.get("customerPrice")) || 0,
-      stock: Number(formData.get("stock")),
-      quality: formData.get("quality"),
-      supplier: normalizePartType(formData.get("supplier")),
+      ...formValues,
       publishedAt: now,
       updatedAt: "",
     });
