@@ -212,7 +212,7 @@ const starterParts = [
     price: 1250,
     customerPrice: 1650,
     stock: 4,
-    quality: "Premium",
+    quality: "GX",
     supplier: "TecnoPartes MX",
     publishedAt: new Date().toISOString(),
     updatedAt: "",
@@ -509,12 +509,25 @@ function normalizePartSearch(value = "") {
     .toLowerCase();
 }
 
+function normalizeQuality(value = "") {
+  const quality = String(value || "").trim();
+  const normalized = normalizePartSearch(quality);
+  if (["premium", "premiun", "gx"].includes(normalized)) return "GX";
+  if (["originall", "original"].includes(normalized)) return "Original";
+  if (["amoled", "am oled"].includes(normalized)) return "Amoled";
+  if (normalized === "oled") return "OLED";
+  if (normalized === "tft") return "TFT";
+  if (normalized === "ips") return "IPS";
+  if (["generico", "generica"].includes(normalized)) return "Generica";
+  return quality || "Original";
+}
+
 function getQualityClass(value = "") {
-  return `quality-${normalizePartSearch(value).replace(/\s+/g, "-") || "sin-calidad"}`;
+  return `quality-${normalizePartSearch(normalizeQuality(value)).replace(/\s+/g, "-") || "sin-calidad"}`;
 }
 
 function getPartDuplicateKey(part) {
-  return [part.name, part.brand, part.model, part.category, part.quality]
+  return [part.name, part.brand, part.model, part.category, normalizeQuality(part.quality)]
     .map(normalizePartSearch)
     .join("|");
 }
@@ -554,7 +567,7 @@ function normalizePartForCloud(part) {
     price: parseMoney(part.price),
     customerPrice: parseMoney(part.customerPrice),
     stock: Number(part.stock) || 0,
-    quality: part.quality || "Original",
+    quality: normalizeQuality(part.quality || "Original"),
     supplier: normalizePartType(part.supplier),
     publishedAt: part.publishedAt || now,
     updatedAt: part.updatedAt || "",
@@ -893,7 +906,7 @@ function renderQuickParts() {
   quickPartsList.innerHTML = parts.map((part) => `
     <article class="compact-part-item">
       <strong>${part.name}</strong>
-      <span>${part.brand || "Sin marca"} ${part.model || ""} | Costo ${formatCurrency(part.price)} | Cliente ${formatCurrency(Number(part.customerPrice) || 0)} | <span class="quality-pill ${getQualityClass(part.quality)}">${part.quality}</span> | ${part.supplier}</span>
+      <span>${part.brand || "Sin marca"} ${part.model || ""} | Costo ${formatCurrency(part.price)} | Cliente ${formatCurrency(Number(part.customerPrice) || 0)} | <span class="quality-pill ${getQualityClass(part.quality)}">${normalizeQuality(part.quality)}</span> | ${part.supplier}</span>
     </article>
   `).join("");
 }
@@ -1576,7 +1589,7 @@ quickPartsForm.addEventListener("submit", async (event) => {
     price: parseMoney(formData.get("price")),
     customerPrice: parseMoney(formData.get("customerPrice")),
     stock: Number(formData.get("stock")) || 1,
-    quality: formData.get("quality"),
+    quality: normalizeQuality(formData.get("quality")),
     supplier: normalizePartType(formData.get("supplier")),
     publishedAt: now,
     updatedAt: "",
