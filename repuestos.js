@@ -147,6 +147,7 @@ function getUniquePartValues(field) {
 
 function renderSelectOptions(select, values, placeholder) {
   select.hidden = false;
+  select.disabled = false;
   select.innerHTML = [
     `<option value="">${escapeHtml(placeholder)}</option>`,
     ...values.map((value) => `<option value="${escapeHtml(value)}">${escapeHtml(value)}</option>`),
@@ -173,9 +174,26 @@ function setSelectValue(select, input, value) {
 
 function setSelectValueForEditing(select, input, value) {
   select.hidden = true;
+  select.disabled = true;
   input.hidden = false;
   input.required = true;
   input.value = normalizePartType(value);
+}
+
+function setEditableSuggestions(input, values, datalistId) {
+  let datalist = document.querySelector(`#${datalistId}`);
+  if (!datalist) {
+    datalist = document.createElement("datalist");
+    datalist.id = datalistId;
+    document.body.append(datalist);
+  }
+  datalist.innerHTML = values.map((option) => `<option value="${escapeHtml(option)}"></option>`).join("");
+  input.setAttribute("list", datalistId);
+}
+
+function setSelectValueForEditingWithSuggestions(select, input, value, field, datalistId) {
+  setSelectValueForEditing(select, input, value);
+  setEditableSuggestions(input, getUniquePartValues(field), datalistId);
 }
 
 function renderPartTypeOptions() {
@@ -369,15 +387,15 @@ partsTable.addEventListener("click", (event) => {
     const parts = loadParts();
     const part = parts.find((p) => p.id === editButton.dataset.id);
     if (!part) return;
-    setSelectValueForEditing(partNameSelect, partNameInput, part.name);
-    setSelectValueForEditing(brandSelect, brandInput, part.brand || "");
-    setSelectValueForEditing(modelSelect, modelInput, part.model || "");
+    setSelectValueForEditingWithSuggestions(partNameSelect, partNameInput, part.name, "name", "partNameEditOptions");
+    setSelectValueForEditingWithSuggestions(brandSelect, brandInput, part.brand || "", "brand", "brandEditOptions");
+    setSelectValueForEditingWithSuggestions(modelSelect, modelInput, part.model || "", "model", "modelEditOptions");
     document.querySelector("#category").value = normalizeCategory(part.category);
     document.querySelector("#price").value = part.price;
     document.querySelector("#customerPrice").value = part.customerPrice ?? "";
     document.querySelector("#stock").value = part.stock;
     document.querySelector("#quality").value = part.quality;
-    setSelectValueForEditing(supplierSelect, supplierInput, part.supplier);
+    setSelectValueForEditingWithSuggestions(supplierSelect, supplierInput, part.supplier, "supplier", "supplierEditOptions");
     publishedAtInput.value = formatPartDate(part.publishedAt);
     updatedAtInput.value = formatPartDate(part.updatedAt);
     partsForm.dataset.editingId = part.id;
