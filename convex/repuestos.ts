@@ -16,6 +16,43 @@ const partFields = {
   updatedAt: v.string(),
 };
 
+function normalizePartSearch(value = "") {
+  return String(value ?? "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-zA-Z0-9]+/g, " ")
+    .trim()
+    .toLowerCase();
+}
+
+function getPartDuplicateKey(part: any) {
+  return [part.name, part.brand, part.model, part.category, part.quality]
+    .map(normalizePartSearch)
+    .join("|");
+}
+
+function getPartCrossFieldKey(part: any) {
+  return [part.name, part.brand, part.model, part.supplier, part.category, part.quality]
+    .map(normalizePartSearch)
+    .filter(Boolean)
+    .sort()
+    .join("|");
+}
+
+async function findDuplicatePart(ctx: any, part: any, currentId = "") {
+  const duplicateKey = getPartDuplicateKey(part);
+  const crossFieldKey = getPartCrossFieldKey(part);
+  const parts = await ctx.db.query("repuestos").take(2000);
+  return parts.find((existingPart: any) => {
+    if (String(existingPart._id) === currentId) return false;
+    return getPartDuplicateKey(existingPart) === duplicateKey || getPartCrossFieldKey(existingPart) === crossFieldKey;
+  });
+}
+
+function duplicateError(part: any) {
+  return new Error(`Duplicado: ya existe ${part.name} ${part.brand} ${part.model}.`);
+}
+
 export const list = query({
   args: {},
   handler: async (ctx) => {
@@ -26,6 +63,9 @@ export const list = query({
 export const create = mutation({
   args: partFields,
   handler: async (ctx, args) => {
+    const duplicate = await findDuplicatePart(ctx, args);
+    if (duplicate) throw duplicateError(duplicate);
+
     if (args.sourceId) {
       const existing = await ctx.db
         .query("repuestos")
@@ -57,6 +97,9 @@ export const update = mutation({
     }),
   },
   handler: async (ctx, args) => {
+    const duplicate = await findDuplicatePart(ctx, args.patch, String(args.id));
+    if (duplicate) throw duplicateError(duplicate);
+
     await ctx.db.patch(args.id, args.patch);
   },
 });
@@ -79,6 +122,12 @@ export const importBatch = mutation({
     let skipped = 0;
 
     for (const part of args.parts) {
+      const duplicate = await findDuplicatePart(ctx, part);
+      if (duplicate) {
+        skipped += 1;
+        continue;
+      }
+
       const existing = part.sourceId
         ? await ctx.db
             .query("repuestos")
