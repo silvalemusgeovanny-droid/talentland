@@ -47,12 +47,14 @@ const starterParts = [
 
 const partsForm = document.querySelector("#partsForm");
 const partsTable = document.querySelector("#partsTable");
+const partNameSelect = document.querySelector("#partNameSelect");
 const partNameInput = document.querySelector("#partName");
-const partTypeOptions = document.querySelector("#partTypeOptions");
+const brandSelect = document.querySelector("#brandSelect");
 const brandInput = document.querySelector("#brand");
-const brandOptions = document.querySelector("#brandOptions");
+const modelSelect = document.querySelector("#modelSelect");
 const modelInput = document.querySelector("#model");
-const modelOptions = document.querySelector("#modelOptions");
+const supplierSelect = document.querySelector("#supplierSelect");
+const supplierInput = document.querySelector("#supplier");
 const publishedAtInput = document.querySelector("#publishedAt");
 const updatedAtInput = document.querySelector("#updatedAt");
 const partSearch = document.querySelector("#partSearch");
@@ -66,6 +68,7 @@ const colorModeToggle = document.querySelector("#colorModeToggle");
 const colorModeStorageKey = "loginColorMode";
 let lastDeletedPart = null;
 let undoTimerId = null;
+const newOptionValue = "__new__";
 
 function getUndoBar() {
   let undoBar = document.querySelector("#undoBar");
@@ -117,9 +120,46 @@ function normalizePartType(value) {
   return cleanedValue.charAt(0).toUpperCase() + cleanedValue.slice(1);
 }
 
+function escapeHtml(value) {
+  return String(value)
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+}
+
+function getUniquePartValues(field) {
+  return [...new Set(loadParts().map((part) => normalizePartType(part[field])).filter(Boolean))].sort();
+}
+
+function renderSelectOptions(select, values, placeholder) {
+  select.innerHTML = [
+    `<option value="">${escapeHtml(placeholder)}</option>`,
+    ...values.map((value) => `<option value="${escapeHtml(value)}">${escapeHtml(value)}</option>`),
+    `<option value="${newOptionValue}">Agregar nuevo</option>`,
+  ].join("");
+}
+
+function syncManualField(select, input) {
+  const isNew = select.value === newOptionValue;
+  input.hidden = !isNew;
+  input.required = isNew;
+  if (!isNew) input.value = select.value;
+  if (isNew) input.focus();
+}
+
+function setSelectValue(select, input, value) {
+  const normalizedValue = normalizePartType(value);
+  const optionExists = [...select.options].some((option) => option.value === normalizedValue);
+  select.value = optionExists ? normalizedValue : newOptionValue;
+  input.value = normalizedValue;
+  syncManualField(select, input);
+}
+
 function renderPartTypeOptions() {
-  const partTypes = [...new Set(loadParts().map((part) => normalizePartType(part.name)).filter(Boolean))].sort();
-  partTypeOptions.innerHTML = partTypes.map((partType) => `<option value="${partType}"></option>`).join("");
+  renderSelectOptions(partNameSelect, getUniquePartValues("name"), "Selecciona un repuesto");
+  syncManualField(partNameSelect, partNameInput);
 }
 
 function syncPartTypeText() {
@@ -127,8 +167,8 @@ function syncPartTypeText() {
 }
 
 function renderBrandOptions() {
-  const brands = [...new Set(loadParts().map((part) => normalizePartType(part.brand)).filter(Boolean))].sort();
-  brandOptions.innerHTML = brands.map((brand) => `<option value="${brand}"></option>`).join("");
+  renderSelectOptions(brandSelect, getUniquePartValues("brand"), "Selecciona una marca");
+  syncManualField(brandSelect, brandInput);
 }
 
 function syncBrandText() {
@@ -136,12 +176,28 @@ function syncBrandText() {
 }
 
 function renderModelOptions() {
-  const models = [...new Set(loadParts().map((part) => normalizePartType(part.model)).filter(Boolean))].sort();
-  modelOptions.innerHTML = models.map((model) => `<option value="${model}"></option>`).join("");
+  renderSelectOptions(modelSelect, getUniquePartValues("model"), "Selecciona un modelo");
+  syncManualField(modelSelect, modelInput);
 }
 
 function syncModelText() {
   modelInput.value = normalizePartType(modelInput.value);
+}
+
+function renderSupplierOptions() {
+  renderSelectOptions(supplierSelect, getUniquePartValues("supplier"), "Selecciona un proveedor");
+  syncManualField(supplierSelect, supplierInput);
+}
+
+function syncSupplierText() {
+  supplierInput.value = normalizePartType(supplierInput.value);
+}
+
+function syncPartSelectFields() {
+  syncManualField(partNameSelect, partNameInput);
+  syncManualField(brandSelect, brandInput);
+  syncManualField(modelSelect, modelInput);
+  syncManualField(supplierSelect, supplierInput);
 }
 
 function formatCurrency(value) {
@@ -230,6 +286,7 @@ function setColorMode(mode) {
 
 partsForm.addEventListener("submit", (event) => {
   event.preventDefault();
+  syncPartSelectFields();
   const formData = new FormData(partsForm);
   const parts = loadParts();
   const editingId = partsForm.dataset.editingId;
@@ -248,7 +305,7 @@ partsForm.addEventListener("submit", (event) => {
         customerPrice: Number(formData.get("customerPrice")) || 0,
         stock: Number(formData.get("stock")),
         quality: formData.get("quality"),
-        supplier: formData.get("supplier").trim(),
+        supplier: normalizePartType(formData.get("supplier")),
         publishedAt: parts[index].publishedAt || now,
         updatedAt: now,
       };
@@ -268,7 +325,7 @@ partsForm.addEventListener("submit", (event) => {
       customerPrice: Number(formData.get("customerPrice")) || 0,
       stock: Number(formData.get("stock")),
       quality: formData.get("quality"),
-      supplier: formData.get("supplier").trim(),
+      supplier: normalizePartType(formData.get("supplier")),
       publishedAt: now,
       updatedAt: "",
     });
@@ -281,6 +338,7 @@ partsForm.addEventListener("submit", (event) => {
   renderPartTypeOptions();
   renderBrandOptions();
   renderModelOptions();
+  renderSupplierOptions();
   renderParts();
 });
 
@@ -290,15 +348,15 @@ partsTable.addEventListener("click", (event) => {
     const parts = loadParts();
     const part = parts.find((p) => p.id === editButton.dataset.id);
     if (!part) return;
-    document.querySelector("#partName").value = part.name;
-    document.querySelector("#brand").value = part.brand || "";
-    document.querySelector("#model").value = part.model || "";
+    setSelectValue(partNameSelect, partNameInput, part.name);
+    setSelectValue(brandSelect, brandInput, part.brand || "");
+    setSelectValue(modelSelect, modelInput, part.model || "");
     document.querySelector("#category").value = part.category;
     document.querySelector("#price").value = part.price;
     document.querySelector("#customerPrice").value = part.customerPrice ?? "";
     document.querySelector("#stock").value = part.stock;
     document.querySelector("#quality").value = part.quality;
-    document.querySelector("#supplier").value = part.supplier;
+    setSelectValue(supplierSelect, supplierInput, part.supplier);
     publishedAtInput.value = formatPartDate(part.publishedAt);
     updatedAtInput.value = formatPartDate(part.updatedAt);
     partsForm.dataset.editingId = part.id;
@@ -336,12 +394,18 @@ partsTable.addEventListener("click", (event) => {
 });
 
 partSearch.addEventListener("input", renderParts);
+partNameSelect.addEventListener("change", () => syncManualField(partNameSelect, partNameInput));
 partNameInput.addEventListener("blur", syncPartTypeText);
 partNameInput.addEventListener("change", syncPartTypeText);
+brandSelect.addEventListener("change", () => syncManualField(brandSelect, brandInput));
 brandInput.addEventListener("blur", syncBrandText);
 brandInput.addEventListener("change", syncBrandText);
+modelSelect.addEventListener("change", () => syncManualField(modelSelect, modelInput));
 modelInput.addEventListener("blur", syncModelText);
 modelInput.addEventListener("change", syncModelText);
+supplierSelect.addEventListener("change", () => syncManualField(supplierSelect, supplierInput));
+supplierInput.addEventListener("blur", syncSupplierText);
+supplierInput.addEventListener("change", syncSupplierText);
 colorModeToggle.addEventListener("click", () => {
   const nextMode = document.body.classList.contains("login-dark") ? "light" : "dark";
   setColorMode(nextMode);
@@ -353,5 +417,6 @@ setInterval(updateDateTime, 1000);
 renderPartTypeOptions();
 renderBrandOptions();
 renderModelOptions();
+renderSupplierOptions();
 resetPartDates();
 renderParts();

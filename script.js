@@ -107,13 +107,16 @@ const moduleLink = document.querySelector("#moduleLink");
 const quickPartsForm = document.querySelector("#quickPartsForm");
 const quickPartsList = document.querySelector("#quickPartsList");
 const quickPartsHint = document.querySelector("#quickPartsHint");
+const quickPartNameSelect = document.querySelector("#quickPartNameSelect");
 const quickPartNameInput = document.querySelector("#quickPartName");
-const quickPartTypeOptions = document.querySelector("#quickPartTypeOptions");
+const quickBrandSelect = document.querySelector("#quickBrandSelect");
 const quickBrandInput = document.querySelector("#quickBrand");
-const quickBrandOptions = document.querySelector("#quickBrandOptions");
+const quickModelSelect = document.querySelector("#quickModelSelect");
 const quickModelInput = document.querySelector("#quickModel");
-const quickModelOptions = document.querySelector("#quickModelOptions");
+const quickSupplierSelect = document.querySelector("#quickSupplierSelect");
+const quickSupplierInput = document.querySelector("#quickSupplier");
 const partsStorageKey = "inventoryParts";
+const newOptionValue = "__new__";
 const colorModeToggle = document.querySelector("#colorModeToggle");
 const colorModeStorageKey = "loginColorMode";
 const notesStorageKey = "pendingNotes";
@@ -417,9 +420,29 @@ function normalizePartType(value) {
   return cleanedValue.charAt(0).toUpperCase() + cleanedValue.slice(1);
 }
 
+function getUniquePartValues(field) {
+  return [...new Set(loadParts().map((part) => normalizePartType(part[field])).filter(Boolean))].sort();
+}
+
+function renderSelectOptions(select, values, placeholder) {
+  select.innerHTML = [
+    `<option value="">${escapeHtml(placeholder)}</option>`,
+    ...values.map((value) => `<option value="${escapeHtml(value)}">${escapeHtml(value)}</option>`),
+    `<option value="${newOptionValue}">Agregar nuevo</option>`,
+  ].join("");
+}
+
+function syncManualField(select, input) {
+  const isNew = select.value === newOptionValue;
+  input.hidden = !isNew;
+  input.required = isNew;
+  if (!isNew) input.value = select.value;
+  if (isNew) input.focus();
+}
+
 function renderQuickPartTypeOptions() {
-  const partTypes = [...new Set(loadParts().map((part) => normalizePartType(part.name)).filter(Boolean))].sort();
-  quickPartTypeOptions.innerHTML = partTypes.map((partType) => `<option value="${escapeHtml(partType)}"></option>`).join("");
+  renderSelectOptions(quickPartNameSelect, getUniquePartValues("name"), "Selecciona un repuesto");
+  syncManualField(quickPartNameSelect, quickPartNameInput);
 }
 
 function syncQuickPartTypeText() {
@@ -427,8 +450,8 @@ function syncQuickPartTypeText() {
 }
 
 function renderQuickBrandOptions() {
-  const brands = [...new Set(loadParts().map((part) => normalizePartType(part.brand)).filter(Boolean))].sort();
-  quickBrandOptions.innerHTML = brands.map((brand) => `<option value="${escapeHtml(brand)}"></option>`).join("");
+  renderSelectOptions(quickBrandSelect, getUniquePartValues("brand"), "Selecciona una marca");
+  syncManualField(quickBrandSelect, quickBrandInput);
 }
 
 function syncQuickBrandText() {
@@ -436,12 +459,28 @@ function syncQuickBrandText() {
 }
 
 function renderQuickModelOptions() {
-  const models = [...new Set(loadParts().map((part) => normalizePartType(part.model)).filter(Boolean))].sort();
-  quickModelOptions.innerHTML = models.map((model) => `<option value="${escapeHtml(model)}"></option>`).join("");
+  renderSelectOptions(quickModelSelect, getUniquePartValues("model"), "Selecciona un modelo");
+  syncManualField(quickModelSelect, quickModelInput);
 }
 
 function syncQuickModelText() {
   quickModelInput.value = normalizePartType(quickModelInput.value);
+}
+
+function renderQuickSupplierOptions() {
+  renderSelectOptions(quickSupplierSelect, getUniquePartValues("supplier"), "Selecciona un proveedor");
+  syncManualField(quickSupplierSelect, quickSupplierInput);
+}
+
+function syncQuickSupplierText() {
+  quickSupplierInput.value = normalizePartType(quickSupplierInput.value);
+}
+
+function syncQuickPartSelectFields() {
+  syncManualField(quickPartNameSelect, quickPartNameInput);
+  syncManualField(quickBrandSelect, quickBrandInput);
+  syncManualField(quickModelSelect, quickModelInput);
+  syncManualField(quickSupplierSelect, quickSupplierInput);
 }
 
 function loadNotes() {
@@ -1205,12 +1244,18 @@ notesList.addEventListener("click", async (event) => {
   renderNotes();
 });
 
+quickPartNameSelect.addEventListener("change", () => syncManualField(quickPartNameSelect, quickPartNameInput));
 quickPartNameInput.addEventListener("blur", syncQuickPartTypeText);
 quickPartNameInput.addEventListener("change", syncQuickPartTypeText);
+quickBrandSelect.addEventListener("change", () => syncManualField(quickBrandSelect, quickBrandInput));
 quickBrandInput.addEventListener("blur", syncQuickBrandText);
 quickBrandInput.addEventListener("change", syncQuickBrandText);
+quickModelSelect.addEventListener("change", () => syncManualField(quickModelSelect, quickModelInput));
 quickModelInput.addEventListener("blur", syncQuickModelText);
 quickModelInput.addEventListener("change", syncQuickModelText);
+quickSupplierSelect.addEventListener("change", () => syncManualField(quickSupplierSelect, quickSupplierInput));
+quickSupplierInput.addEventListener("blur", syncQuickSupplierText);
+quickSupplierInput.addEventListener("change", syncQuickSupplierText);
 
 [saleQuantityInput, salePriceInput, saleDiscountInput, saleReceivedInput].forEach((input) => {
   input.addEventListener("input", updateSaleTotals);
@@ -1347,6 +1392,7 @@ adminVoidForm.addEventListener("submit", async (event) => {
 
 quickPartsForm.addEventListener("submit", (event) => {
   event.preventDefault();
+  syncQuickPartSelectFields();
   const formData = new FormData(quickPartsForm);
   const parts = loadParts();
   const now = new Date().toISOString();
@@ -1360,7 +1406,7 @@ quickPartsForm.addEventListener("submit", (event) => {
     customerPrice: Number(formData.get("customerPrice")) || 0,
     stock: Number(formData.get("stock")) || 1,
     quality: formData.get("quality"),
-    supplier: formData.get("supplier").trim(),
+    supplier: normalizePartType(formData.get("supplier")),
     publishedAt: now,
     updatedAt: "",
   });
@@ -1370,6 +1416,7 @@ quickPartsForm.addEventListener("submit", (event) => {
   renderQuickPartTypeOptions();
   renderQuickBrandOptions();
   renderQuickModelOptions();
+  renderQuickSupplierOptions();
   renderQuickParts();
 });
 
@@ -1579,6 +1626,7 @@ updateDateTime();
 renderQuickPartTypeOptions();
 renderQuickBrandOptions();
 renderQuickModelOptions();
+renderQuickSupplierOptions();
 renderQuickParts();
 renderNotes();
 restoreSession();

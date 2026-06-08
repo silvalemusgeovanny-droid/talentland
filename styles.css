@@ -623,6 +623,10 @@ input[readonly] {
   font-weight: 900;
 }
 
+.manual-option-field {
+  margin-top: 8px;
+}
+
 body.login-dark input[readonly] {
   background: #1c2a34;
   color: #dbe7ed;
