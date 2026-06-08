@@ -359,6 +359,10 @@ function getPartSearchText(part) {
     .join(" ");
 }
 
+function getQualityClass(value = "") {
+  return `quality-${normalizePartSearch(value).replace(/\s+/g, "-") || "sin-calidad"}`;
+}
+
 function compactPartSearch(value = "") {
   return normalizePartSearch(value).replace(/\s+/g, "");
 }
@@ -436,7 +440,7 @@ function renderParts() {
       <td>${part.brand || "Sin marca"}</td>
       <td>${part.model || "Sin modelo"}</td>
       <td>${normalizeCategory(part.category)}</td>
-      <td><span class="quality-pill">${part.quality}</span></td>
+      <td><span class="quality-pill ${getQualityClass(part.quality)}">${part.quality}</span></td>
       <td>${part.supplier}</td>
       <td>${formatCurrency(part.price)}</td>
       <td>${formatCurrency(Number(part.customerPrice) || 0)}</td>

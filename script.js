@@ -509,6 +509,10 @@ function normalizePartSearch(value = "") {
     .toLowerCase();
 }
 
+function getQualityClass(value = "") {
+  return `quality-${normalizePartSearch(value).replace(/\s+/g, "-") || "sin-calidad"}`;
+}
+
 function getPartDuplicateKey(part) {
   return [part.name, part.brand, part.model, part.category, part.quality]
     .map(normalizePartSearch)
@@ -889,7 +893,7 @@ function renderQuickParts() {
   quickPartsList.innerHTML = parts.map((part) => `
     <article class="compact-part-item">
       <strong>${part.name}</strong>
-      <span>${part.brand || "Sin marca"} ${part.model || ""} | Costo ${formatCurrency(part.price)} | Cliente ${formatCurrency(Number(part.customerPrice) || 0)} | ${part.quality} | ${part.supplier}</span>
+      <span>${part.brand || "Sin marca"} ${part.model || ""} | Costo ${formatCurrency(part.price)} | Cliente ${formatCurrency(Number(part.customerPrice) || 0)} | <span class="quality-pill ${getQualityClass(part.quality)}">${part.quality}</span> | ${part.supplier}</span>
     </article>
   `).join("");
 }
