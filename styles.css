@@ -860,6 +860,47 @@ body.login-dark input[readonly] {
   max-height: 220px;
 }
 
+.statistics-periods-bar {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 10px;
+  align-items: center;
+}
+
+.statistics-periods-bar > span {
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.statistics-periods {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 6px;
+  padding: 5px;
+  border: 1px solid rgb(23 32 38 / 10%);
+  border-radius: 8px;
+  background: rgb(237 243 245 / 82%);
+}
+
+.statistics-periods button {
+  min-height: 34px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: #53616b;
+  cursor: pointer;
+  font-size: 0.78rem;
+  font-weight: 900;
+}
+
+.statistics-periods button.active {
+  background: white;
+  color: var(--ink);
+  box-shadow: 0 4px 14px rgb(17 24 32 / 9%);
+}
+
 .control-dashboard {
   display: grid;
   grid-template-columns: minmax(150px, 180px) minmax(0, 1fr);
@@ -1514,12 +1555,14 @@ body.login-dark .stat-card strong {
 
 body.login-dark .control-kpi-rail,
 body.login-dark .control-kpi,
+body.login-dark .statistics-periods,
 body.login-dark .control-panel-card {
   border-color: rgb(255 255 255 / 12%);
 }
 
 body.login-dark .control-panel-card,
-body.login-dark .control-kpi b {
+body.login-dark .control-kpi b,
+body.login-dark .statistics-periods {
   background: rgb(255 255 255 / 8%);
 }
 
@@ -1537,6 +1580,19 @@ body.login-dark .bar-row span,
 body.login-dark .donut-legend span,
 body.login-dark .alert-list span {
   color: #a9b8c2;
+}
+
+body.login-dark .statistics-periods button {
+  color: #a9b8c2;
+}
+
+body.login-dark .statistics-periods-bar > span {
+  color: #a9b8c2;
+}
+
+body.login-dark .statistics-periods button.active {
+  background: rgb(255 255 255 / 14%);
+  color: #f4f8fa;
 }
 
 body.login-dark .donut-chart {
@@ -2170,6 +2226,14 @@ body.login-dark .edit-button,
 
   .module-tabs {
     grid-template-columns: 1fr 1fr;
+  }
+
+  .statistics-periods {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .statistics-periods-bar {
+    grid-template-columns: 1fr;
   }
 
   .control-kpi-rail,

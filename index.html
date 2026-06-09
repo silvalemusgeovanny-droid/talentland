@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Login | Inventario y Reparaciones</title>
-    <link rel="stylesheet" href="styles.css?v=control-dashboard-3" />
+    <link rel="stylesheet" href="styles.css?v=control-periods-3" />
   </head>
   <body>
     <main class="app-shell">
@@ -328,6 +328,17 @@
               <span id="statisticsHint">Solo admin y root</span>
             </div>
 
+            <div class="statistics-periods-bar">
+              <span>Ver por</span>
+              <div class="statistics-periods" aria-label="Periodo de estadisticas">
+                <button type="button" data-statistics-period="day">Dia</button>
+                <button type="button" data-statistics-period="week">Semana</button>
+                <button class="active" type="button" data-statistics-period="month">Mes</button>
+                <button type="button" data-statistics-period="quarter">Trimestre</button>
+                <button type="button" data-statistics-period="year">Anual</button>
+              </div>
+            </div>
+
             <div class="statistics-grid" id="statisticsGrid"></div>
             <div class="statistics-lists" id="statisticsLists"></div>
           </section>
@@ -505,6 +516,6 @@
     <script src="convex-config.js?v=parts-model-1"></script>
     <script src="convex-client.js?v=presence-1"></script>
     <script src="https://unpkg.com/convex/dist/browser.js"></script>
-    <script src="script.js?v=control-dashboard-3"></script>
+    <script src="script.js?v=control-periods-3"></script>
   </body>
 </html>
