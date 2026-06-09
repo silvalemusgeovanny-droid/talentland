@@ -1153,7 +1153,9 @@ async function renderSideRepairs() {
 
 function setLeftPanelForModule(moduleName) {
   const showRepairsPanel = moduleName === "repairs" && Boolean(currentUser);
-  accessCard.hidden = showRepairsPanel;
+  const showStatisticsPanel = moduleName === "statistics" && Boolean(currentUser);
+  document.body.classList.toggle("statistics-active", showStatisticsPanel);
+  accessCard.hidden = showRepairsPanel || showStatisticsPanel;
   sideRepairsPanel.hidden = !showRepairsPanel;
   if (showRepairsPanel) renderSideRepairs();
 }
@@ -1629,6 +1631,7 @@ function setModule(moduleName) {
     credentialHint.textContent = "Tu rol no tiene permiso para abrir ese modulo.";
     moduleName = "permissions";
   }
+  sessionPanel.classList.toggle("control-panel-wide", moduleName === "statistics");
   moduleTabs.forEach((button) => {
     const isAllowed = canAccessModule(button.dataset.module);
     button.hidden = !isAllowed;
