@@ -131,153 +131,153 @@ body.statistics-active .app-shell {
   display: none;
 }
 
-body.login-dark {
+:is(body.login-dark, html.login-dark body) {
   background: #101820;
   color: #f4f8fa;
 }
 
-body.login-dark .proposal-panel {
+:is(body.login-dark, html.login-dark body) .proposal-panel {
   border-right-color: rgb(255 255 255 / 12%);
   background: #111c24;
 }
 
-body.login-dark .brand-row h1,
-body.login-dark .access-card h2 {
+:is(body.login-dark, html.login-dark body) .brand-row h1,
+:is(body.login-dark, html.login-dark body) .access-card h2 {
   color: #f4f8fa;
 }
 
-body.login-dark .brand-row p,
-body.login-dark .form-heading p,
-body.login-dark .role-grid p,
-body.login-dark .hint,
-body.login-dark #accessSummary {
+:is(body.login-dark, html.login-dark body) .brand-row p,
+:is(body.login-dark, html.login-dark body) .form-heading p,
+:is(body.login-dark, html.login-dark body) .role-grid p,
+:is(body.login-dark, html.login-dark body) .hint,
+:is(body.login-dark, html.login-dark body) #accessSummary {
   color: #a9b8c2;
 }
 
-body.login-dark .proposal-tabs,
-body.login-dark .role-grid article {
+:is(body.login-dark, html.login-dark body) .proposal-tabs,
+:is(body.login-dark, html.login-dark body) .role-grid article {
   border-color: rgb(255 255 255 / 12%);
   background: #17242e;
 }
 
-body.login-dark .side-panel-heading p {
+:is(body.login-dark, html.login-dark body) .side-panel-heading p {
   color: #a9b8c2;
 }
 
-body.login-dark .side-repair-item {
+:is(body.login-dark, html.login-dark body) .side-repair-item {
   border-color: rgb(255 255 255 / 12%);
   background: #17242e;
 }
 
-body.login-dark #sideRepairSearch {
+:is(body.login-dark, html.login-dark body) #sideRepairSearch {
   border-color: rgb(255 255 255 / 14%);
   background: #0f1820;
   color: #f4f8fa;
 }
 
-body.login-dark .side-repair-item strong {
+:is(body.login-dark, html.login-dark body) .side-repair-item strong {
   color: #f4f8fa;
 }
 
-body.login-dark .side-repair-item span {
+:is(body.login-dark, html.login-dark body) .side-repair-item span {
   color: #a9b8c2;
 }
 
-body.login-dark .side-repair-item b {
+:is(body.login-dark, html.login-dark body) .side-repair-item b {
   color: #ffd166;
 }
 
-body.login-dark .tab-button {
+:is(body.login-dark, html.login-dark body) .tab-button {
   color: #a9b8c2;
 }
 
-body.login-dark .tab-button.active {
+:is(body.login-dark, html.login-dark body) .tab-button.active {
   background: #22323d;
   color: #ffffff;
   box-shadow: 0 4px 16px rgb(0 0 0 / 24%);
 }
 
-body.login-dark .login-stage.admin {
+:is(body.login-dark, html.login-dark body) .login-stage.admin {
   background:
     linear-gradient(135deg, rgb(17 28 36 / 92%), rgb(23 44 53 / 88%)),
     linear-gradient(135deg, #111820, #22313b);
 }
 
-body.login-dark .login-card,
-body.login-dark .session-panel {
+:is(body.login-dark, html.login-dark body) .login-card,
+:is(body.login-dark, html.login-dark body) .session-panel {
   border-color: rgb(255 255 255 / 16%);
   background: rgb(20 31 39 / 92%);
   color: #f4f8fa;
   box-shadow: 0 24px 60px rgb(0 0 0 / 28%);
 }
 
-body.login-dark input,
-body.login-dark select,
-body.login-dark textarea {
+:is(body.login-dark, html.login-dark body) input,
+:is(body.login-dark, html.login-dark body) select,
+:is(body.login-dark, html.login-dark body) textarea {
   border-color: rgb(255 255 255 / 14%);
   background: #0f1820;
   color: #f4f8fa;
 }
 
-body.login-dark input::placeholder,
-body.login-dark textarea::placeholder {
+:is(body.login-dark, html.login-dark body) input::placeholder,
+:is(body.login-dark, html.login-dark body) textarea::placeholder {
   color: #7f919d;
 }
 
-body.login-dark .secondary-button,
-body.login-dark .module-tabs {
+:is(body.login-dark, html.login-dark body) .secondary-button,
+:is(body.login-dark, html.login-dark body) .module-tabs {
   background: #17242e;
   color: #f4f8fa;
 }
 
-body.login-dark .module-tabs {
+:is(body.login-dark, html.login-dark body) .module-tabs {
   border-color: rgb(255 255 255 / 12%);
 }
 
-body.login-dark .module-tab {
+:is(body.login-dark, html.login-dark body) .module-tab {
   color: #a9b8c2;
 }
 
-body.login-dark .module-tab.active {
+:is(body.login-dark, html.login-dark body) .module-tab.active {
   background: #263844;
   color: #ffffff;
 }
 
-body.login-dark .session-panel li,
-body.login-dark .compact-part-item {
+:is(body.login-dark, html.login-dark body) .session-panel li,
+:is(body.login-dark, html.login-dark body) .compact-part-item {
   background: rgb(255 255 255 / 10%);
 }
 
-body.login-dark .compact-part-item span {
+:is(body.login-dark, html.login-dark body) .compact-part-item span {
   color: #a9b8c2;
 }
 
-body.login-dark .date-time,
-body.login-dark .color-mode-toggle,
-body.login-dark .notes-toggle {
+:is(body.login-dark, html.login-dark body) .date-time,
+:is(body.login-dark, html.login-dark body) .color-mode-toggle,
+:is(body.login-dark, html.login-dark body) .notes-toggle {
   border-color: rgb(255 255 255 / 14%);
   background: rgb(17 28 36 / 82%);
   color: #f4f8fa;
   box-shadow: 0 8px 24px rgb(0 0 0 / 24%);
 }
 
-body.login-dark .date-time span + span {
+:is(body.login-dark, html.login-dark body) .date-time span + span {
   border-left-color: rgb(255 255 255 / 16%);
 }
 
-body.login-dark .mode-icon {
+:is(body.login-dark, html.login-dark body) .mode-icon {
   color: #ffd166;
 }
 
-body.login-dark .notes-toggle svg {
+:is(body.login-dark, html.login-dark body) .notes-toggle svg {
   color: #f4f8fa;
 }
 
-body.login-dark .moon-icon {
+:is(body.login-dark, html.login-dark body) .moon-icon {
   display: none;
 }
 
-body.login-dark .sun-icon {
+:is(body.login-dark, html.login-dark body) .sun-icon {
   display: block;
 }
 
@@ -644,7 +644,7 @@ input[readonly] {
   margin-top: 8px;
 }
 
-body.login-dark input[readonly] {
+:is(body.login-dark, html.login-dark body) input[readonly] {
   background: #1c2a34;
   color: #dbe7ed;
 }
@@ -1202,7 +1202,7 @@ body.login-dark input[readonly] {
   display: none;
 }
 
-body.login-dark .inline-action-button,
+:is(body.login-dark, html.login-dark body) .inline-action-button,
 .technical .inline-action-button,
 .visual .inline-action-button {
   border-color: rgb(255 255 255 / 16%);
@@ -1490,10 +1490,10 @@ body.login-dark .inline-action-button,
 
 .technical .sale-total-box,
 .visual .sale-total-box,
-body.login-dark .sale-total-box,
+:is(body.login-dark, html.login-dark body) .sale-total-box,
 .technical .daily-sales-header,
 .visual .daily-sales-header,
-body.login-dark .daily-sales-header {
+:is(body.login-dark, html.login-dark body) .daily-sales-header {
   background: rgb(255 255 255 / 12%);
 }
 
@@ -1501,111 +1501,111 @@ body.login-dark .daily-sales-header {
 .visual .sale-total-box span,
 .technical .daily-sales-header > span,
 .visual .daily-sales-header > span,
-body.login-dark .sale-total-box span,
-body.login-dark .daily-sales-header > span {
+:is(body.login-dark, html.login-dark body) .sale-total-box span,
+:is(body.login-dark, html.login-dark body) .daily-sales-header > span {
   color: rgb(255 255 255 / 72%);
 }
 
-body.login-dark .sale-confirm-card {
+:is(body.login-dark, html.login-dark body) .sale-confirm-card {
   border-color: rgb(255 255 255 / 16%);
   background: #14212a;
   color: #f4f8fa;
 }
 
-body.login-dark .sale-confirm-list div {
+:is(body.login-dark, html.login-dark body) .sale-confirm-list div {
   border-bottom-color: rgb(255 255 255 / 12%);
 }
 
-body.login-dark .sale-confirm-list dt {
+:is(body.login-dark, html.login-dark body) .sale-confirm-list dt {
   color: #a9b8c2;
 }
 
-body.login-dark .sale-confirm-list dd {
+:is(body.login-dark, html.login-dark body) .sale-confirm-list dd {
   color: #f4f8fa;
 }
 
-body.login-dark .undo-bar {
+:is(body.login-dark, html.login-dark body) .undo-bar {
   border-color: rgb(255 255 255 / 16%);
   background: #14212a;
   color: #f4f8fa;
 }
 
-body.login-dark .undo-bar small {
+:is(body.login-dark, html.login-dark body) .undo-bar small {
   color: #a9b8c2;
 }
 
-body.login-dark .pending-alert,
-body.login-dark .note-item,
-body.login-dark .stat-card {
+:is(body.login-dark, html.login-dark body) .pending-alert,
+:is(body.login-dark, html.login-dark body) .note-item,
+:is(body.login-dark, html.login-dark body) .stat-card {
   border-color: rgb(255 255 255 / 16%);
   background: #14212a;
   color: #f4f8fa;
 }
 
-body.login-dark .pending-alert span,
-body.login-dark .note-item span,
-body.login-dark .stat-card span,
-body.login-dark .stat-card small {
+:is(body.login-dark, html.login-dark body) .pending-alert span,
+:is(body.login-dark, html.login-dark body) .note-item span,
+:is(body.login-dark, html.login-dark body) .stat-card span,
+:is(body.login-dark, html.login-dark body) .stat-card small {
   color: #a9b8c2;
 }
 
-body.login-dark .stat-card strong {
+:is(body.login-dark, html.login-dark body) .stat-card strong {
   color: #f4f8fa;
 }
 
-body.login-dark .control-kpi-rail,
-body.login-dark .control-kpi,
-body.login-dark .statistics-periods,
-body.login-dark .control-panel-card {
+:is(body.login-dark, html.login-dark body) .control-kpi-rail,
+:is(body.login-dark, html.login-dark body) .control-kpi,
+:is(body.login-dark, html.login-dark body) .statistics-periods,
+:is(body.login-dark, html.login-dark body) .control-panel-card {
   border-color: rgb(255 255 255 / 12%);
 }
 
-body.login-dark .control-panel-card,
-body.login-dark .control-kpi b,
-body.login-dark .statistics-periods {
+:is(body.login-dark, html.login-dark body) .control-panel-card,
+:is(body.login-dark, html.login-dark body) .control-kpi b,
+:is(body.login-dark, html.login-dark body) .statistics-periods {
   background: rgb(255 255 255 / 8%);
 }
 
-body.login-dark .control-kpi strong,
-body.login-dark .control-panel-card h3,
-body.login-dark .bar-row b,
-body.login-dark .alert-list strong {
+:is(body.login-dark, html.login-dark body) .control-kpi strong,
+:is(body.login-dark, html.login-dark body) .control-panel-card h3,
+:is(body.login-dark, html.login-dark body) .bar-row b,
+:is(body.login-dark, html.login-dark body) .alert-list strong {
   color: #f4f8fa;
 }
 
-body.login-dark .control-kpi span,
-body.login-dark .chart-card p,
-body.login-dark .chart-axis,
-body.login-dark .bar-row span,
-body.login-dark .donut-legend span,
-body.login-dark .alert-list span {
+:is(body.login-dark, html.login-dark body) .control-kpi span,
+:is(body.login-dark, html.login-dark body) .chart-card p,
+:is(body.login-dark, html.login-dark body) .chart-axis,
+:is(body.login-dark, html.login-dark body) .bar-row span,
+:is(body.login-dark, html.login-dark body) .donut-legend span,
+:is(body.login-dark, html.login-dark body) .alert-list span {
   color: #a9b8c2;
 }
 
-body.login-dark .statistics-periods button {
+:is(body.login-dark, html.login-dark body) .statistics-periods button {
   color: #a9b8c2;
 }
 
-body.login-dark .statistics-periods-bar > span {
+:is(body.login-dark, html.login-dark body) .statistics-periods-bar > span {
   color: #a9b8c2;
 }
 
-body.login-dark .statistics-periods button.active {
+:is(body.login-dark, html.login-dark body) .statistics-periods button.active {
   background: rgb(255 255 255 / 14%);
   color: #f4f8fa;
 }
 
-body.login-dark .donut-chart {
+:is(body.login-dark, html.login-dark body) .donut-chart {
   box-shadow: inset 0 0 0 26px #14212a;
 }
 
-body.login-dark .pending-alert button {
+:is(body.login-dark, html.login-dark body) .pending-alert button {
   border-color: rgb(255 255 255 / 14%);
   background: #22323d;
   color: #ffffff;
 }
 
-body.login-dark .note-item p {
+:is(body.login-dark, html.login-dark body) .note-item p {
   color: #f4f8fa;
 }
 
@@ -1680,7 +1680,7 @@ body.login-dark .note-item p {
     linear-gradient(135deg, #f8fbfc 0%, #edf5f7 48%, #f6f1ed 100%);
 }
 
-body.login-dark.parts-page {
+:is(body.login-dark, html.login-dark body).parts-page {
   background:
     radial-gradient(circle at 100% 0%, rgb(211 95 45 / 16%), transparent 25rem),
     linear-gradient(135deg, #0f1820 0%, #14242d 52%, #101820 100%);
@@ -1734,8 +1734,8 @@ body.login-dark.parts-page {
   line-height: 0.98;
 }
 
-body.login-dark .parts-header h1,
-body.login-dark .table-toolbar h2 {
+:is(body.login-dark, html.login-dark body) .parts-header h1,
+:is(body.login-dark, html.login-dark body) .table-toolbar h2 {
   color: #f4f8fa;
 }
 
@@ -1746,8 +1746,8 @@ body.login-dark .table-toolbar h2 {
   font-weight: 700;
 }
 
-body.login-dark .parts-header p,
-body.login-dark .parts-summary span {
+:is(body.login-dark, html.login-dark body) .parts-header p,
+:is(body.login-dark, html.login-dark body) .parts-summary span {
   color: #a9b8c2;
 }
 
@@ -1771,13 +1771,13 @@ body.login-dark .parts-summary span {
   color: #ffffff;
 }
 
-body.login-dark .back-link {
+:is(body.login-dark, html.login-dark body) .back-link {
   border-color: rgb(255 255 255 / 14%);
   background: #17242e;
   color: #ffffff;
 }
 
-body.login-dark .back-link:hover {
+:is(body.login-dark, html.login-dark body) .back-link:hover {
   background: #22323d;
 }
 
@@ -1824,7 +1824,7 @@ body.login-dark .back-link:hover {
   font-size: clamp(1.4rem, 3vw, 2.1rem);
 }
 
-body.login-dark .parts-summary strong {
+:is(body.login-dark, html.login-dark body) .parts-summary strong {
   color: #ffffff;
 }
 
@@ -1846,10 +1846,10 @@ body.login-dark .parts-summary strong {
   backdrop-filter: blur(12px);
 }
 
-body.login-dark .parts-header,
-body.login-dark .parts-summary article,
-body.login-dark .parts-form,
-body.login-dark .parts-table-card {
+:is(body.login-dark, html.login-dark body) .parts-header,
+:is(body.login-dark, html.login-dark body) .parts-summary article,
+:is(body.login-dark, html.login-dark body) .parts-form,
+:is(body.login-dark, html.login-dark body) .parts-table-card {
   border-color: rgb(255 255 255 / 14%);
   background: rgb(20 31 39 / 92%);
   box-shadow: 0 20px 54px rgb(0 0 0 / 24%);
@@ -1869,7 +1869,7 @@ body.login-dark .parts-table-card {
   color: #21323d;
 }
 
-body.login-dark .parts-form label {
+:is(body.login-dark, html.login-dark body) .parts-form label {
   color: #f4f8fa;
 }
 
@@ -1880,9 +1880,9 @@ body.login-dark .parts-form label {
   background: #fbfdfe;
 }
 
-body.login-dark .parts-form input,
-body.login-dark .parts-form select,
-body.login-dark .table-toolbar input {
+:is(body.login-dark, html.login-dark body) .parts-form input,
+:is(body.login-dark, html.login-dark body) .parts-form select,
+:is(body.login-dark, html.login-dark body) .table-toolbar input {
   border-color: rgb(255 255 255 / 14%);
   background: #0f1820;
   color: #f4f8fa;
@@ -1917,7 +1917,7 @@ body.login-dark .table-toolbar input {
     #ffffff;
 }
 
-body.login-dark .table-toolbar {
+:is(body.login-dark, html.login-dark body) .table-toolbar {
   border-bottom-color: rgb(255 255 255 / 12%);
   background:
     linear-gradient(135deg, rgb(255 255 255 / 7%), transparent),
@@ -1944,7 +1944,7 @@ table {
   background: #ffffff;
 }
 
-body.login-dark table {
+:is(body.login-dark, html.login-dark body) table {
   background: #111c24;
 }
 
@@ -1967,7 +1967,7 @@ th {
   text-transform: uppercase;
 }
 
-body.login-dark th {
+:is(body.login-dark, html.login-dark body) th {
   background: #192a34;
   color: #a9b8c2;
 }
@@ -1977,7 +1977,7 @@ td {
   font-weight: 700;
 }
 
-body.login-dark td {
+:is(body.login-dark, html.login-dark body) td {
   border-bottom-color: rgb(255 255 255 / 9%);
   color: #eaf2f5;
 }
@@ -1986,7 +1986,7 @@ tbody tr:hover {
   background: #f7fbfc;
 }
 
-body.login-dark tbody tr:hover {
+:is(body.login-dark, html.login-dark body) tbody tr:hover {
   background: rgb(255 255 255 / 5%);
 }
 
@@ -2054,57 +2054,57 @@ body.login-dark tbody tr:hover {
   color: #303f75;
 }
 
-body.login-dark .quality-pill {
+:is(body.login-dark, html.login-dark body) .quality-pill {
   border-color: rgb(72 150 103 / 26%);
   background: rgb(13 74 45 / 30%);
   color: #9fd7b7;
 }
 
-body.login-dark .quality-original {
+:is(body.login-dark, html.login-dark body) .quality-original {
   border-color: rgb(72 150 103 / 26%);
   background: rgb(13 74 45 / 30%);
   color: #9fd7b7;
 }
 
-body.login-dark .quality-gx,
-body.login-dark .quality-premium {
+:is(body.login-dark, html.login-dark body) .quality-gx,
+:is(body.login-dark, html.login-dark body) .quality-premium {
   border-color: rgb(232 185 110 / 24%);
   background: rgb(132 86 18 / 24%);
   color: #f0c47d;
 }
 
-body.login-dark .quality-oled {
+:is(body.login-dark, html.login-dark body) .quality-oled {
   border-color: rgb(151 139 226 / 24%);
   background: rgb(63 53 135 / 28%);
   color: #c7c0f5;
 }
 
-body.login-dark .quality-amoled {
+:is(body.login-dark, html.login-dark body) .quality-amoled {
   border-color: rgb(91 204 190 / 24%);
   background: rgb(16 94 84 / 28%);
   color: #a9e5dc;
 }
 
-body.login-dark .quality-tft {
+:is(body.login-dark, html.login-dark body) .quality-tft {
   border-color: rgb(157 171 184 / 22%);
   background: rgb(70 82 95 / 25%);
   color: #d0d8df;
 }
 
-body.login-dark .quality-ips {
+:is(body.login-dark, html.login-dark body) .quality-ips {
   border-color: rgb(96 159 201 / 24%);
   background: rgb(28 88 126 / 28%);
   color: #afd3eb;
 }
 
-body.login-dark .quality-generica,
-body.login-dark .quality-generico {
+:is(body.login-dark, html.login-dark body) .quality-generica,
+:is(body.login-dark, html.login-dark body) .quality-generico {
   border-color: rgb(130 26 38 / 42%);
   background: rgb(82 8 17 / 38%);
   color: #f0b6bc;
 }
 
-body.login-dark .quality-reacondicionada {
+:is(body.login-dark, html.login-dark body) .quality-reacondicionada {
   border-color: rgb(126 145 205 / 22%);
   background: rgb(52 65 109 / 28%);
   color: #bcc9f2;
@@ -2148,7 +2148,7 @@ body.login-dark .quality-reacondicionada {
   background: #ffe7df;
 }
 
-body.login-dark .edit-button,
+:is(body.login-dark, html.login-dark body) .edit-button,
 .technical .edit-button,
 .visual .edit-button {
   border-color: rgb(255 255 255 / 16%);
