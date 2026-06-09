@@ -205,7 +205,7 @@ async function refreshPartsView() {
   try {
     await syncPartsFromSource();
     partsHint.textContent = window.repairCloud?.isConfigured()
-      ? "Datos sincronizados con Convex."
+      ? "Datos sincronizados con base de datos."
       : partsHint.textContent;
   } catch (error) {
     partsHint.textContent = `Modo local: ${error.message}`;
