@@ -1239,6 +1239,140 @@ function groupByMetric(items, keyGetter, valueGetter = () => 1) {
     .sort((a, b) => b.value - a.value);
 }
 
+function percentOf(value, max) {
+  if (!max) return 0;
+  return Math.max(4, Math.min(100, Math.round((value / max) * 100)));
+}
+
+function formatCompactCurrency(value) {
+  return new Intl.NumberFormat("es-MX", {
+    style: "currency",
+    currency: "MXN",
+    notation: "compact",
+    maximumFractionDigits: 1,
+  }).format(value);
+}
+
+function getRecentMonthSeries(repairs, monthCount = 6) {
+  const now = new Date();
+  const months = Array.from({ length: monthCount }, (_, index) => {
+    const date = new Date(now.getFullYear(), now.getMonth() - (monthCount - 1 - index), 1);
+    return {
+      key: `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`,
+      label: new Intl.DateTimeFormat("es-MX", { month: "short" }).format(date),
+      value: 0,
+    };
+  });
+  const monthMap = new Map(months.map((month) => [month.key, month]));
+  repairs.forEach((repair) => {
+    const date = new Date(repair.createdAt);
+    if (Number.isNaN(date.getTime())) return;
+    const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+    const month = monthMap.get(key);
+    if (month) month.value += Number(repair.repairPrice) || 0;
+  });
+  return months;
+}
+
+function renderKpiRail(cards) {
+  return cards.map((card) => `
+    <article class="control-kpi">
+      <div>
+        <strong>${escapeHtml(card.value)}</strong>
+        <span>${escapeHtml(card.label)}</span>
+      </div>
+      <b>${escapeHtml(card.icon)}</b>
+    </article>
+  `).join("");
+}
+
+function renderLineChart(title, series, valueLabel) {
+  const max = Math.max(...series.map((item) => item.value), 1);
+  const points = series.map((item, index) => {
+    const x = series.length === 1 ? 50 : (index / (series.length - 1)) * 100;
+    const y = 88 - (item.value / max) * 72;
+    return `${x},${y}`;
+  }).join(" ");
+
+  return `
+    <section class="control-panel-card chart-card">
+      <h3>${escapeHtml(title)}</h3>
+      <svg class="line-chart" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+        <line x1="0" y1="88" x2="100" y2="88"></line>
+        <line x1="0" y1="64" x2="100" y2="64"></line>
+        <line x1="0" y1="40" x2="100" y2="40"></line>
+        <polyline points="${points}"></polyline>
+      </svg>
+      <div class="chart-axis">
+        ${series.map((item) => `<span>${escapeHtml(item.label)}</span>`).join("")}
+      </div>
+      <p>${escapeHtml(valueLabel)}</p>
+    </section>
+  `;
+}
+
+function renderBarPanel(title, items, formatValue = (value) => value, emptyText = "Sin datos suficientes.") {
+  const rows = items.slice(0, 5);
+  const max = Math.max(...rows.map((item) => Number(item.value) || 0), 0);
+  return `
+    <section class="control-panel-card">
+      <h3>${escapeHtml(title)}</h3>
+      <div class="bar-list">
+        ${rows.length ? rows.map((item) => `
+          <div class="bar-row">
+            <span>${escapeHtml(item.label)}</span>
+            <div><i style="width: ${percentOf(Number(item.value) || 0, max)}%"></i></div>
+            <b>${escapeHtml(formatValue(item.value, item))}</b>
+          </div>
+        `).join("") : `<p class="hint">${emptyText}</p>`}
+      </div>
+    </section>
+  `;
+}
+
+function renderDonutPanel(title, items, total, formatValue = (value) => value) {
+  const topItems = items.slice(0, 4);
+  let current = 0;
+  const colors = ["#176b87", "#e16636", "#21a39d", "#f2b84b"];
+  const gradient = topItems.map((item, index) => {
+    const start = current;
+    const size = total ? (Number(item.value) || 0) / total * 100 : 0;
+    current += size;
+    return `${colors[index]} ${start}% ${current}%`;
+  }).join(", ");
+
+  return `
+    <section class="control-panel-card donut-card">
+      <h3>${escapeHtml(title)}</h3>
+      <div class="donut-wrap">
+        <div class="donut-chart" style="background: conic-gradient(${gradient || "#dbe5e9 0 100%"});"></div>
+        <div class="donut-legend">
+          ${topItems.map((item, index) => `
+            <span><i style="background: ${colors[index]}"></i>${escapeHtml(item.label)} - ${escapeHtml(formatValue(item.value, item))}</span>
+          `).join("") || `<span>Sin datos suficientes.</span>`}
+        </div>
+      </div>
+    </section>
+  `;
+}
+
+function renderAlertPanel(title, parts, emptyText) {
+  return `
+    <section class="control-panel-card alert-panel">
+      <h3>${escapeHtml(title)}</h3>
+      <div class="alert-list">
+        ${parts.length ? parts.slice(0, 4).map((part) => `
+          <article>
+            <strong>${escapeHtml(part.name || "Sin nombre")}</strong>
+            <span>${escapeHtml([part.brand, part.model].filter(Boolean).join(" ") || "Sin modelo")}</span>
+            <b>${getPartStock(part)} pza(s)</b>
+          </article>
+        `).join("") : `<p class="hint">${emptyText}</p>`}
+      </div>
+    </section>
+  `;
+}
+
 function renderStatisticCards(cards) {
   statisticsGrid.innerHTML = cards.map((card) => `
     <article class="stat-card">
@@ -1357,6 +1491,34 @@ async function renderStatistics() {
         value: `${repair.status || "Sin estado"} | ${formatCurrency(Number(repair.repairPrice) || 0)}`,
       }))),
     ].join("");
+    const categoryTotals = groupByMetric(parts, (part) => normalizeCategory(part.category));
+    const providerValues = groupByMetric(parts, (part) => part.supplier, (part) => getMoneyCents(part, "price", "priceCents") * getPartStock(part));
+    const repairStatusTotals = groupByMetric(repairs, (repair) => repair.status);
+    const monthlyRepairSeries = getRecentMonthSeries(repairs);
+
+    statisticsGrid.innerHTML = `
+      <div class="control-dashboard">
+        <aside class="control-kpi-rail">
+          ${renderKpiRail([
+            { label: "Valor inventario", value: formatCompactCurrency(centsToMoney(inventoryCostCents)), icon: "VI" },
+            { label: "Venta potencial", value: formatCompactCurrency(centsToMoney(inventorySaleCents)), icon: "VP" },
+            { label: "Utilidad estimada", value: formatCompactCurrency(centsToMoney(estimatedProfitCents)), icon: "UE" },
+            { label: "Ingresos reparacion", value: formatCompactCurrency(repairIncome), icon: "IR" },
+            { label: "Reparaciones mes", value: String(monthRepairs.length), icon: "RM" },
+            { label: "Alertas", value: String(lowStockParts.length + zeroStockParts.length + priceIssues.length), icon: "AL" },
+          ])}
+        </aside>
+        <div class="control-main-grid">
+          ${renderLineChart("Ingresos de reparaciones", monthlyRepairSeries, `Este mes: ${formatCurrency(monthRepairIncome)}`)}
+          ${renderDonutPanel("Repuestos por categoria", categoryTotals, parts.length, (value) => `${value}`)}
+          ${renderBarPanel("Valor por proveedor", providerValues, (value) => formatCompactCurrency(centsToMoney(value)))}
+          ${renderBarPanel("Reparaciones por estado", repairStatusTotals, (value) => `${value}`)}
+          ${renderBarPanel("Mayor utilidad potencial", topProfitParts, (value) => formatCompactCurrency(centsToMoney(value)))}
+          ${renderAlertPanel("Stock bajo y agotado", [...zeroStockParts, ...lowStockParts], "Sin alertas de stock.")}
+        </div>
+      </div>
+    `;
+    statisticsLists.innerHTML = "";
   } catch (error) {
     statisticsSummary.textContent = "Error";
     statisticsHint.textContent = "No se pudo consultar Convex.";
