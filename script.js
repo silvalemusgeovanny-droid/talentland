@@ -174,6 +174,7 @@ const statisticsSummary = document.querySelector("#statisticsSummary");
 const statisticsHint = document.querySelector("#statisticsHint");
 const statisticsGrid = document.querySelector("#statisticsGrid");
 const statisticsLists = document.querySelector("#statisticsLists");
+const statisticsPeriodButtons = document.querySelectorAll("[data-statistics-period]");
 const saleConfirmOverlay = document.querySelector("#saleConfirmOverlay");
 const saleConfirmList = document.querySelector("#saleConfirmList");
 const editSaleButton = document.querySelector("#editSaleButton");
@@ -204,6 +205,7 @@ let currentUser = null;
 let notesCloudMigrationDone = false;
 let partsCloudMigrationDone = false;
 let presenceTimer = null;
+let activeStatisticsPeriod = "month";
 const presenceHeartbeatMs = 25000;
 
 const starterParts = [
@@ -1229,6 +1231,124 @@ function sameMonth(value, date = new Date()) {
   return itemDate.getFullYear() === date.getFullYear() && itemDate.getMonth() === date.getMonth();
 }
 
+function startOfDay(date) {
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate());
+}
+
+function addDays(date, days) {
+  const nextDate = new Date(date);
+  nextDate.setDate(nextDate.getDate() + days);
+  return nextDate;
+}
+
+function getWeekStart(date) {
+  const start = startOfDay(date);
+  const day = start.getDay() || 7;
+  return addDays(start, 1 - day);
+}
+
+function getQuarterStart(date) {
+  return new Date(date.getFullYear(), Math.floor(date.getMonth() / 3) * 3, 1);
+}
+
+function getPeriodConfig(period, now = new Date()) {
+  const configs = {
+    day: {
+      label: "Dia",
+      start: startOfDay(now),
+      end: addDays(startOfDay(now), 1),
+      series: "hours",
+    },
+    week: {
+      label: "Semana",
+      start: getWeekStart(now),
+      end: addDays(getWeekStart(now), 7),
+      series: "days",
+    },
+    month: {
+      label: "Mes",
+      start: new Date(now.getFullYear(), now.getMonth(), 1),
+      end: new Date(now.getFullYear(), now.getMonth() + 1, 1),
+      series: "weeks",
+    },
+    quarter: {
+      label: "Trimestre",
+      start: getQuarterStart(now),
+      end: new Date(now.getFullYear(), getQuarterStart(now).getMonth() + 3, 1),
+      series: "months",
+    },
+    year: {
+      label: "Anual",
+      start: new Date(now.getFullYear(), 0, 1),
+      end: new Date(now.getFullYear() + 1, 0, 1),
+      series: "months",
+    },
+  };
+  return configs[period] || configs.month;
+}
+
+function getRecordDate(record, ...fields) {
+  for (const field of fields) {
+    const date = new Date(record?.[field]);
+    if (!Number.isNaN(date.getTime())) return date;
+  }
+  return null;
+}
+
+function isWithinPeriod(date, periodConfig) {
+  return Boolean(date) && date >= periodConfig.start && date < periodConfig.end;
+}
+
+function filterRecordsByPeriod(records, periodConfig, ...fields) {
+  return records.filter((record) => isWithinPeriod(getRecordDate(record, ...fields), periodConfig));
+}
+
+function getPeriodRepairSeries(repairs, periodConfig) {
+  const series = [];
+  const pushBucket = (label, start, end) => series.push({ label, start, end, value: 0 });
+
+  if (periodConfig.series === "hours") {
+    for (let hour = 0; hour < 24; hour += 4) {
+      const start = new Date(periodConfig.start);
+      start.setHours(hour, 0, 0, 0);
+      const end = new Date(start);
+      end.setHours(hour + 4, 0, 0, 0);
+      pushBucket(`${String(hour).padStart(2, "0")}h`, start, end);
+    }
+  } else if (periodConfig.series === "days") {
+    for (let index = 0; index < 7; index += 1) {
+      const start = addDays(periodConfig.start, index);
+      const end = addDays(start, 1);
+      pushBucket(new Intl.DateTimeFormat("es-MX", { weekday: "short" }).format(start), start, end);
+    }
+  } else if (periodConfig.series === "weeks") {
+    let start = new Date(periodConfig.start);
+    let week = 1;
+    while (start < periodConfig.end) {
+      const end = new Date(Math.min(addDays(start, 7).getTime(), periodConfig.end.getTime()));
+      pushBucket(`Sem ${week}`, start, end);
+      start = end;
+      week += 1;
+    }
+  } else {
+    let start = new Date(periodConfig.start);
+    while (start < periodConfig.end) {
+      const end = new Date(start.getFullYear(), start.getMonth() + 1, 1);
+      pushBucket(new Intl.DateTimeFormat("es-MX", { month: "short" }).format(start), start, end);
+      start = end;
+    }
+  }
+
+  repairs.forEach((repair) => {
+    const date = getRecordDate(repair, "createdAt");
+    if (!date) return;
+    const bucket = series.find((item) => date >= item.start && date < item.end);
+    if (bucket) bucket.value += Number(repair.repairPrice) || 0;
+  });
+
+  return series.map(({ label, value }) => ({ label, value }));
+}
+
 function groupByMetric(items, keyGetter, valueGetter = () => 1) {
   const totals = new Map();
   items.forEach((item) => {
@@ -1429,15 +1549,15 @@ async function renderStatistics() {
   }
 
   if (!window.repairCloud?.isConfigured()) {
-    statisticsSummary.textContent = "Convex requerido";
+    statisticsSummary.textContent = "Base de datos requerida";
     statisticsHint.textContent = "Configura CONVEX_URL para recopilar datos.";
     statisticsGrid.innerHTML = "";
-    statisticsLists.innerHTML = `<p class="hint">Este panel toma sus datos de Convex, no del almacenamiento local del navegador.</p>`;
+    statisticsLists.innerHTML = `<p class="hint">Este panel toma sus datos de base de datos, no del almacenamiento local del navegador.</p>`;
     return;
   }
 
   statisticsSummary.textContent = "Cargando...";
-  statisticsHint.textContent = "Consultando Convex";
+  statisticsHint.textContent = "Consultando base de datos";
   statisticsGrid.innerHTML = "";
   statisticsLists.innerHTML = `<p class="hint">Recopilando repuestos y reparaciones.</p>`;
 
@@ -1447,21 +1567,22 @@ async function renderStatistics() {
       window.repairCloud.listRepairs({ limit: 10000 }),
     ]);
 
-    const totalStock = parts.reduce((sum, part) => sum + getPartStock(part), 0);
-    const inventoryCostCents = parts.reduce((sum, part) => sum + getMoneyCents(part, "price", "priceCents") * getPartStock(part), 0);
-    const inventorySaleCents = parts.reduce((sum, part) => sum + getMoneyCents(part, "customerPrice", "customerPriceCents") * getPartStock(part), 0);
+    const periodConfig = getPeriodConfig(activeStatisticsPeriod);
+    const periodParts = filterRecordsByPeriod(parts, periodConfig, "publishedAt", "updatedAt");
+    const periodRepairs = filterRecordsByPeriod(repairs, periodConfig, "createdAt");
+    const totalStock = periodParts.reduce((sum, part) => sum + getPartStock(part), 0);
+    const inventoryCostCents = periodParts.reduce((sum, part) => sum + getMoneyCents(part, "price", "priceCents") * getPartStock(part), 0);
+    const inventorySaleCents = periodParts.reduce((sum, part) => sum + getMoneyCents(part, "customerPrice", "customerPriceCents") * getPartStock(part), 0);
     const estimatedProfitCents = inventorySaleCents - inventoryCostCents;
-    const repairIncome = repairs.reduce((sum, repair) => sum + (Number(repair.repairPrice) || 0), 0);
-    const monthRepairs = repairs.filter((repair) => sameMonth(repair.createdAt));
-    const monthRepairIncome = monthRepairs.reduce((sum, repair) => sum + (Number(repair.repairPrice) || 0), 0);
-    const lowStockParts = parts.filter((part) => getPartStock(part) > 0 && getPartStock(part) <= 2);
-    const zeroStockParts = parts.filter((part) => getPartStock(part) === 0);
-    const priceIssues = parts.filter((part) => {
+    const repairIncome = periodRepairs.reduce((sum, repair) => sum + (Number(repair.repairPrice) || 0), 0);
+    const lowStockParts = periodParts.filter((part) => getPartStock(part) > 0 && getPartStock(part) <= 2);
+    const zeroStockParts = periodParts.filter((part) => getPartStock(part) === 0);
+    const priceIssues = periodParts.filter((part) => {
       const cost = getMoneyCents(part, "price", "priceCents");
       const customer = getMoneyCents(part, "customerPrice", "customerPriceCents");
       return cost <= 0 || customer <= 0 || customer <= cost;
     });
-    const topProfitParts = parts
+    const topProfitParts = periodParts
       .map((part) => ({
         label: `${part.name || "Sin nombre"} ${part.model || ""}`.trim(),
         value: (getMoneyCents(part, "customerPrice", "customerPriceCents") - getMoneyCents(part, "price", "priceCents")) * getPartStock(part),
@@ -1469,14 +1590,14 @@ async function renderStatistics() {
       .filter((item) => item.value > 0)
       .sort((a, b) => b.value - a.value);
 
-    statisticsSummary.textContent = `${parts.length} repuestos | ${repairs.length} reparaciones`;
+    statisticsSummary.textContent = `${periodParts.length} repuestos | ${periodRepairs.length} reparaciones`;
     statisticsHint.textContent = "Datos activos de base de datos";
     renderStatisticCards([
       { label: "Valor inventario", value: formatCurrencyCents(inventoryCostCents), detail: `${totalStock} piezas en existencia` },
       { label: "Venta potencial", value: formatCurrencyCents(inventorySaleCents), detail: "Precio cliente final x existencia" },
       { label: "Utilidad estimada", value: formatCurrencyCents(estimatedProfitCents), detail: "Antes de gastos operativos" },
-      { label: "Ingresos reparaciones", value: formatCurrency(repairIncome), detail: `${repairs.length} registros en Convex` },
-      { label: "Este mes", value: formatCurrency(monthRepairIncome), detail: `${monthRepairs.length} reparaciones` },
+      { label: "Ingresos reparaciones", value: formatCurrency(repairIncome), detail: `${periodRepairs.length} registros` },
+      { label: periodConfig.label, value: formatCurrency(repairIncome), detail: `${periodRepairs.length} reparaciones` },
       { label: "Alertas", value: String(lowStockParts.length + zeroStockParts.length + priceIssues.length), detail: "Stock y precios por revisar" },
     ]);
 
@@ -1493,10 +1614,10 @@ async function renderStatistics() {
         value: `${repair.status || "Sin estado"} | ${formatCurrency(Number(repair.repairPrice) || 0)}`,
       }))),
     ].join("");
-    const categoryTotals = groupByMetric(parts, (part) => normalizeCategory(part.category));
-    const providerValues = groupByMetric(parts, (part) => part.supplier, (part) => getMoneyCents(part, "price", "priceCents") * getPartStock(part));
-    const repairStatusTotals = groupByMetric(repairs, (repair) => repair.status);
-    const monthlyRepairSeries = getRecentMonthSeries(repairs);
+    const categoryTotals = groupByMetric(periodParts, (part) => normalizeCategory(part.category));
+    const providerValues = groupByMetric(periodParts, (part) => part.supplier, (part) => getMoneyCents(part, "price", "priceCents") * getPartStock(part));
+    const repairStatusTotals = groupByMetric(periodRepairs, (repair) => repair.status);
+    const periodRepairSeries = getPeriodRepairSeries(periodRepairs, periodConfig);
 
     statisticsGrid.innerHTML = `
       <div class="control-dashboard">
@@ -1506,13 +1627,13 @@ async function renderStatistics() {
             { label: "Venta potencial", value: formatCompactCurrency(centsToMoney(inventorySaleCents)), icon: "VP" },
             { label: "Utilidad estimada", value: formatCompactCurrency(centsToMoney(estimatedProfitCents)), icon: "UE" },
             { label: "Ingresos reparacion", value: formatCompactCurrency(repairIncome), icon: "IR" },
-            { label: "Reparaciones mes", value: String(monthRepairs.length), icon: "RM" },
+            { label: `Reparaciones ${periodConfig.label.toLowerCase()}`, value: String(periodRepairs.length), icon: "RP" },
             { label: "Alertas", value: String(lowStockParts.length + zeroStockParts.length + priceIssues.length), icon: "AL" },
           ])}
         </aside>
         <div class="control-main-grid">
-          ${renderLineChart("Ingresos de reparaciones", monthlyRepairSeries, `Este mes: ${formatCurrency(monthRepairIncome)}`)}
-          ${renderDonutPanel("Repuestos por categoria", categoryTotals, parts.length, (value) => `${value}`)}
+          ${renderLineChart("Ingresos de reparaciones", periodRepairSeries, `${periodConfig.label}: ${formatCurrency(repairIncome)}`)}
+          ${renderDonutPanel("Repuestos por categoria", categoryTotals, periodParts.length, (value) => `${value}`)}
           ${renderBarPanel("Valor por proveedor", providerValues, (value) => formatCompactCurrency(centsToMoney(value)))}
           ${renderBarPanel("Reparaciones por estado", repairStatusTotals, (value) => `${value}`)}
           ${renderBarPanel("Mayor utilidad potencial", topProfitParts, (value) => formatCompactCurrency(centsToMoney(value)))}
@@ -1523,7 +1644,7 @@ async function renderStatistics() {
     statisticsLists.innerHTML = "";
   } catch (error) {
     statisticsSummary.textContent = "Error";
-    statisticsHint.textContent = "No se pudo consultar Convex.";
+    statisticsHint.textContent = "No se pudo consultar base de datos.";
     statisticsGrid.innerHTML = "";
     statisticsLists.innerHTML = `<p class="hint">${escapeHtml(error.message)}</p>`;
   }
@@ -1674,6 +1795,15 @@ function setModule(moduleName) {
 
 tabButtons.forEach((button) => button.addEventListener("click", () => setTheme(button.dataset.theme)));
 moduleTabs.forEach((button) => button.addEventListener("click", () => setModule(button.dataset.module)));
+statisticsPeriodButtons.forEach((button) => {
+  button.addEventListener("click", () => {
+    activeStatisticsPeriod = button.dataset.statisticsPeriod || "day";
+    statisticsPeriodButtons.forEach((periodButton) => {
+      periodButton.classList.toggle("active", periodButton === button);
+    });
+    renderStatistics();
+  });
+});
 
 sideRepairSearch.addEventListener("input", () => {
   clearTimeout(sideRepairSearchTimer);
