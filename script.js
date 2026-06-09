@@ -48,7 +48,7 @@ const roleProfiles = {
   root: {
     label: "Root",
     access: "Control total del sistema",
-    modules: ["permissions", "sales", "parts", "repairs", "database", "users"],
+    modules: ["permissions", "sales", "parts", "repairs", "statistics", "database", "users"],
     permissions: [
       "Modificar usuarios, roles y accesos",
       "Ver base de datos local completa",
@@ -59,7 +59,7 @@ const roleProfiles = {
   admin: {
     label: "Admin",
     access: "Administracion con restricciones",
-    modules: ["permissions", "sales", "parts", "repairs", "database"],
+    modules: ["permissions", "sales", "parts", "repairs", "statistics", "database"],
     permissions: [
       "Registrar ventas, repuestos y reparaciones",
       "Ver base de datos local",
@@ -170,6 +170,10 @@ const repairsHint = document.querySelector("#repairsHint");
 const repairsCount = document.querySelector("#repairsCount");
 const repairsList = document.querySelector("#repairsList");
 const importRepairsDatabaseButton = document.querySelector("#importRepairsDatabase");
+const statisticsSummary = document.querySelector("#statisticsSummary");
+const statisticsHint = document.querySelector("#statisticsHint");
+const statisticsGrid = document.querySelector("#statisticsGrid");
+const statisticsLists = document.querySelector("#statisticsLists");
 const saleConfirmOverlay = document.querySelector("#saleConfirmOverlay");
 const saleConfirmList = document.querySelector("#saleConfirmList");
 const editSaleButton = document.querySelector("#editSaleButton");
@@ -498,6 +502,16 @@ function getMoneyCents(part, moneyField, centsField) {
 
 function formatCurrencyCents(cents) {
   return formatCurrency(centsToMoney(cents));
+}
+
+function normalizeStockQuantity(value) {
+  const stock = Number(value);
+  if (!Number.isFinite(stock)) return 0;
+  return Math.max(0, Math.trunc(stock));
+}
+
+function getPartStock(part) {
+  return normalizeStockQuantity(part?.stock);
 }
 
 function normalizePartType(value) {
@@ -1207,6 +1221,150 @@ function renderDatabase() {
   `).join("");
 }
 
+function sameMonth(value, date = new Date()) {
+  const itemDate = new Date(value);
+  if (Number.isNaN(itemDate.getTime())) return false;
+  return itemDate.getFullYear() === date.getFullYear() && itemDate.getMonth() === date.getMonth();
+}
+
+function groupByMetric(items, keyGetter, valueGetter = () => 1) {
+  const totals = new Map();
+  items.forEach((item) => {
+    const key = keyGetter(item) || "Sin dato";
+    const value = valueGetter(item);
+    totals.set(key, (totals.get(key) || 0) + value);
+  });
+  return [...totals.entries()]
+    .map(([label, value]) => ({ label, value }))
+    .sort((a, b) => b.value - a.value);
+}
+
+function renderStatisticCards(cards) {
+  statisticsGrid.innerHTML = cards.map((card) => `
+    <article class="stat-card">
+      <span>${escapeHtml(card.label)}</span>
+      <strong>${escapeHtml(card.value)}</strong>
+      <small>${escapeHtml(card.detail || "")}</small>
+    </article>
+  `).join("");
+}
+
+function renderMetricList(title, items, formatValue = (value) => value, emptyText = "Sin datos suficientes.") {
+  const rows = items.slice(0, 6);
+  return `
+    <section class="statistics-list-group">
+      <h3>${escapeHtml(title)}</h3>
+      <div class="compact-list statistics-list">
+        ${rows.length ? rows.map((item) => `
+          <article class="compact-part-item">
+            <strong>${escapeHtml(item.label)}</strong>
+            <span>${escapeHtml(formatValue(item.value, item))}</span>
+          </article>
+        `).join("") : `<p class="hint">${emptyText}</p>`}
+      </div>
+    </section>
+  `;
+}
+
+function renderPartAlertList(title, parts, emptyText) {
+  return `
+    <section class="statistics-list-group">
+      <h3>${escapeHtml(title)}</h3>
+      <div class="compact-list statistics-list">
+        ${parts.length ? parts.slice(0, 6).map((part) => `
+          <article class="compact-part-item">
+            <strong>${escapeHtml(part.name || "Sin nombre")}</strong>
+            <span>${escapeHtml([part.brand, part.model, part.quality].filter(Boolean).join(" | "))}</span>
+            <span>Existencia ${getPartStock(part)} | Cliente ${formatCurrencyCents(getMoneyCents(part, "customerPrice", "customerPriceCents"))}</span>
+          </article>
+        `).join("") : `<p class="hint">${emptyText}</p>`}
+      </div>
+    </section>
+  `;
+}
+
+async function renderStatistics() {
+  if (!canAccessModule("statistics")) {
+    statisticsSummary.textContent = "Sin acceso";
+    statisticsHint.textContent = "Tu rol no puede ver estadisticas.";
+    statisticsGrid.innerHTML = "";
+    statisticsLists.innerHTML = `<p class="hint">Solo admin y root pueden ver este panel.</p>`;
+    return;
+  }
+
+  if (!window.repairCloud?.isConfigured()) {
+    statisticsSummary.textContent = "Convex requerido";
+    statisticsHint.textContent = "Configura CONVEX_URL para recopilar datos.";
+    statisticsGrid.innerHTML = "";
+    statisticsLists.innerHTML = `<p class="hint">Este panel toma sus datos de Convex, no del almacenamiento local del navegador.</p>`;
+    return;
+  }
+
+  statisticsSummary.textContent = "Cargando...";
+  statisticsHint.textContent = "Consultando Convex";
+  statisticsGrid.innerHTML = "";
+  statisticsLists.innerHTML = `<p class="hint">Recopilando repuestos y reparaciones.</p>`;
+
+  try {
+    const [parts, repairs] = await Promise.all([
+      window.repairCloud.listParts(),
+      window.repairCloud.listRepairs({ limit: 10000 }),
+    ]);
+
+    const totalStock = parts.reduce((sum, part) => sum + getPartStock(part), 0);
+    const inventoryCostCents = parts.reduce((sum, part) => sum + getMoneyCents(part, "price", "priceCents") * getPartStock(part), 0);
+    const inventorySaleCents = parts.reduce((sum, part) => sum + getMoneyCents(part, "customerPrice", "customerPriceCents") * getPartStock(part), 0);
+    const estimatedProfitCents = inventorySaleCents - inventoryCostCents;
+    const repairIncome = repairs.reduce((sum, repair) => sum + (Number(repair.repairPrice) || 0), 0);
+    const monthRepairs = repairs.filter((repair) => sameMonth(repair.createdAt));
+    const monthRepairIncome = monthRepairs.reduce((sum, repair) => sum + (Number(repair.repairPrice) || 0), 0);
+    const lowStockParts = parts.filter((part) => getPartStock(part) > 0 && getPartStock(part) <= 2);
+    const zeroStockParts = parts.filter((part) => getPartStock(part) === 0);
+    const priceIssues = parts.filter((part) => {
+      const cost = getMoneyCents(part, "price", "priceCents");
+      const customer = getMoneyCents(part, "customerPrice", "customerPriceCents");
+      return cost <= 0 || customer <= 0 || customer <= cost;
+    });
+    const topProfitParts = parts
+      .map((part) => ({
+        label: `${part.name || "Sin nombre"} ${part.model || ""}`.trim(),
+        value: (getMoneyCents(part, "customerPrice", "customerPriceCents") - getMoneyCents(part, "price", "priceCents")) * getPartStock(part),
+      }))
+      .filter((item) => item.value > 0)
+      .sort((a, b) => b.value - a.value);
+
+    statisticsSummary.textContent = `${parts.length} repuestos | ${repairs.length} reparaciones`;
+    statisticsHint.textContent = "Datos activos de Convex";
+    renderStatisticCards([
+      { label: "Valor inventario", value: formatCurrencyCents(inventoryCostCents), detail: `${totalStock} piezas en existencia` },
+      { label: "Venta potencial", value: formatCurrencyCents(inventorySaleCents), detail: "Precio cliente final x existencia" },
+      { label: "Utilidad estimada", value: formatCurrencyCents(estimatedProfitCents), detail: "Antes de gastos operativos" },
+      { label: "Ingresos reparaciones", value: formatCurrency(repairIncome), detail: `${repairs.length} registros en Convex` },
+      { label: "Este mes", value: formatCurrency(monthRepairIncome), detail: `${monthRepairs.length} reparaciones` },
+      { label: "Alertas", value: String(lowStockParts.length + zeroStockParts.length + priceIssues.length), detail: "Stock y precios por revisar" },
+    ]);
+
+    statisticsLists.innerHTML = [
+      renderPartAlertList("Stock bajo", lowStockParts, "Sin repuestos con stock bajo."),
+      renderPartAlertList("Sin existencia", zeroStockParts, "Sin repuestos agotados."),
+      renderPartAlertList("Precios por revisar", priceIssues, "Sin precios problemáticos."),
+      renderMetricList("Valor por proveedor", groupByMetric(parts, (part) => part.supplier, (part) => getMoneyCents(part, "price", "priceCents") * getPartStock(part)), (value) => formatCurrencyCents(value)),
+      renderMetricList("Repuestos por categoria", groupByMetric(parts, (part) => normalizeCategory(part.category)), (value) => `${value} registro${value === 1 ? "" : "s"}`),
+      renderMetricList("Reparaciones por estado", groupByMetric(repairs, (repair) => repair.status), (value) => `${value} registro${value === 1 ? "" : "s"}`),
+      renderMetricList("Mayor utilidad potencial", topProfitParts, (value) => formatCurrencyCents(value)),
+      renderMetricList("Reparaciones recientes", repairs.slice(0, 6).map((repair) => ({
+        label: `#${repair.repairNumber || ""} ${repair.customer || "Sin nombre"}`,
+        value: `${repair.status || "Sin estado"} | ${formatCurrency(Number(repair.repairPrice) || 0)}`,
+      }))),
+    ].join("");
+  } catch (error) {
+    statisticsSummary.textContent = "Error";
+    statisticsHint.textContent = "No se pudo consultar Convex.";
+    statisticsGrid.innerHTML = "";
+    statisticsLists.innerHTML = `<p class="hint">${escapeHtml(error.message)}</p>`;
+  }
+}
+
 function renderUsers() {
   if (!canAccessModule("users")) {
     usersList.innerHTML = `<p class="hint">Solo root puede ver este panel.</p>`;
@@ -1320,6 +1478,7 @@ function setModule(moduleName) {
       (moduleName === "sales" && panel.id === "salesModule") ||
       (moduleName === "parts" && panel.id === "partsModule") ||
       (moduleName === "repairs" && panel.id === "repairsModule") ||
+      (moduleName === "statistics" && panel.id === "statisticsModule") ||
       (moduleName === "database" && panel.id === "databaseModule") ||
       (moduleName === "users" && panel.id === "usersModule");
     panel.classList.toggle("active", isActive);
@@ -1332,6 +1491,7 @@ function setModule(moduleName) {
     renderRepairs();
   }
   if (moduleName === "database") renderDatabase();
+  if (moduleName === "statistics") renderStatistics();
   if (moduleName === "users") renderUsers();
   if (moduleName === "parts") {
     moduleLink.href = "repuestos.html";

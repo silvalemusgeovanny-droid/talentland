@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Login | Inventario y Reparaciones</title>
-    <link rel="stylesheet" href="styles.css?v=quality-width-1" />
+    <link rel="stylesheet" href="styles.css?v=stats-panel-1" />
   </head>
   <body>
     <main class="app-shell">
@@ -54,6 +54,7 @@
           <button type="button" data-module-shortcut="parts">Inventario</button>
           <button type="button" data-module-shortcut="sales">Ventas</button>
           <button type="button" data-module-shortcut="repairs">Reparaciones</button>
+          <button type="button" data-module-shortcut="statistics">Panel</button>
         </div>
 
         <form class="login-card" id="loginForm">
@@ -86,6 +87,7 @@
             <button class="module-tab" type="button" data-module="sales">Ventas</button>
             <button class="module-tab" type="button" data-module="parts">Repuestos</button>
             <button class="module-tab" type="button" data-module="repairs">Reparaciones</button>
+            <button class="module-tab" type="button" data-module="statistics">Panel de control</button>
             <button class="module-tab" type="button" data-module="database">Base de datos</button>
             <button class="module-tab" type="button" data-module="users">Usuarios</button>
           </div>
@@ -317,6 +319,19 @@
             <div class="compact-list database-list" id="databaseList"></div>
           </section>
 
+          <section class="module-panel statistics-module" id="statisticsModule">
+            <div class="daily-sales-header">
+              <div>
+                <span class="panel-kicker">Convex</span>
+                <strong id="statisticsSummary">Panel de control</strong>
+              </div>
+              <span id="statisticsHint">Solo admin y root</span>
+            </div>
+
+            <div class="statistics-grid" id="statisticsGrid"></div>
+            <div class="statistics-lists" id="statisticsLists"></div>
+          </section>
+
           <section class="module-panel users-module" id="usersModule">
             <form class="users-form" id="usersForm">
               <div class="field-grid">
@@ -490,6 +505,6 @@
     <script src="convex-config.js?v=parts-model-1"></script>
     <script src="convex-client.js?v=presence-1"></script>
     <script src="https://unpkg.com/convex/dist/browser.js"></script>
-    <script src="script.js?v=money-cents-1"></script>
+    <script src="script.js?v=stats-convex-1"></script>
   </body>
 </html>
