@@ -99,6 +99,14 @@ function normalizeMoneyFields(part: any) {
   };
 }
 
+function normalizeStockQuantity(value: unknown) {
+  const stock = Number(value);
+  if (!Number.isFinite(stock) || stock < 0 || !Number.isInteger(stock)) {
+    throw new Error("La existencia debe ser una cantidad entera, sin decimales.");
+  }
+  return stock;
+}
+
 export const list = query({
   args: {},
   handler: async (ctx) => {
@@ -109,7 +117,12 @@ export const list = query({
 export const create = mutation({
   args: partFields,
   handler: async (ctx, args) => {
-    const part = { ...args, ...normalizeMoneyFields(args), quality: normalizeQuality(args.quality) };
+    const part = {
+      ...args,
+      ...normalizeMoneyFields(args),
+      stock: normalizeStockQuantity(args.stock),
+      quality: normalizeQuality(args.quality),
+    };
     if (hasModelSupplierConflict(part)) throw modelSupplierConflictError();
 
     const duplicate = await findDuplicatePart(ctx, part);
@@ -148,7 +161,12 @@ export const update = mutation({
     }),
   },
   handler: async (ctx, args) => {
-    const patch = { ...args.patch, ...normalizeMoneyFields(args.patch), quality: normalizeQuality(args.patch.quality) };
+    const patch = {
+      ...args.patch,
+      ...normalizeMoneyFields(args.patch),
+      stock: normalizeStockQuantity(args.patch.stock),
+      quality: normalizeQuality(args.patch.quality),
+    };
     if (hasModelSupplierConflict(patch)) throw modelSupplierConflictError();
 
     const duplicate = await findDuplicatePart(ctx, patch, String(args.id));
@@ -176,7 +194,19 @@ export const importBatch = mutation({
     let skipped = 0;
 
     for (const rawPart of args.parts) {
-      const part = { ...rawPart, ...normalizeMoneyFields(rawPart), quality: normalizeQuality(rawPart.quality) };
+      let part;
+      try {
+        part = {
+          ...rawPart,
+          ...normalizeMoneyFields(rawPart),
+          stock: normalizeStockQuantity(rawPart.stock),
+          quality: normalizeQuality(rawPart.quality),
+        };
+      } catch {
+        skipped += 1;
+        continue;
+      }
+
       if (hasModelSupplierConflict(part)) {
         skipped += 1;
         continue;

@@ -145,7 +145,24 @@ function formatCurrencyCents(cents) {
 }
 
 function formatMoneyInput(cents) {
-  return centsToMoney(cents).toFixed(2);
+  const normalizedCents = Number(cents) || 0;
+  const pesos = Math.trunc(normalizedCents / 100);
+  const centavos = Math.abs(normalizedCents % 100);
+  if (centavos === 0) return String(pesos);
+  if (centavos % 10 === 0) return `${pesos}.${String(centavos / 10)}`;
+  return `${pesos}.${String(centavos).padStart(2, "0")}`;
+}
+
+function parseStockQuantity(value) {
+  const normalizedValue = String(value ?? "").trim().replace(",", ".");
+  if (!/^\d+$/.test(normalizedValue)) return null;
+  return Number(normalizedValue);
+}
+
+function normalizeStockQuantity(value) {
+  const stock = Number(value);
+  if (!Number.isFinite(stock)) return 0;
+  return Math.max(0, Math.trunc(stock));
 }
 
 function normalizePartForCloud(part) {
@@ -162,7 +179,7 @@ function normalizePartForCloud(part) {
     priceCents,
     customerPrice: centsToMoney(customerPriceCents),
     customerPriceCents,
-    stock: Number(part.stock) || 0,
+    stock: normalizeStockQuantity(part.stock),
     quality: normalizeQuality(part.quality || "Original"),
     supplier: normalizePartType(part.supplier),
     publishedAt: part.publishedAt || now,
@@ -179,7 +196,7 @@ async function syncPartsFromSource() {
   if (!window.repairCloud?.isConfigured()) return loadParts();
   await migrateLocalPartsToCloud();
   const cloudParts = await window.repairCloud.listParts();
-  const parts = cloudParts.map((part) => ({ ...part, id: part._id || part.id }));
+  const parts = cloudParts.map((part) => ({ ...part, id: part._id || part.id, stock: normalizeStockQuantity(part.stock) }));
   saveParts(parts);
   return parts;
 }
@@ -342,6 +359,7 @@ function getPartFormValues() {
   syncPartSelectFields();
   const priceCents = parseMoneyCents(document.querySelector("#price").value);
   const customerPriceCents = parseMoneyCents(document.querySelector("#customerPrice").value);
+  const stock = parseStockQuantity(document.querySelector("#stock").value);
   return {
     name: normalizePartType(partNameInput.value),
     brand: normalizePartType(brandInput.value),
@@ -352,7 +370,7 @@ function getPartFormValues() {
     priceCents,
     customerPrice: centsToMoney(customerPriceCents),
     customerPriceCents,
-    stock: Number(document.querySelector("#stock").value),
+    stock,
     quality: normalizeQuality(document.querySelector("#quality").value),
   };
 }
@@ -465,7 +483,7 @@ function getFilteredParts(parts) {
 function renderParts() {
   const parts = loadParts();
   const filteredParts = getFilteredParts(parts);
-  const inventoryValueCents = parts.reduce((sum, part) => sum + getMoneyCents(part, "price", "priceCents") * part.stock, 0);
+  const inventoryValueCents = parts.reduce((sum, part) => sum + getMoneyCents(part, "price", "priceCents") * normalizeStockQuantity(part.stock), 0);
   const providers = new Set(parts.map((part) => part.supplier.trim().toLowerCase()));
 
   totalParts.textContent = parts.length;
@@ -487,7 +505,7 @@ function renderParts() {
       <td>${part.supplier}</td>
       <td>${formatCurrencyCents(getMoneyCents(part, "price", "priceCents"))}</td>
       <td>${formatCurrencyCents(getMoneyCents(part, "customerPrice", "customerPriceCents"))}</td>
-      <td>${part.stock}</td>
+      <td>${normalizeStockQuantity(part.stock)}</td>
       <td>${formatPartDate(part.publishedAt)}</td>
       <td>${formatPartDate(part.updatedAt)}</td>
       <td>
@@ -519,6 +537,12 @@ partsForm.addEventListener("submit", async (event) => {
   const formValues = getPartFormValues();
   const parts = loadParts();
   const editingId = partsForm.dataset.editingId;
+  if (formValues.stock === null) {
+    partsHint.textContent = "La existencia debe ser una cantidad entera, sin decimales.";
+    document.querySelector("#stock").focus();
+    return;
+  }
+
   if (hasModelSupplierConflict(formValues)) {
     partsHint.textContent = getModelSupplierConflictMessage();
     return;
@@ -606,7 +630,7 @@ partsTable.addEventListener("click", async (event) => {
     document.querySelector("#category").value = normalizeCategory(part.category);
     document.querySelector("#price").value = formatMoneyInput(getMoneyCents(part, "price", "priceCents"));
     document.querySelector("#customerPrice").value = formatMoneyInput(getMoneyCents(part, "customerPrice", "customerPriceCents"));
-    document.querySelector("#stock").value = part.stock;
+    document.querySelector("#stock").value = normalizeStockQuantity(part.stock);
     document.querySelector("#quality").value = normalizeQuality(part.quality);
     setSelectValueForEditingWithSuggestions(supplierSelect, supplierInput, part.supplier, "supplier", "supplierEditOptions");
     publishedAtInput.value = formatPartDate(part.publishedAt);
