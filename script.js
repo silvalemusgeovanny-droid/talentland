@@ -1470,7 +1470,7 @@ async function renderStatistics() {
       .sort((a, b) => b.value - a.value);
 
     statisticsSummary.textContent = `${parts.length} repuestos | ${repairs.length} reparaciones`;
-    statisticsHint.textContent = "Datos activos de Convex";
+    statisticsHint.textContent = "Datos activos de base de datos";
     renderStatisticCards([
       { label: "Valor inventario", value: formatCurrencyCents(inventoryCostCents), detail: `${totalStock} piezas en existencia` },
       { label: "Venta potencial", value: formatCurrencyCents(inventorySaleCents), detail: "Precio cliente final x existencia" },
