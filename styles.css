@@ -798,6 +798,52 @@ body.login-dark input[readonly] {
   overflow: auto;
 }
 
+.statistics-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.stat-card {
+  display: grid;
+  gap: 5px;
+  min-height: 92px;
+  padding: 12px;
+  border-radius: 8px;
+  background: rgb(23 107 135 / 10%);
+}
+
+.stat-card span,
+.stat-card small {
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 900;
+}
+
+.stat-card strong {
+  color: var(--ink);
+  font-size: 1.12rem;
+}
+
+.statistics-lists {
+  display: grid;
+  gap: 12px;
+}
+
+.statistics-list-group {
+  display: grid;
+  gap: 8px;
+}
+
+.statistics-list-group h3 {
+  margin: 0;
+  font-size: 0.95rem;
+}
+
+.statistics-list {
+  max-height: 220px;
+}
+
 .compact-part-item {
   display: grid;
   gap: 4px;
@@ -1148,13 +1194,24 @@ body.login-dark .inline-action-button,
 }
 
 .technical .compact-part-item,
-.visual .compact-part-item {
+.visual .compact-part-item,
+.technical .stat-card,
+.visual .stat-card {
   background: rgb(255 255 255 / 14%);
 }
 
 .technical .compact-part-item span,
-.visual .compact-part-item span {
+.visual .compact-part-item span,
+.technical .stat-card span,
+.visual .stat-card span,
+.technical .stat-card small,
+.visual .stat-card small {
   color: rgb(255 255 255 / 72%);
+}
+
+.technical .stat-card strong,
+.visual .stat-card strong {
+  color: #ffffff;
 }
 
 .technical .sale-total-box,
@@ -1204,15 +1261,22 @@ body.login-dark .undo-bar small {
 }
 
 body.login-dark .pending-alert,
-body.login-dark .note-item {
+body.login-dark .note-item,
+body.login-dark .stat-card {
   border-color: rgb(255 255 255 / 16%);
   background: #14212a;
   color: #f4f8fa;
 }
 
 body.login-dark .pending-alert span,
-body.login-dark .note-item span {
+body.login-dark .note-item span,
+body.login-dark .stat-card span,
+body.login-dark .stat-card small {
   color: #a9b8c2;
+}
+
+body.login-dark .stat-card strong {
+  color: #f4f8fa;
 }
 
 body.login-dark .pending-alert button {
