@@ -4,7 +4,12 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Repuestos | Inventario y Reparaciones</title>
-    <link rel="stylesheet" href="styles.css?v=quality-width-1" />
+    <script>
+      try {
+        if (localStorage.getItem("loginColorMode") === "dark") document.documentElement.classList.add("login-dark");
+      } catch {}
+    </script>
+    <link rel="stylesheet" href="styles.css?v=no-theme-flash-1" />
   </head>
   <body class="parts-page">
     <main class="parts-shell">
@@ -181,6 +186,6 @@
     <script src="convex-config.js?v=notes-convex-1"></script>
     <script src="convex-client.js?v=parts-convex-1"></script>
     <script src="pending-notes.js?v=notes-convex-1"></script>
-    <script src="repuestos.js?v=base-datos-label-1"></script>
+    <script src="repuestos.js?v=no-theme-flash-1"></script>
   </body>
 </html>

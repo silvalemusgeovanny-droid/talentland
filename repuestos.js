@@ -524,6 +524,7 @@ function updateDateTime() {
 
 function setColorMode(mode) {
   const isDarkMode = mode === "dark";
+  document.documentElement.classList.toggle("login-dark", isDarkMode);
   document.body.classList.toggle("login-dark", isDarkMode);
   const toggleLabel = isDarkMode ? "Cambiar a modo dia" : "Cambiar a modo noche";
   colorModeToggle.setAttribute("aria-label", toggleLabel);
