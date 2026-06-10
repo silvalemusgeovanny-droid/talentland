@@ -171,28 +171,43 @@
           <section class="module-panel compact-parts" id="partsModule">
             <form class="compact-parts-form" id="quickPartsForm">
               <label for="quickPartNameSelect">Repuesto</label>
-              <select id="quickPartNameSelect" data-manual-target="quickPartName" required></select>
+              <div class="managed-option-row" data-managed-field="name">
+                <select id="quickPartNameSelect" data-manual-target="quickPartName" required></select>
+                <button class="edit-button option-action-button" type="button" data-option-action="edit" data-option-field="name">Editar</button>
+                <button class="delete-button option-action-button" type="button" data-option-action="delete" data-option-field="name">Eliminar</button>
+              </div>
               <input id="quickPartName" class="manual-option-field" name="partName" type="text" placeholder="Escribe el repuesto nuevo" required hidden />
 
               <label for="quickBrandSelect">Marca</label>
-              <select id="quickBrandSelect" data-manual-target="quickBrand" required></select>
+              <div class="managed-option-row" data-managed-field="brand">
+                <select id="quickBrandSelect" data-manual-target="quickBrand" required></select>
+                <button class="edit-button option-action-button" type="button" data-option-action="edit" data-option-field="brand">Editar</button>
+                <button class="delete-button option-action-button" type="button" data-option-action="delete" data-option-field="brand">Eliminar</button>
+              </div>
               <input id="quickBrand" class="manual-option-field" name="brand" type="text" placeholder="Escribe la marca nueva" required hidden />
 
               <label for="quickModelSelect">Modelo</label>
-              <select id="quickModelSelect" data-manual-target="quickModel" required></select>
+              <div class="managed-option-row" data-managed-field="model">
+                <select id="quickModelSelect" data-manual-target="quickModel" required></select>
+                <button class="edit-button option-action-button" type="button" data-option-action="edit" data-option-field="model">Editar</button>
+                <button class="delete-button option-action-button" type="button" data-option-action="delete" data-option-field="model">Eliminar</button>
+              </div>
               <input id="quickModel" class="manual-option-field" name="model" type="text" placeholder="Escribe el modelo nuevo" required hidden />
 
               <label for="quickSupplierSelect">Proveedor</label>
-              <select id="quickSupplierSelect" data-manual-target="quickSupplier" required></select>
+              <div class="managed-option-row" data-managed-field="supplier">
+                <select id="quickSupplierSelect" data-manual-target="quickSupplier" required></select>
+                <button class="edit-button option-action-button" type="button" data-option-action="edit" data-option-field="supplier">Editar</button>
+                <button class="delete-button option-action-button" type="button" data-option-action="delete" data-option-field="supplier">Eliminar</button>
+              </div>
               <input id="quickSupplier" class="manual-option-field" name="supplier" type="text" placeholder="Escribe el proveedor nuevo" required hidden />
 
               <label for="quickCategory">Categoria</label>
-              <select id="quickCategory" name="category" required>
-                <option value="Telefono">Telefono</option>
-                <option value="Tablet">Tablet</option>
-                <option value="Computadora">Computadora</option>
-                <option value="Bocina">Bocina</option>
-              </select>
+              <div class="managed-option-row" data-managed-field="category">
+                <select id="quickCategory" name="category" required></select>
+                <button class="edit-button option-action-button" type="button" data-option-action="edit" data-option-field="category">Editar</button>
+                <button class="delete-button option-action-button" type="button" data-option-action="delete" data-option-field="category">Eliminar</button>
+              </div>
 
               <div class="field-grid">
                 <div>
@@ -521,6 +536,6 @@
     <script src="convex-config.js?v=parts-model-1"></script>
     <script src="convex-client.js?v=root-option-delete-1"></script>
     <script src="https://unpkg.com/convex/dist/browser.js"></script>
-    <script src="script.js?v=managed-options-1"></script>
+    <script src="script.js?v=quick-managed-options-1"></script>
   </body>
 </html>
