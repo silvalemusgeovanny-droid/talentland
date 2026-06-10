@@ -669,8 +669,10 @@ function renderParts() {
       <td>${formatPartDate(part.publishedAt)}</td>
       <td>${formatPartDate(part.updatedAt)}</td>
       <td>
-        <button class="edit-button" type="button" data-id="${part.id}">Editar</button>
-        <button class="delete-button" type="button" data-id="${part.id}">Eliminar</button>
+        <div class="table-action-icons">
+          <button class="edit-button icon-action-button icon-edit-button" type="button" data-id="${part.id}" aria-label="Editar ${escapeHtml(part.name)}" title="Editar">Editar</button>
+          <button class="delete-button icon-action-button icon-delete-button" type="button" data-id="${part.id}" aria-label="Eliminar ${escapeHtml(part.name)}" title="Eliminar">Eliminar</button>
+        </div>
       </td>
     </tr>
   `).join("");
