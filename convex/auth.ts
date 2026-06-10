@@ -52,6 +52,7 @@ export const seedDefaultUsers = mutation({
       { username: "root", password: "root123", name: "Root", role: "root" },
       { username: "admin", password: "admin123", name: "Administrador", role: "admin" },
       { username: "usuario", password: "user123", name: "Usuario", role: "user" },
+      { username: "activador", password: "activador123", name: "Activador", role: "activador" },
     ];
     let inserted = 0;
 

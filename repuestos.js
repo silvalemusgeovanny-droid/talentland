@@ -83,6 +83,29 @@ const optionFieldLabels = {
   category: "categoria",
 };
 
+function getStoredCurrentUser() {
+  const savedUser = localStorage.getItem(currentUserStorageKey);
+  if (!savedUser) return null;
+  try {
+    return JSON.parse(savedUser);
+  } catch {
+    return null;
+  }
+}
+
+function isPartsReadOnlyMode() {
+  return getStoredCurrentUser()?.role === "activador";
+}
+
+function applyPartsAccessMode() {
+  const isReadOnly = isPartsReadOnlyMode();
+  document.body.classList.toggle("parts-readonly-mode", isReadOnly);
+  partsForm.hidden = isReadOnly;
+  if (isReadOnly) {
+    partsHint.textContent = "Modo consulta: tu rol puede ver repuestos, pero no agregar, editar ni eliminar.";
+  }
+}
+
 function getUndoBar() {
   let undoBar = document.querySelector("#undoBar");
   if (!undoBar) {
@@ -334,6 +357,7 @@ async function refreshPartsView() {
   renderModelOptions();
   renderSupplierOptions();
   renderCategoryOptions();
+  applyPartsAccessMode();
   renderParts();
 }
 
@@ -656,6 +680,7 @@ function getFilteredParts(parts) {
 function renderParts() {
   const parts = loadParts();
   const filteredParts = getFilteredParts(parts);
+  const isReadOnly = isPartsReadOnlyMode();
   const inventoryValueCents = parts.reduce((sum, part) => sum + getMoneyCents(part, "price", "priceCents") * normalizeStockQuantity(part.stock), 0);
   const providers = new Set(parts.map((part) => part.supplier.trim().toLowerCase()));
 
@@ -664,7 +689,7 @@ function renderParts() {
   totalProviders.textContent = providers.size;
 
   if (!filteredParts.length) {
-    partsTable.innerHTML = `<tr><td class="empty-table" colspan="12">No hay repuestos con esa busqueda.</td></tr>`;
+    partsTable.innerHTML = `<tr><td class="empty-table" colspan="${isReadOnly ? 11 : 12}">No hay repuestos con esa busqueda.</td></tr>`;
     return;
   }
 
@@ -681,12 +706,12 @@ function renderParts() {
       <td>${normalizeStockQuantity(part.stock)}</td>
       <td>${formatPartDate(part.publishedAt)}</td>
       <td>${formatPartDate(part.updatedAt)}</td>
-      <td>
+      ${isReadOnly ? "" : `<td>
         <div class="table-action-icons">
           <button class="edit-button icon-action-button icon-edit-button" type="button" data-id="${part.id}" aria-label="Editar ${escapeHtml(part.name)}" title="Editar">Editar</button>
           <button class="delete-button icon-action-button icon-delete-button" type="button" data-id="${part.id}" aria-label="Eliminar ${escapeHtml(part.name)}" title="Eliminar">Eliminar</button>
         </div>
-      </td>
+      </td>`}
     </tr>
   `).join("");
 }
@@ -901,6 +926,10 @@ async function deleteManagedOption(field) {
 
 partsForm.addEventListener("submit", async (event) => {
   event.preventDefault();
+  if (isPartsReadOnlyMode()) {
+    partsHint.textContent = "Tu rol solo permite consultar repuestos.";
+    return;
+  }
   let formValues;
   try {
     formValues = getPartFormValues();
@@ -993,6 +1022,10 @@ partsForm.addEventListener("submit", async (event) => {
 });
 
 partsTable.addEventListener("click", async (event) => {
+  if (isPartsReadOnlyMode()) {
+    partsHint.textContent = "Tu rol solo permite consultar repuestos.";
+    return;
+  }
   const editButton = event.target.closest(".edit-button");
   if (editButton) {
     const parts = loadParts();
@@ -1059,6 +1092,11 @@ partsTable.addEventListener("click", async (event) => {
 });
 
 partsForm.addEventListener("click", async (event) => {
+  if (isPartsReadOnlyMode()) {
+    event.preventDefault();
+    partsHint.textContent = "Tu rol solo permite consultar repuestos.";
+    return;
+  }
   const optionButton = event.target.closest("[data-option-action]");
   if (!optionButton) return;
 
@@ -1097,4 +1135,5 @@ setColorMode(localStorage.getItem(colorModeStorageKey) || "light");
 updateDateTime();
 setInterval(updateDateTime, 1000);
 resetPartDates();
+applyPartsAccessMode();
 refreshPartsView();

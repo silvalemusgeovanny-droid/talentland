@@ -43,6 +43,13 @@ const defaultUsers = [
     name: "Usuario",
     role: "user",
   },
+  {
+    id: "activator-user",
+    username: "activador",
+    password: "activador123",
+    name: "Activador",
+    role: "activador",
+  },
 ];
 
 const roleProfiles = {
@@ -77,6 +84,17 @@ const roleProfiles = {
       "Consultar modulos operativos permitidos",
       "No puede ver la base de datos",
       "No puede gestionar usuarios ni roles",
+    ],
+  },
+  activador: {
+    label: "Activador",
+    access: "Consulta de repuestos sin modificaciones",
+    modules: ["parts"],
+    permissions: [
+      "Ver el modulo de repuestos",
+      "Consultar existencias y precios",
+      "No puede agregar repuestos",
+      "No puede editar ni eliminar informacion",
     ],
   },
 };
@@ -213,6 +231,7 @@ const databaseSummary = document.querySelector("#databaseSummary");
 const databaseList = document.querySelector("#databaseList");
 const usersForm = document.querySelector("#usersForm");
 const usersList = document.querySelector("#usersList");
+const usersSummary = document.querySelector("#usersSummary");
 const usersHint = document.querySelector("#usersHint");
 const managedNameInput = document.querySelector("#managedName");
 const managedUsernameInput = document.querySelector("#managedUsername");
@@ -358,6 +377,7 @@ function getRoleProfile(role) {
 
 function getUserModules(user) {
   const roleModules = getRoleProfile(user?.role).modules;
+  if (user?.role === "activador") return ["parts"];
   if (!Array.isArray(user?.modules)) return roleModules;
   const allowedModules = new Set(["permissions", ...manageableModules]);
   const customModules = user.modules.filter((moduleName) => allowedModules.has(moduleName));
@@ -367,6 +387,10 @@ function getUserModules(user) {
 function canAccessModule(moduleName) {
   if (!currentUser) return false;
   return getUserModules(currentUser).includes(moduleName);
+}
+
+function canManageParts() {
+  return canAccessModule("parts") && currentUser?.role !== "activador";
 }
 
 function formatPresenceNames(users) {
@@ -527,7 +551,7 @@ function setLoginDemo() {
   usernameInput.value = "root";
   passwordInput.value = "root123";
   const authMode = window.repairCloud?.isConfigured() ? "Modo Convex" : "Modo local";
-  credentialHint.textContent = `${authMode} | root: root / root123 | admin: admin / admin123 | usuario: usuario / user123`;
+  credentialHint.textContent = `${authMode} | root: root / root123 | admin: admin / admin123 | usuario: usuario / user123 | activador: activador / activador123`;
 }
 
 function updateDateTime() {
@@ -1328,12 +1352,21 @@ function isToday(value) {
 
 function renderQuickParts() {
   const parts = loadParts().slice(0, 4);
-  quickPartsList.innerHTML = parts.map((part) => `
+  const canEditParts = canManageParts();
+  const readonlyNotice = canEditParts ? "" : `
+    <article class="compact-part-item readonly-notice">
+      <strong>Modo consulta</strong>
+      <span>Este rol puede revisar repuestos, existencias y precios. No puede agregar, editar ni eliminar.</span>
+    </article>
+  `;
+  quickPartsList.innerHTML = readonlyNotice + parts.map((part) => `
     <article class="compact-part-item">
       <strong>${part.name}</strong>
       <span>${part.brand || "Sin marca"} ${part.model || ""} | Costo ${formatCurrencyCents(getMoneyCents(part, "price", "priceCents"))} | Cliente ${formatCurrencyCents(getMoneyCents(part, "customerPrice", "customerPriceCents"))} | <span class="quality-pill ${getQualityClass(part.quality)}">${normalizeQuality(part.quality)}</span> | ${part.supplier}</span>
     </article>
   `).join("");
+  quickPartsForm.hidden = !canEditParts;
+  quickPartsList.classList.toggle("readonly-list", !canEditParts);
 }
 
 function formatNoteDate(value) {
@@ -2062,7 +2095,9 @@ function renderUsers() {
   }
 
   renderPermissionEditor();
-  usersList.innerHTML = loadUsers().map((user) => `
+  const users = loadUsers();
+  usersSummary.textContent = `${users.length} usuario${users.length === 1 ? "" : "s"}`;
+  usersList.innerHTML = users.map((user) => `
     <article class="compact-part-item user-item">
       <div class="user-card-main">
         <span class="role-badge">${escapeHtml(getRoleProfile(user.role).label)}</span>
@@ -2094,7 +2129,11 @@ function renderPermissionEditor(selectedModules = null) {
 
   userPermissionGrid.innerHTML = manageableModules.map((moduleName) => {
     const checked = enabledModules.has(moduleName) ? "checked" : "";
-    const required = moduleName === "users" && role !== "root" ? "disabled" : "";
+    const required =
+      (moduleName === "users" && role !== "root") ||
+      (role === "activador" && moduleName !== "parts")
+        ? "disabled"
+        : "";
     return `
       <label class="permission-switch">
         <input type="checkbox" value="${moduleName}" data-user-permission ${checked} ${required} />
@@ -2219,7 +2258,7 @@ function moveModule(direction) {
 function setModule(moduleName) {
   if (!canAccessModule(moduleName)) {
     credentialHint.textContent = "Tu rol no tiene permiso para abrir ese modulo.";
-    moduleName = "permissions";
+    moduleName = getAllowedModules()[0] || "permissions";
   }
   saveActiveModule(moduleName);
   sessionPanel.classList.toggle("control-panel-wide", moduleName === "statistics");
@@ -2391,6 +2430,11 @@ quickSupplierSelect.addEventListener("change", () => syncManualField(quickSuppli
 quickSupplierInput.addEventListener("blur", syncQuickSupplierText);
 quickSupplierInput.addEventListener("change", syncQuickSupplierText);
 quickPartsForm.addEventListener("click", async (event) => {
+  if (!canManageParts()) {
+    event.preventDefault();
+    quickPartsHint.textContent = "Tu rol solo permite consultar repuestos.";
+    return;
+  }
   const optionButton = event.target.closest("[data-option-action]");
   if (!optionButton) return;
 
@@ -2542,6 +2586,10 @@ adminVoidForm.addEventListener("submit", async (event) => {
 
 quickPartsForm.addEventListener("submit", async (event) => {
   event.preventDefault();
+  if (!canManageParts()) {
+    quickPartsHint.textContent = "Tu rol solo permite consultar repuestos.";
+    return;
+  }
   syncQuickPartSelectFields();
   const duplicateOptionFields = [
     { field: "name", select: quickPartNameSelect, input: quickPartNameInput },
@@ -2800,6 +2848,9 @@ usersForm.addEventListener("submit", (event) => {
 
   if (userData.role === "root" && !userData.modules.includes("users")) {
     userData.modules.push("users");
+  }
+  if (userData.role === "activador") {
+    userData.modules = ["parts"];
   }
 
   if (editingId) {
