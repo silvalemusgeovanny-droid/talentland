@@ -12,7 +12,7 @@
         }
       } catch {}
     </script>
-    <link rel="stylesheet" href="styles.css?v=user-permissions-1" />
+    <link rel="stylesheet" href="styles.css?v=activator-role-1" />
   </head>
   <body>
     <main class="app-shell">
@@ -373,44 +373,67 @@
           </section>
 
           <section class="module-panel users-module" id="usersModule">
-            <form class="users-form" id="usersForm">
-              <div class="field-grid">
-                <div>
-                  <label for="managedName">Nombre</label>
-                  <input id="managedName" name="name" type="text" placeholder="Nombre visible" required />
+            <div class="users-panel-header">
+              <div>
+                <span class="panel-kicker">Control de acceso</span>
+                <strong>Usuarios y permisos</strong>
+                <p>Gestiona roles, permisos por modulo y cuentas activas.</p>
+              </div>
+              <span id="usersSummary">0 usuarios</span>
+            </div>
+
+            <div class="users-panel-layout">
+              <div class="users-directory">
+                <div class="users-directory-heading">
+                  <span class="panel-kicker">Directorio</span>
+                  <strong>Usuarios</strong>
                 </div>
-                <div>
-                  <label for="managedRole">Rol</label>
-                  <select id="managedRole" name="role" required>
-                    <option value="user">Usuario</option>
-                    <option value="admin">Admin</option>
-                    <option value="root">Root</option>
-                  </select>
-                </div>
+                <div class="compact-list users-list" id="usersList"></div>
               </div>
 
-              <section class="permission-editor" aria-label="Permisos del usuario">
-                <div class="permission-editor-heading">
-                  <div>
-                    <span class="panel-kicker">Permisos</span>
-                    <strong id="permissionRoleSummary">Plantilla Usuario</strong>
-                  </div>
-                  <button class="inline-action-button" type="button" id="resetRolePermissions">Usar rol</button>
+              <form class="users-form" id="usersForm">
+                <div class="users-form-heading">
+                  <span class="panel-kicker">Editor</span>
+                  <strong>Cuenta y rol</strong>
                 </div>
-                <div class="permission-grid" id="userPermissionGrid"></div>
-              </section>
 
-              <label for="managedUsername">Usuario</label>
-              <input id="managedUsername" name="username" type="text" placeholder="usuario" required />
+                <div class="field-grid">
+                  <div>
+                    <label for="managedName">Nombre</label>
+                    <input id="managedName" name="name" type="text" placeholder="Nombre visible" required />
+                  </div>
+                  <div>
+                    <label for="managedRole">Rol</label>
+                    <select id="managedRole" name="role" required>
+                      <option value="user">Usuario</option>
+                      <option value="activador">Activador</option>
+                      <option value="admin">Admin</option>
+                      <option value="root">Root</option>
+                    </select>
+                  </div>
+                </div>
 
-              <label for="managedPassword">Contrasena</label>
-              <input id="managedPassword" name="password" type="text" placeholder="contrasena" required />
+                <section class="permission-editor" aria-label="Permisos del usuario">
+                  <div class="permission-editor-heading">
+                    <div>
+                      <span class="panel-kicker">Permisos</span>
+                      <strong id="permissionRoleSummary">Plantilla Usuario</strong>
+                    </div>
+                    <button class="inline-action-button" type="button" id="resetRolePermissions">Usar rol</button>
+                  </div>
+                  <div class="permission-grid" id="userPermissionGrid"></div>
+                </section>
 
-              <button class="primary-button" type="submit" id="submitUser">Guardar usuario</button>
-              <p class="hint" id="usersHint">Solo root puede gestionar usuarios y roles.</p>
-            </form>
+                <label for="managedUsername">Usuario</label>
+                <input id="managedUsername" name="username" type="text" placeholder="usuario" required />
 
-            <div class="compact-list users-list" id="usersList"></div>
+                <label for="managedPassword">Contrasena</label>
+                <input id="managedPassword" name="password" type="text" placeholder="contrasena" required />
+
+                <button class="primary-button" type="submit" id="submitUser">Guardar usuario</button>
+                <p class="hint" id="usersHint">Solo root puede gestionar usuarios y roles.</p>
+              </form>
+            </div>
           </section>
 
           <a class="module-link" href="repuestos.html" id="moduleLink">Ver pagina completa de repuestos</a>
@@ -556,6 +579,6 @@
     <script src="convex-config.js?v=parts-model-1"></script>
     <script src="convex-client.js?v=simple-nav-1"></script>
     <script src="https://unpkg.com/convex/dist/browser.js"></script>
-    <script src="script.js?v=user-permissions-1"></script>
+    <script src="script.js?v=activator-role-1"></script>
   </body>
 </html>

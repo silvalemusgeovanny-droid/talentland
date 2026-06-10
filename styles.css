@@ -1243,6 +1243,64 @@ input[readonly] {
   align-items: center;
 }
 
+.users-panel-header {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+  justify-content: space-between;
+  padding: 14px;
+  border: 1px solid rgb(15 79 106 / 12%);
+  border-radius: 8px;
+  background: rgb(23 107 135 / 9%);
+}
+
+.users-panel-header div,
+.users-directory-heading,
+.users-form-heading {
+  display: grid;
+  gap: 4px;
+}
+
+.users-panel-header strong,
+.users-directory-heading strong,
+.users-form-heading strong {
+  color: var(--ink);
+  font-size: 1.05rem;
+}
+
+.users-panel-header p {
+  color: var(--muted);
+  font-size: 0.84rem;
+  font-weight: 700;
+}
+
+.users-panel-header > span {
+  flex: 0 0 auto;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: #ffffff;
+  color: var(--accent);
+  font-size: 0.78rem;
+  font-weight: 900;
+}
+
+.users-panel-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 0.9fr);
+  gap: 14px;
+  align-items: start;
+}
+
+.users-directory,
+.users-form {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid rgb(15 79 106 / 12%);
+  border-radius: 8px;
+  background: rgb(255 255 255 / 76%);
+}
+
 .user-card-main {
   display: grid;
   gap: 5px;
@@ -1361,6 +1419,11 @@ input[readonly] {
   color: var(--muted);
   font-size: 0.76rem;
   font-weight: 900;
+}
+
+.parts-readonly-mode .parts-table th:last-child,
+.parts-readonly-mode .parts-table td:last-child {
+  display: none;
 }
 
 .daily-sales-header {
@@ -1808,20 +1871,28 @@ input[readonly] {
 }
 
 :is(body.login-dark, html.login-dark body) .permission-editor,
-:is(body.login-dark, html.login-dark body) .permission-switch {
+:is(body.login-dark, html.login-dark body) .permission-switch,
+:is(body.login-dark, html.login-dark body) .users-panel-header,
+:is(body.login-dark, html.login-dark body) .users-directory,
+:is(body.login-dark, html.login-dark body) .users-form {
   border-color: rgb(255 255 255 / 12%);
   background: rgb(255 255 255 / 8%);
 }
 
 :is(body.login-dark, html.login-dark body) .permission-editor-heading strong,
-:is(body.login-dark, html.login-dark body) .permission-switch b {
+:is(body.login-dark, html.login-dark body) .permission-switch b,
+:is(body.login-dark, html.login-dark body) .users-panel-header strong,
+:is(body.login-dark, html.login-dark body) .users-directory-heading strong,
+:is(body.login-dark, html.login-dark body) .users-form-heading strong {
   color: #f4f8fa;
 }
 
-:is(body.login-dark, html.login-dark body) .permission-switch small {
+:is(body.login-dark, html.login-dark body) .permission-switch small,
+:is(body.login-dark, html.login-dark body) .users-panel-header p {
   color: #a9b8c2;
 }
 
+:is(body.login-dark, html.login-dark body) .users-panel-header > span,
 :is(body.login-dark, html.login-dark body) .role-badge {
   background: rgb(255 255 255 / 12%);
   color: #ffffff;
@@ -2597,6 +2668,14 @@ tbody tr:hover {
     order: 2;
     width: 100%;
     grid-template-columns: 42px minmax(0, 1fr) 42px;
+  }
+
+  .users-panel-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .users-panel-header {
+    flex-direction: column;
   }
 
   .statistics-periods {
