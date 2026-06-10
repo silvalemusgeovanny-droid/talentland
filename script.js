@@ -2403,7 +2403,7 @@ quickPartsForm.addEventListener("submit", async (event) => {
     priceCents,
     customerPrice: centsToMoney(customerPriceCents),
     customerPriceCents,
-    stock: Number(formData.get("stock")) || 1,
+    stock: normalizeStockQuantity(formData.get("stock")),
     quality: normalizeQuality(formData.get("quality")),
     supplier: normalizePartType(formData.get("supplier")),
     publishedAt: now,
