@@ -81,6 +81,7 @@ const roleProfiles = {
   },
 };
 
+const manageableModules = ["sales", "parts", "repairs", "statistics", "database", "users"];
 const moduleLabels = {
   permissions: "Inicio",
   sales: "Ventas",
@@ -218,6 +219,9 @@ const managedUsernameInput = document.querySelector("#managedUsername");
 const managedPasswordInput = document.querySelector("#managedPassword");
 const managedRoleInput = document.querySelector("#managedRole");
 const submitUserButton = document.querySelector("#submitUser");
+const userPermissionGrid = document.querySelector("#userPermissionGrid");
+const permissionRoleSummary = document.querySelector("#permissionRoleSummary");
+const resetRolePermissionsButton = document.querySelector("#resetRolePermissions");
 let repairExcelDatabasePromise = null;
 let pendingSale = null;
 let pendingVoidSaleId = null;
@@ -310,6 +314,7 @@ function saveCurrentUser(user) {
     username: user.username || "",
     name: user.name || user.username || "Usuario",
     role: user.role || "user",
+    modules: Array.isArray(user.modules) ? user.modules : undefined,
   }));
 }
 
@@ -351,9 +356,17 @@ function getRoleProfile(role) {
   return roleProfiles[role] || roleProfiles.user;
 }
 
+function getUserModules(user) {
+  const roleModules = getRoleProfile(user?.role).modules;
+  if (!Array.isArray(user?.modules)) return roleModules;
+  const allowedModules = new Set(["permissions", ...manageableModules]);
+  const customModules = user.modules.filter((moduleName) => allowedModules.has(moduleName));
+  return [...new Set(["permissions", ...customModules])];
+}
+
 function canAccessModule(moduleName) {
   if (!currentUser) return false;
-  return getRoleProfile(currentUser.role).modules.includes(moduleName);
+  return getUserModules(currentUser).includes(moduleName);
 }
 
 function formatPresenceNames(users) {
@@ -408,13 +421,18 @@ function startPresenceUpdates() {
 }
 
 function applyAuthenticatedUser(user, message = "Sesion iniciada correctamente.") {
-  currentUser = user;
-  saveCurrentUser(user);
-  migrateLegacyNoteAuthors(user);
-  const roleProfile = getRoleProfile(user.role);
-  welcomeTitle.textContent = `Bienvenido, ${user.name}`;
+  const localUser = loadUsers().find((item) =>
+    item.id === user.id || item.username?.toLowerCase() === user.username?.toLowerCase()
+  );
+  currentUser = { ...user, ...(localUser || {}) };
+  saveCurrentUser(currentUser);
+  migrateLegacyNoteAuthors(currentUser);
+  const roleProfile = getRoleProfile(currentUser.role);
+  welcomeTitle.textContent = `Bienvenido, ${currentUser.name}`;
   accessSummary.textContent = `${roleProfile.label} - ${roleProfile.access}`;
-  permissionList.innerHTML = roleProfile.permissions.map((p) => `<li>${p}</li>`).join("");
+  permissionList.innerHTML = getUserModules(currentUser).map((moduleName) =>
+    `<li>${moduleLabels[moduleName] || moduleName}</li>`
+  ).join("");
   loginForm.hidden = true;
   sessionPanel.hidden = false;
   credentialHint.textContent = message;
@@ -2043,18 +2061,49 @@ function renderUsers() {
     return;
   }
 
+  renderPermissionEditor();
   usersList.innerHTML = loadUsers().map((user) => `
     <article class="compact-part-item user-item">
-      <div>
+      <div class="user-card-main">
+        <span class="role-badge">${escapeHtml(getRoleProfile(user.role).label)}</span>
         <strong>${escapeHtml(user.name)} (${escapeHtml(user.username)})</strong>
-        <span>${getRoleProfile(user.role).label}</span>
+        <span>${getUserModules(user).map((moduleName) => moduleLabels[moduleName]).filter(Boolean).join(" | ")}</span>
       </div>
       <div class="user-actions">
-        <button class="edit-button" type="button" data-user-action="edit" data-user-id="${user.id}">Editar</button>
-        <button class="delete-button" type="button" data-user-action="delete" data-user-id="${user.id}">Borrar</button>
+        <button class="edit-button icon-action-button icon-edit-button" type="button" data-user-action="edit" data-user-id="${user.id}" aria-label="Editar ${escapeHtml(user.username)}" title="Editar">Editar</button>
+        <button class="delete-button icon-action-button icon-delete-button" type="button" data-user-action="delete" data-user-id="${user.id}" aria-label="Eliminar ${escapeHtml(user.username)}" title="Eliminar">Borrar</button>
       </div>
     </article>
   `).join("");
+}
+
+function getRoleDefaultModules(role) {
+  return getRoleProfile(role).modules.filter((moduleName) => manageableModules.includes(moduleName));
+}
+
+function getSelectedPermissionModules() {
+  return [...userPermissionGrid.querySelectorAll("[data-user-permission]:checked")]
+    .map((input) => input.value);
+}
+
+function renderPermissionEditor(selectedModules = null) {
+  if (!userPermissionGrid) return;
+  const role = managedRoleInput.value || "user";
+  const enabledModules = new Set(selectedModules || getRoleDefaultModules(role));
+  permissionRoleSummary.textContent = `Plantilla ${getRoleProfile(role).label}`;
+
+  userPermissionGrid.innerHTML = manageableModules.map((moduleName) => {
+    const checked = enabledModules.has(moduleName) ? "checked" : "";
+    const required = moduleName === "users" && role !== "root" ? "disabled" : "";
+    return `
+      <label class="permission-switch">
+        <input type="checkbox" value="${moduleName}" data-user-permission ${checked} ${required} />
+        <span></span>
+        <b>${moduleLabels[moduleName]}</b>
+        <small>${checked ? "Permitido" : "Denegado"}</small>
+      </label>
+    `;
+  }).join("");
 }
 
 function renderSaleConfirmation(sale) {
@@ -2143,7 +2192,7 @@ function setColorMode(mode) {
 
 function getAllowedModules() {
   if (!currentUser) return [];
-  return getRoleProfile(currentUser.role).modules.filter((moduleName) => canAccessModule(moduleName));
+  return getUserModules(currentUser);
 }
 
 function updateModuleNavigation(moduleName) {
@@ -2746,13 +2795,22 @@ usersForm.addEventListener("submit", (event) => {
     username,
     password: formData.get("password").trim(),
     role: formData.get("role"),
+    modules: getSelectedPermissionModules(),
   };
+
+  if (userData.role === "root" && !userData.modules.includes("users")) {
+    userData.modules.push("users");
+  }
 
   if (editingId) {
     const index = users.findIndex((user) => user.id === editingId);
     if (index !== -1) {
       users[index] = { ...users[index], ...userData };
-      if (currentUser.id === editingId) currentUser = users[index];
+      if (currentUser.id === editingId) {
+        currentUser = users[index];
+        saveCurrentUser(currentUser);
+        setModule(getSavedActiveModule());
+      }
     }
     delete usersForm.dataset.editingId;
     submitUserButton.textContent = "Guardar usuario";
@@ -2765,8 +2823,25 @@ usersForm.addEventListener("submit", (event) => {
   saveUsers(users);
   usersForm.reset();
   managedRoleInput.value = "user";
+  renderPermissionEditor();
   renderUsers();
   renderDatabase();
+});
+
+managedRoleInput.addEventListener("change", () => {
+  renderPermissionEditor();
+});
+
+resetRolePermissionsButton?.addEventListener("click", () => {
+  renderPermissionEditor();
+  usersHint.textContent = "Permisos restaurados segun el rol seleccionado.";
+});
+
+userPermissionGrid?.addEventListener("change", (event) => {
+  const input = event.target.closest("[data-user-permission]");
+  if (!input) return;
+  const status = input.closest(".permission-switch")?.querySelector("small");
+  if (status) status.textContent = input.checked ? "Permitido" : "Denegado";
 });
 
 usersList.addEventListener("click", (event) => {
@@ -2783,6 +2858,7 @@ usersList.addEventListener("click", (event) => {
     managedUsernameInput.value = user.username;
     managedPasswordInput.value = user.password;
     managedRoleInput.value = user.role;
+    renderPermissionEditor(getUserModules(user).filter((moduleName) => manageableModules.includes(moduleName)));
     usersForm.dataset.editingId = user.id;
     submitUserButton.textContent = "Guardar cambios";
     usersHint.textContent = "Editando usuario.";
