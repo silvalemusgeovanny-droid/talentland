@@ -9,7 +9,7 @@
         if (localStorage.getItem("loginColorMode") === "dark") document.documentElement.classList.add("login-dark");
       } catch {}
     </script>
-    <link rel="stylesheet" href="styles.css?v=managed-options-1" />
+    <link rel="stylesheet" href="styles.css?v=compact-delete-x-1" />
   </head>
   <body>
     <main class="app-shell">
@@ -174,7 +174,7 @@
               <div class="managed-option-row" data-managed-field="name">
                 <select id="quickPartNameSelect" data-manual-target="quickPartName" required></select>
                 <button class="edit-button option-action-button" type="button" data-option-action="edit" data-option-field="name">Editar</button>
-                <button class="delete-button option-action-button" type="button" data-option-action="delete" data-option-field="name">Eliminar</button>
+                <button class="delete-button option-action-button option-delete-button" type="button" data-option-action="delete" data-option-field="name" aria-label="Eliminar repuesto" title="Eliminar">x</button>
               </div>
               <input id="quickPartName" class="manual-option-field" name="partName" type="text" placeholder="Escribe el repuesto nuevo" required hidden />
 
@@ -182,7 +182,7 @@
               <div class="managed-option-row" data-managed-field="brand">
                 <select id="quickBrandSelect" data-manual-target="quickBrand" required></select>
                 <button class="edit-button option-action-button" type="button" data-option-action="edit" data-option-field="brand">Editar</button>
-                <button class="delete-button option-action-button" type="button" data-option-action="delete" data-option-field="brand">Eliminar</button>
+                <button class="delete-button option-action-button option-delete-button" type="button" data-option-action="delete" data-option-field="brand" aria-label="Eliminar marca" title="Eliminar">x</button>
               </div>
               <input id="quickBrand" class="manual-option-field" name="brand" type="text" placeholder="Escribe la marca nueva" required hidden />
 
@@ -190,7 +190,7 @@
               <div class="managed-option-row" data-managed-field="model">
                 <select id="quickModelSelect" data-manual-target="quickModel" required></select>
                 <button class="edit-button option-action-button" type="button" data-option-action="edit" data-option-field="model">Editar</button>
-                <button class="delete-button option-action-button" type="button" data-option-action="delete" data-option-field="model">Eliminar</button>
+                <button class="delete-button option-action-button option-delete-button" type="button" data-option-action="delete" data-option-field="model" aria-label="Eliminar modelo" title="Eliminar">x</button>
               </div>
               <input id="quickModel" class="manual-option-field" name="model" type="text" placeholder="Escribe el modelo nuevo" required hidden />
 
@@ -198,7 +198,7 @@
               <div class="managed-option-row" data-managed-field="supplier">
                 <select id="quickSupplierSelect" data-manual-target="quickSupplier" required></select>
                 <button class="edit-button option-action-button" type="button" data-option-action="edit" data-option-field="supplier">Editar</button>
-                <button class="delete-button option-action-button" type="button" data-option-action="delete" data-option-field="supplier">Eliminar</button>
+                <button class="delete-button option-action-button option-delete-button" type="button" data-option-action="delete" data-option-field="supplier" aria-label="Eliminar proveedor" title="Eliminar">x</button>
               </div>
               <input id="quickSupplier" class="manual-option-field" name="supplier" type="text" placeholder="Escribe el proveedor nuevo" required hidden />
 
@@ -206,7 +206,7 @@
               <div class="managed-option-row" data-managed-field="category">
                 <select id="quickCategory" name="category" required></select>
                 <button class="edit-button option-action-button" type="button" data-option-action="edit" data-option-field="category">Editar</button>
-                <button class="delete-button option-action-button" type="button" data-option-action="delete" data-option-field="category">Eliminar</button>
+                <button class="delete-button option-action-button option-delete-button" type="button" data-option-action="delete" data-option-field="category" aria-label="Eliminar categoria" title="Eliminar">x</button>
               </div>
 
               <div class="field-grid">
