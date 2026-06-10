@@ -12,7 +12,7 @@
         }
       } catch {}
     </script>
-    <link rel="stylesheet" href="styles.css?v=repair-actions-1" />
+    <link rel="stylesheet" href="styles.css?v=simple-nav-1" />
   </head>
   <body>
     <main class="app-shell">
@@ -90,13 +90,19 @@
             <p class="online-presence" id="onlinePresence" hidden></p>
           </div>
 
+          <div class="module-nav-bar" aria-label="Navegacion de modulos">
+            <button class="nav-arrow-button" type="button" id="moduleBackButton" aria-label="Modulo anterior" title="Anterior">Anterior</button>
+            <span id="moduleNavLabel">Inicio</span>
+            <button class="nav-arrow-button nav-arrow-next" type="button" id="moduleNextButton" aria-label="Modulo siguiente" title="Siguiente">Siguiente</button>
+          </div>
+
           <div class="module-tabs" role="tablist" aria-label="Modulos del sistema">
-            <button class="module-tab active" type="button" data-module="permissions">Acceso</button>
+            <button class="module-tab active" type="button" data-module="permissions">Inicio</button>
             <button class="module-tab" type="button" data-module="sales">Ventas</button>
             <button class="module-tab" type="button" data-module="parts">Repuestos</button>
             <button class="module-tab" type="button" data-module="repairs">Reparaciones</button>
-            <button class="module-tab" type="button" data-module="statistics">Panel de control</button>
-            <button class="module-tab" type="button" data-module="database">Base de datos</button>
+            <button class="module-tab" type="button" data-module="statistics">Resumen</button>
+            <button class="module-tab" type="button" data-module="database">Datos</button>
             <button class="module-tab" type="button" data-module="users">Usuarios</button>
           </div>
 
@@ -537,8 +543,8 @@
 
 <script src="reparaciones-db.js?v=parts-model-1"></script>
     <script src="convex-config.js?v=parts-model-1"></script>
-    <script src="convex-client.js?v=repair-actions-1"></script>
+    <script src="convex-client.js?v=simple-nav-1"></script>
     <script src="https://unpkg.com/convex/dist/browser.js"></script>
-    <script src="script.js?v=repair-actions-1"></script>
+    <script src="script.js?v=simple-nav-1"></script>
   </body>
 </html>

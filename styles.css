@@ -229,17 +229,28 @@ body.statistics-active .app-shell {
 }
 
 :is(body.login-dark, html.login-dark body) .secondary-button,
+:is(body.login-dark, html.login-dark body) .module-nav-bar,
 :is(body.login-dark, html.login-dark body) .module-tabs {
   background: #17242e;
   color: #f4f8fa;
 }
 
+:is(body.login-dark, html.login-dark body) .module-nav-bar,
 :is(body.login-dark, html.login-dark body) .module-tabs {
   border-color: rgb(255 255 255 / 12%);
 }
 
 :is(body.login-dark, html.login-dark body) .module-tab {
   color: #a9b8c2;
+}
+
+:is(body.login-dark, html.login-dark body) .module-nav-bar span {
+  color: #f4f8fa;
+}
+
+:is(body.login-dark, html.login-dark body) .nav-arrow-button {
+  background: #263844;
+  color: #ffffff;
 }
 
 :is(body.login-dark, html.login-dark body) .module-tab.active {
@@ -693,6 +704,61 @@ input[readonly] {
   text-decoration: none;
 }
 
+.module-nav-bar {
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr) 42px;
+  gap: 8px;
+  align-items: center;
+  padding: 6px;
+  border: 1px solid rgb(23 32 38 / 10%);
+  border-radius: 8px;
+  background: rgb(237 243 245 / 82%);
+}
+
+.module-nav-bar span {
+  min-width: 0;
+  color: var(--ink);
+  font-size: 0.95rem;
+  font-weight: 900;
+  text-align: center;
+}
+
+.nav-arrow-button,
+.page-nav-button {
+  position: relative;
+  width: 42px;
+  min-width: 42px;
+  min-height: 42px;
+  padding: 0;
+  border: 0;
+  border-radius: 8px;
+  background: #ffffff;
+  color: var(--accent);
+  cursor: pointer;
+  font-size: 0;
+  box-shadow: 0 4px 14px rgb(17 24 32 / 9%);
+}
+
+.nav-arrow-button::before,
+.page-nav-button::before {
+  content: "";
+  position: absolute;
+  inset: 12px;
+  background: currentColor;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M15 5 8 12l7 7' fill='none' stroke='white' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / contain no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M15 5 8 12l7 7' fill='none' stroke='white' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / contain no-repeat;
+}
+
+.nav-arrow-next::before,
+.page-next-button::before {
+  transform: rotate(180deg);
+}
+
+.nav-arrow-button:disabled {
+  opacity: 0.42;
+  cursor: default;
+}
+
 .module-tabs {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(92px, 1fr));
@@ -726,9 +792,20 @@ input[readonly] {
   background: rgb(255 255 255 / 12%);
 }
 
+.technical .module-nav-bar,
+.visual .module-nav-bar {
+  border-color: rgb(255 255 255 / 18%);
+  background: rgb(255 255 255 / 12%);
+}
+
 .technical .module-tab,
 .visual .module-tab {
   color: rgb(255 255 255 / 72%);
+}
+
+.technical .module-nav-bar span,
+.visual .module-nav-bar span {
+  color: white;
 }
 
 .technical .module-tab.active,
@@ -1777,6 +1854,18 @@ input[readonly] {
   box-shadow: 0 8px 18px rgb(17 24 32 / 7%);
 }
 
+.page-nav {
+  display: inline-grid;
+  grid-template-columns: 42px auto 42px;
+  gap: 8px;
+  align-items: center;
+  flex: 0 0 auto;
+}
+
+.page-nav .back-link {
+  min-width: 82px;
+}
+
 .back-link:hover {
   background: var(--accent);
   color: #ffffff;
@@ -1785,6 +1874,15 @@ input[readonly] {
 :is(body.login-dark, html.login-dark body) .back-link {
   border-color: rgb(255 255 255 / 14%);
   background: #17242e;
+  color: #ffffff;
+}
+
+:is(body.login-dark, html.login-dark body) .page-nav-button,
+.technical .nav-arrow-button,
+.technical .page-nav-button,
+.visual .nav-arrow-button,
+.visual .page-nav-button {
+  background: rgb(255 255 255 / 16%);
   color: #ffffff;
 }
 
@@ -2345,6 +2443,26 @@ tbody tr:hover {
 
   .module-tabs {
     grid-template-columns: 1fr 1fr;
+  }
+
+  .module-nav-bar {
+    grid-template-columns: 40px minmax(0, 1fr) 40px;
+  }
+
+  .nav-arrow-button,
+  .page-nav-button {
+    width: 40px;
+    min-width: 40px;
+  }
+
+  .parts-header {
+    flex-direction: column;
+  }
+
+  .page-nav {
+    order: 2;
+    width: 100%;
+    grid-template-columns: 42px minmax(0, 1fr) 42px;
   }
 
   .statistics-periods {
