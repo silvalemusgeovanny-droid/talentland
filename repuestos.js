@@ -308,6 +308,19 @@ async function syncPartsFromSource() {
 }
 
 async function refreshPartsView() {
+  const hasRenderedRows = partsTable.children.length > 0;
+  if (!hasRenderedRows) {
+    renderPartTypeOptions();
+    renderBrandOptions();
+    renderModelOptions();
+    renderSupplierOptions();
+    renderCategoryOptions();
+    renderParts();
+    if (window.repairCloud?.isConfigured()) {
+      partsHint.textContent = "Sincronizando con base de datos...";
+    }
+  }
+
   try {
     await syncPartsFromSource();
     partsHint.textContent = window.repairCloud?.isConfigured()
