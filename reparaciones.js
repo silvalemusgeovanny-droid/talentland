@@ -9,15 +9,22 @@ const currentDate = document.querySelector("#currentDate");
 const currentTime = document.querySelector("#currentTime");
 const colorModeToggle = document.querySelector("#colorModeToggle");
 const colorModeStorageKey = "loginColorMode";
+let renderedRepairs = [];
 
 function loadRepairs() {
   const savedRepairs = localStorage.getItem(repairsStorageKey);
   return savedRepairs ? JSON.parse(savedRepairs) : [];
 }
 
+function saveRepairs(repairs) {
+  localStorage.setItem(repairsStorageKey, JSON.stringify(repairs));
+}
+
 async function loadRepairsFromSource(search = "") {
   if (window.repairCloud?.isConfigured()) {
-    return await window.repairCloud.listRepairs({ search, limit: 10000 });
+    const repairs = await window.repairCloud.listRepairs({ search, limit: 10000 });
+    if (!search) saveRepairs(repairs);
+    return repairs;
   }
 
   return loadRepairs();
@@ -72,6 +79,23 @@ function getFilteredRepairs(repairs, search = repairSearch.value) {
   );
 }
 
+function getRepairRecordId(repair) {
+  return repair._id || repair.id || repair.sourceId || "";
+}
+
+function renderRepairActions(repair) {
+  const id = getRepairRecordId(repair);
+  if (!id) return "";
+  const label = `reparacion #${repair.repairNumber || ""}`.trim();
+
+  return `
+    <div class="table-action-icons">
+      <button class="edit-button icon-action-button icon-edit-button" type="button" data-repair-id="${escapeHtml(id)}" aria-label="Editar ${escapeHtml(label)}" title="Editar">Editar</button>
+      <button class="delete-button icon-action-button icon-delete-button" type="button" data-repair-id="${escapeHtml(id)}" aria-label="Eliminar ${escapeHtml(label)}" title="Eliminar">Eliminar</button>
+    </div>
+  `;
+}
+
 async function renderRepairs() {
   const search = repairSearch.value.trim();
   let repairs = [];
@@ -79,11 +103,12 @@ async function renderRepairs() {
   try {
     repairs = await loadRepairsFromSource(search);
   } catch (error) {
-    repairsTable.innerHTML = `<tr><td class="empty-table" colspan="8">${escapeHtml(error.message)}</td></tr>`;
+    repairsTable.innerHTML = `<tr><td class="empty-table" colspan="9">${escapeHtml(error.message)}</td></tr>`;
     return;
   }
 
   const filteredRepairs = window.repairCloud?.isConfigured() ? repairs : getFilteredRepairs(repairs, search);
+  renderedRepairs = filteredRepairs;
   const repairValue = repairs.reduce((sum, repair) => sum + (Number(repair.repairPrice) || 0), 0);
   const deliveredCount = repairs.filter((repair) => repair.status === "Entregado").length;
 
@@ -92,7 +117,7 @@ async function renderRepairs() {
   totalDelivered.textContent = deliveredCount;
 
   if (!filteredRepairs.length) {
-    repairsTable.innerHTML = `<tr><td class="empty-table" colspan="8">No hay reparaciones con esa busqueda.</td></tr>`;
+    repairsTable.innerHTML = `<tr><td class="empty-table" colspan="9">No hay reparaciones con esa busqueda.</td></tr>`;
     return;
   }
 
@@ -106,11 +131,43 @@ async function renderRepairs() {
       <td>${formatCurrency(Number(repair.repairPrice) || 0)}</td>
       <td><span class="quality-pill">${escapeHtml(repair.status || "En proceso")}</span></td>
       <td>${formatRepairDate(repair.createdAt)}</td>
+      <td>${renderRepairActions(repair)}</td>
     </tr>
   `).join("");
 }
 
 repairSearch.addEventListener("input", renderRepairs);
+repairsTable.addEventListener("click", async (event) => {
+  const button = event.target.closest("[data-repair-id]");
+  if (!button) return;
+
+  const repairId = button.dataset.repairId;
+  const repairs = loadRepairs();
+  const repair = renderedRepairs.find((item) => getRepairRecordId(item) === repairId)
+    || repairs.find((item) => getRepairRecordId(item) === repairId);
+  if (!repair) return;
+
+  if (button.classList.contains("edit-button")) {
+    sessionStorage.setItem("pendingRepairEdit", JSON.stringify(repair));
+    localStorage.setItem("repairActiveModule", "repairs");
+    window.location.href = "index.html";
+    return;
+  }
+
+  if (!button.classList.contains("delete-button")) return;
+  const label = repair.repairNumber ? `#${repair.repairNumber}` : repair.customer || "esta reparacion";
+  if (!confirm(`Eliminar reparacion ${label}?`)) return;
+
+  try {
+    if (window.repairCloud?.isConfigured() && repair._id) {
+      await window.repairCloud.removeRepair(repair._id);
+    }
+    saveRepairs(repairs.filter((item) => getRepairRecordId(item) !== repairId));
+    await renderRepairs();
+  } catch (error) {
+    alert(`No se pudo eliminar: ${error.message}`);
+  }
+});
 colorModeToggle.addEventListener("click", () => {
   const nextMode = document.body.classList.contains("login-dark") ? "light" : "dark";
   setColorMode(nextMode);

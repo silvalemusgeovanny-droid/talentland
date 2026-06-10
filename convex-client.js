@@ -23,6 +23,8 @@
     isConfigured: () => Boolean(getConvexUrl()),
     listRepairs: (args = {}) => callConvex("query", "reparaciones:list", args),
     createRepair: (repair) => callConvex("mutation", "reparaciones:create", repair),
+    updateRepair: (id, patch) => callConvex("mutation", "reparaciones:update", { id, patch }),
+    removeRepair: (id) => callConvex("mutation", "reparaciones:remove", { id }),
     importRepairs: (repairs) => callConvex("mutation", "reparaciones:importBatch", { repairs }),
     seedUsers: () => callConvex("mutation", "auth:seedDefaultUsers", {}),
     login: (username, password, sessionToken) =>

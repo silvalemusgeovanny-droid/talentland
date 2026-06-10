@@ -1148,6 +1148,13 @@ input[readonly] {
   gap: 6px;
 }
 
+.repair-item-heading {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+}
+
 .repair-item p {
   color: var(--muted);
   font-size: 0.84rem;
@@ -1958,6 +1965,10 @@ input[readonly] {
   align-items: center;
   justify-content: flex-end;
   min-width: 92px;
+}
+
+.repair-action-icons {
+  min-width: auto;
 }
 
 .icon-action-button {
