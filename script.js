@@ -170,6 +170,15 @@ const repairsHint = document.querySelector("#repairsHint");
 const repairsCount = document.querySelector("#repairsCount");
 const repairsList = document.querySelector("#repairsList");
 const importRepairsDatabaseButton = document.querySelector("#importRepairsDatabase");
+const deletedPartOptionsStorageKey = "inventoryDeletedPartOptions";
+const categoryOptions = ["Telefono", "Tablet", "Computadora", "Bocina"];
+const partOptionFieldLabels = {
+  name: "nombre de repuesto",
+  brand: "marca",
+  model: "modelo",
+  supplier: "proveedor",
+  category: "categoria",
+};
 const statisticsSummary = document.querySelector("#statisticsSummary");
 const statisticsHint = document.querySelector("#statisticsHint");
 const statisticsGrid = document.querySelector("#statisticsGrid");
@@ -477,6 +486,35 @@ function saveParts(parts) {
   localStorage.setItem(partsStorageKey, JSON.stringify(parts));
 }
 
+function loadDeletedPartOptions() {
+  const savedOptions = localStorage.getItem(deletedPartOptionsStorageKey);
+  return savedOptions ? JSON.parse(savedOptions) : {};
+}
+
+function saveDeletedPartOptions(options) {
+  localStorage.setItem(deletedPartOptionsStorageKey, JSON.stringify(options));
+}
+
+function getDeletedPartOptionKeys(field) {
+  return new Set(loadDeletedPartOptions()[field] || []);
+}
+
+function markPartOptionDeleted(field, value) {
+  const options = loadDeletedPartOptions();
+  const keys = new Set(options[field] || []);
+  keys.add(normalizePartSearch(value));
+  options[field] = [...keys];
+  saveDeletedPartOptions(options);
+}
+
+function unmarkPartOptionDeleted(field, value) {
+  const options = loadDeletedPartOptions();
+  const keys = new Set(options[field] || []);
+  keys.delete(normalizePartSearch(value));
+  options[field] = [...keys];
+  saveDeletedPartOptions(options);
+}
+
 function parseMoneyCents(value) {
   const normalizedValue = String(value ?? "").trim().replace(",", ".");
   const match = normalizedValue.match(/^(\d+)(?:\.(\d+))?$/);
@@ -621,6 +659,218 @@ function getOptionDuplicateMessage(field, value) {
   return `Ese ${labels[field]} ya existe: ${getCanonicalValue(getUniquePartValues(field), value) || normalizePartType(value)}. Seleccionalo de la lista.`;
 }
 
+async function verifyRootCredentials(username, password) {
+  if (window.repairCloud?.isConfigured()) {
+    await window.repairCloud.seedUsers();
+    return await window.repairCloud.verifyRoot(username, password);
+  }
+
+  const normalizedUsername = String(username || "").trim().toLowerCase();
+  return loadUsers().some((user) =>
+    user.username?.toLowerCase() === normalizedUsername &&
+    user.password === password &&
+    user.role === "root" &&
+    user.active !== false
+  );
+}
+
+async function requireRootForPartOptionDelete(field) {
+  if (!["brand", "supplier"].includes(field)) return true;
+  if (currentUser?.role === "root") return true;
+
+  const username = prompt("Solo root puede borrar marca o proveedor. Usuario root:");
+  if (username === null) return false;
+  const password = prompt("Contrasena de root:");
+  if (password === null) return false;
+
+  try {
+    const isRoot = await verifyRootCredentials(username, password);
+    if (!isRoot) {
+      quickPartsHint.textContent = "Autenticacion root incorrecta. No se elimino nada.";
+      return false;
+    }
+    return true;
+  } catch (error) {
+    quickPartsHint.textContent = `No se pudo validar root: ${error.message}`;
+    return false;
+  }
+}
+
+function getQuickManagedOptionValue(field) {
+  if (field === "category") return quickCategoryInput.value;
+  const controlMap = {
+    name: quickPartNameSelect,
+    brand: quickBrandSelect,
+    model: quickModelSelect,
+    supplier: quickSupplierSelect,
+  };
+  const value = controlMap[field]?.value || "";
+  if (!value || value === newOptionValue) return "";
+  return value;
+}
+
+function getBlankPartOptionValue(field) {
+  const blankValues = {
+    name: "Sin repuesto",
+    brand: "Sin marca",
+    model: "Sin modelo",
+    supplier: "Sin proveedor",
+    category: "Sin categoria",
+  };
+  return blankValues[field] || "";
+}
+
+function isSamePartOptionValue(field, currentValue, selectedValue) {
+  const current = field === "category" ? normalizeCategory(currentValue) : currentValue;
+  const selected = field === "category" ? normalizeCategory(selectedValue) : selectedValue;
+  return normalizePartSearch(current) === normalizePartSearch(selected);
+}
+
+function normalizePartOptionValueForField(field, value) {
+  if (field === "category") return normalizeCategory(value);
+  return normalizePartType(value);
+}
+
+function withUpdatedPartOptionValue(part, field, value) {
+  return { ...part, [field]: normalizePartOptionValueForField(field, value) };
+}
+
+function hasDuplicatePartsAfterOptionChange(parts, field, oldValue, newValue) {
+  const projectedParts = parts.map((part) =>
+    isSamePartOptionValue(field, part[field], oldValue) ? withUpdatedPartOptionValue(part, field, newValue) : part
+  );
+  const seenKeys = new Set();
+  return projectedParts.some((part) => {
+    const key = getPartDuplicateKey(part);
+    if (seenKeys.has(key)) return true;
+    seenKeys.add(key);
+    return false;
+  });
+}
+
+function getCloudPatchForPart(part) {
+  const normalizedPart = normalizePartForCloud(part);
+  const { sourceId, ...patch } = normalizedPart;
+  return patch;
+}
+
+async function persistPartOptionChanges(changedParts) {
+  if (!window.repairCloud?.isConfigured()) return;
+  for (const part of changedParts) {
+    if (!part._id) continue;
+    await window.repairCloud.updatePart(part._id, getCloudPatchForPart(part));
+  }
+  const cloudParts = await window.repairCloud.listParts();
+  saveParts(cloudParts.map((part) => ({ ...part, id: part._id || part.id, stock: normalizeStockQuantity(part.stock) })));
+}
+
+async function restorePartOptionDelete(previousParts, previousDeletedOptions, field, oldValue) {
+  try {
+    if (window.repairCloud?.isConfigured()) {
+      const changedParts = previousParts.filter((part) => part._id && isSamePartOptionValue(field, part[field], oldValue));
+      await persistPartOptionChanges(changedParts);
+    } else {
+      saveParts(previousParts);
+    }
+    saveDeletedPartOptions(previousDeletedOptions);
+    quickPartsHint.textContent = "Eliminacion deshecha.";
+    await refreshQuickPartsView();
+  } catch (error) {
+    quickPartsHint.textContent = `No se pudo deshacer: ${error.message}`;
+  }
+}
+
+async function editQuickManagedOption(field) {
+  const oldValue = getQuickManagedOptionValue(field);
+  if (!oldValue) {
+    quickPartsHint.textContent = `Selecciona un ${partOptionFieldLabels[field]} para editar.`;
+    return;
+  }
+
+  const typedValue = prompt(`Nuevo ${partOptionFieldLabels[field]} para "${oldValue}":`, oldValue);
+  if (typedValue === null) return;
+  const newValue = normalizePartOptionValueForField(field, typedValue);
+  if (!newValue) {
+    quickPartsHint.textContent = `Escribe un ${partOptionFieldLabels[field]} valido.`;
+    return;
+  }
+  if (isSamePartOptionValue(field, oldValue, newValue)) {
+    quickPartsHint.textContent = "No hubo cambios.";
+    return;
+  }
+
+  const parts = loadParts();
+  if (["name", "brand", "model", "supplier"].includes(field) && getCanonicalValue(getUniquePartValues(field), newValue)) {
+    quickPartsHint.textContent = getOptionDuplicateMessage(field, newValue);
+    return;
+  }
+  if (hasDuplicatePartsAfterOptionChange(parts, field, oldValue, newValue)) {
+    quickPartsHint.textContent = "Ese cambio crearia repuestos duplicados. Edita el repuesto especifico primero.";
+    return;
+  }
+
+  const updatedParts = parts.map((part) =>
+    isSamePartOptionValue(field, part[field], oldValue) ? withUpdatedPartOptionValue(part, field, newValue) : part
+  );
+  const changedParts = updatedParts.filter((part, index) => part !== parts[index]);
+
+  try {
+    await persistPartOptionChanges(changedParts);
+    if (!window.repairCloud?.isConfigured()) saveParts(updatedParts);
+    markPartOptionDeleted(field, oldValue);
+    unmarkPartOptionDeleted(field, newValue);
+    quickPartsHint.textContent = `${changedParts.length} registro${changedParts.length === 1 ? "" : "s"} actualizado${changedParts.length === 1 ? "" : "s"}.`;
+    await refreshQuickPartsView();
+  } catch (error) {
+    quickPartsHint.textContent = `No se pudo editar en Convex: ${error.message}`;
+  }
+}
+
+async function deleteQuickManagedOption(field) {
+  const oldValue = getQuickManagedOptionValue(field);
+  if (!oldValue) {
+    quickPartsHint.textContent = `Selecciona un ${partOptionFieldLabels[field]} para eliminar.`;
+    return;
+  }
+  if (!(await requireRootForPartOptionDelete(field))) return;
+
+  const parts = loadParts();
+  const previousParts = parts.map((part) => ({ ...part }));
+  const previousDeletedOptions = loadDeletedPartOptions();
+  const affectedParts = parts.filter((part) => isSamePartOptionValue(field, part[field], oldValue));
+  if (!affectedParts.length) {
+    quickPartsHint.textContent = "Ese valor ya no esta en uso.";
+    await refreshQuickPartsView();
+    return;
+  }
+
+  const replacementValue = getBlankPartOptionValue(field);
+  if (!confirm(`Eliminar "${oldValue}" de ${affectedParts.length} registro${affectedParts.length === 1 ? "" : "s"}?`)) return;
+  if (hasDuplicatePartsAfterOptionChange(parts, field, oldValue, replacementValue)) {
+    quickPartsHint.textContent = "No se elimino porque eso crearia repuestos duplicados.";
+    return;
+  }
+
+  const updatedParts = parts.map((part) =>
+    isSamePartOptionValue(field, part[field], oldValue) ? withUpdatedPartOptionValue(part, field, replacementValue) : part
+  );
+  const changedParts = updatedParts.filter((part, index) => part !== parts[index]);
+
+  try {
+    await persistPartOptionChanges(changedParts);
+    if (!window.repairCloud?.isConfigured()) saveParts(updatedParts);
+    markPartOptionDeleted(field, oldValue);
+    unmarkPartOptionDeleted(field, replacementValue);
+    quickPartsHint.textContent = `${partOptionFieldLabels[field]} eliminado de ${changedParts.length} registro${changedParts.length === 1 ? "" : "s"}.`;
+    showUndoBar(`${partOptionFieldLabels[field]} eliminado.`, () =>
+      restorePartOptionDelete(previousParts, previousDeletedOptions, field, oldValue)
+    );
+    await refreshQuickPartsView();
+  } catch (error) {
+    quickPartsHint.textContent = `No se pudo eliminar en Convex: ${error.message}`;
+  }
+}
+
 function normalizePartForCloud(part) {
   const now = new Date().toISOString();
   const priceCents = getMoneyCents(part, "price", "priceCents");
@@ -670,11 +920,21 @@ async function refreshQuickPartsView() {
   renderQuickBrandOptions();
   renderQuickModelOptions();
   renderQuickSupplierOptions();
+  renderQuickCategoryOptions();
   renderQuickParts();
 }
 
 function getUniquePartValues(field) {
-  return getUniqueNormalizedValues(loadParts().map((part) => part[field]));
+  const deletedKeys = getDeletedPartOptionKeys(field);
+  return getUniqueNormalizedValues(loadParts().map((part) => part[field]))
+    .filter((value) => !deletedKeys.has(normalizePartSearch(value)));
+}
+
+function getCategoryValues() {
+  const deletedKeys = getDeletedPartOptionKeys("category");
+  const values = getUniqueNormalizedValues([...categoryOptions, ...loadParts().map((part) => normalizeCategory(part.category))])
+    .filter((value) => !deletedKeys.has(normalizePartSearch(value)));
+  return values.length ? values : ["Telefono"];
 }
 
 function renderSelectOptions(select, values, placeholder) {
@@ -683,6 +943,12 @@ function renderSelectOptions(select, values, placeholder) {
     ...values.map((value) => `<option value="${escapeHtml(value)}">${escapeHtml(value)}</option>`),
     `<option value="${newOptionValue}">Agregar nuevo</option>`,
   ].join("");
+}
+
+function renderQuickCategoryOptions(selectedValue = quickCategoryInput.value || "Telefono") {
+  const values = getCategoryValues();
+  quickCategoryInput.innerHTML = values.map((value) => `<option value="${escapeHtml(value)}">${escapeHtml(value)}</option>`).join("");
+  quickCategoryInput.value = values.includes(selectedValue) ? selectedValue : "Telefono";
 }
 
 function syncManualField(select, input) {
@@ -1760,7 +2026,13 @@ function showUndoBar(message, onUndo) {
   if (undoTimerId) clearInterval(undoTimerId);
   undoBar.innerHTML = `<span>${message}</span><small>${secondsLeft}s</small><button type="button">Deshacer</button>`;
   undoBar.hidden = false;
-  undoBar.querySelector("button").addEventListener("click", () => { onUndo(); hideUndoBar(); });
+  undoBar.querySelector("button").addEventListener("click", async () => {
+    const undoButton = undoBar.querySelector("button");
+    undoButton.disabled = true;
+    undoButton.textContent = "Restaurando...";
+    await onUndo();
+    hideUndoBar();
+  });
   undoTimerId = setInterval(() => {
     secondsLeft -= 1;
     undoBar.querySelector("small").textContent = `${secondsLeft}s`;
@@ -1949,6 +2221,22 @@ quickModelInput.addEventListener("change", syncQuickModelText);
 quickSupplierSelect.addEventListener("change", () => syncManualField(quickSupplierSelect, quickSupplierInput));
 quickSupplierInput.addEventListener("blur", syncQuickSupplierText);
 quickSupplierInput.addEventListener("change", syncQuickSupplierText);
+quickPartsForm.addEventListener("click", async (event) => {
+  const optionButton = event.target.closest("[data-option-action]");
+  if (!optionButton) return;
+
+  const { optionAction, optionField } = optionButton.dataset;
+  if (!optionAction || !optionField) return;
+
+  if (optionAction === "edit") {
+    await editQuickManagedOption(optionField);
+    return;
+  }
+
+  if (optionAction === "delete") {
+    await deleteQuickManagedOption(optionField);
+  }
+});
 
 [saleQuantityInput, salePriceInput, saleDiscountInput, saleReceivedInput].forEach((input) => {
   input.addEventListener("input", updateSaleTotals);
@@ -2147,6 +2435,7 @@ quickPartsForm.addEventListener("submit", async (event) => {
     parts.unshift(part);
     quickPartsHint.textContent = `Guardado localmente: ${error.message}`;
   }
+  ["name", "brand", "model", "supplier", "category"].forEach((field) => unmarkPartOptionDeleted(field, part[field]));
   saveParts(parts);
   quickPartsForm.reset();
   quickPartsHint.textContent = "Repuesto guardado correctamente.";
