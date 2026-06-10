@@ -1895,6 +1895,23 @@ input[readonly] {
   box-shadow: 0 0 0 4px rgb(15 79 106 / 14%);
 }
 
+.managed-option-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: 8px;
+  align-items: center;
+}
+
+.managed-option-row select {
+  min-width: 0;
+}
+
+.option-action-button {
+  min-height: 42px;
+  padding-inline: 12px;
+  white-space: nowrap;
+}
+
 .field-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -2193,6 +2210,14 @@ tbody tr:hover {
   .parts-summary,
   .parts-layout {
     grid-template-columns: 1fr;
+  }
+
+  .managed-option-row {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .managed-option-row select {
+    grid-column: 1 / -1;
   }
 
   .control-dashboard,

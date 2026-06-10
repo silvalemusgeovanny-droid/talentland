@@ -531,7 +531,7 @@ function normalizeCategory(value) {
     Electrodomestico: "Bocina",
     Bocina: "Bocina",
   };
-  return categoryMap[value] || "Telefono";
+  return categoryMap[value] || normalizePartType(value) || "Telefono";
 }
 
 function normalizePartSearch(value = "") {
@@ -541,6 +541,22 @@ function normalizePartSearch(value = "") {
     .replace(/[^a-zA-Z0-9]+/g, " ")
     .trim()
     .toLowerCase();
+}
+
+function getCanonicalValue(values, value) {
+  const normalizedValue = normalizePartSearch(value);
+  if (!normalizedValue) return "";
+  return values.find((option) => normalizePartSearch(option) === normalizedValue) || "";
+}
+
+function getUniqueNormalizedValues(values) {
+  const normalizedMap = new Map();
+  values.forEach((value) => {
+    const displayValue = normalizePartType(value);
+    const key = normalizePartSearch(displayValue);
+    if (key && !normalizedMap.has(key)) normalizedMap.set(key, displayValue);
+  });
+  return [...normalizedMap.values()].sort((a, b) => a.localeCompare(b, "es", { sensitivity: "base" }));
 }
 
 function normalizeQuality(value = "") {
@@ -561,7 +577,7 @@ function getQualityClass(value = "") {
 }
 
 function getPartDuplicateKey(part) {
-  return [part.name, part.brand, part.model, part.category, normalizeQuality(part.quality)]
+  return [part.name, part.brand, part.model, normalizeCategory(part.category), normalizeQuality(part.quality)]
     .map(normalizePartSearch)
     .join("|");
 }
@@ -588,6 +604,21 @@ function getModelSupplierConflictMessage() {
 
 function isDuplicateError(error) {
   return String(error?.message || "").toLowerCase().includes("duplicado");
+}
+
+function isOptionValueDuplicate(field, value) {
+  const values = getUniquePartValues(field);
+  return Boolean(getCanonicalValue(values, value));
+}
+
+function getOptionDuplicateMessage(field, value) {
+  const labels = {
+    name: "nombre de repuesto",
+    brand: "marca",
+    model: "modelo",
+    supplier: "proveedor",
+  };
+  return `Ese ${labels[field]} ya existe: ${getCanonicalValue(getUniquePartValues(field), value) || normalizePartType(value)}. Seleccionalo de la lista.`;
 }
 
 function normalizePartForCloud(part) {
@@ -643,7 +674,7 @@ async function refreshQuickPartsView() {
 }
 
 function getUniquePartValues(field) {
-  return [...new Set(loadParts().map((part) => normalizePartType(part[field])).filter(Boolean))].sort();
+  return getUniqueNormalizedValues(loadParts().map((part) => part[field]));
 }
 
 function renderSelectOptions(select, values, placeholder) {
@@ -2055,6 +2086,20 @@ adminVoidForm.addEventListener("submit", async (event) => {
 quickPartsForm.addEventListener("submit", async (event) => {
   event.preventDefault();
   syncQuickPartSelectFields();
+  const duplicateOptionFields = [
+    { field: "name", select: quickPartNameSelect, input: quickPartNameInput },
+    { field: "brand", select: quickBrandSelect, input: quickBrandInput },
+    { field: "model", select: quickModelSelect, input: quickModelInput },
+    { field: "supplier", select: quickSupplierSelect, input: quickSupplierInput },
+  ];
+  const duplicateOption = duplicateOptionFields.find(({ field, select, input }) =>
+    select.value === newOptionValue && isOptionValueDuplicate(field, input.value)
+  );
+  if (duplicateOption) {
+    quickPartsHint.textContent = getOptionDuplicateMessage(duplicateOption.field, duplicateOption.input.value);
+    return;
+  }
+
   const formData = new FormData(quickPartsForm);
   const parts = loadParts();
   const now = new Date().toISOString();

@@ -219,3 +219,23 @@ export const verifyAdmin = mutation({
     return (await sha256(`${username}:${args.password}`)) === user.passwordHash;
   },
 });
+
+export const verifyRoot = mutation({
+  args: {
+    username: v.string(),
+    password: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const username = args.username.trim().toLowerCase();
+    const user = await ctx.db
+      .query("usuarios")
+      .withIndex("by_username", (q) => q.eq("username", username))
+      .unique();
+
+    if (!user || !user.active || user.role !== "root") {
+      return false;
+    }
+
+    return (await sha256(`${username}:${args.password}`)) === user.passwordHash;
+  },
+});

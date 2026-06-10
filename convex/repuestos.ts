@@ -27,8 +27,26 @@ function normalizePartSearch(value = "") {
     .toLowerCase();
 }
 
+function normalizePartType(value = "") {
+  const cleanedValue = String(value || "").trim().replace(/\s+/g, " ").toLowerCase();
+  if (!cleanedValue) return "";
+  return cleanedValue.charAt(0).toUpperCase() + cleanedValue.slice(1);
+}
+
+function normalizeCategory(value = "") {
+  const categoryMap: Record<string, string> = {
+    Celular: "Telefono",
+    Telefono: "Telefono",
+    Tablet: "Tablet",
+    Computadora: "Computadora",
+    Electrodomestico: "Bocina",
+    Bocina: "Bocina",
+  };
+  return categoryMap[value] || normalizePartType(value) || "Telefono";
+}
+
 function getPartDuplicateKey(part: any) {
-  return [part.name, part.brand, part.model, part.category, normalizeQuality(part.quality)]
+  return [part.name, part.brand, part.model, normalizeCategory(part.category), normalizeQuality(part.quality)]
     .map(normalizePartSearch)
     .join("|");
 }
@@ -122,6 +140,7 @@ export const create = mutation({
       ...normalizeMoneyFields(args),
       stock: normalizeStockQuantity(args.stock),
       quality: normalizeQuality(args.quality),
+      category: normalizeCategory(args.category),
     };
     if (hasModelSupplierConflict(part)) throw modelSupplierConflictError();
 
@@ -166,6 +185,7 @@ export const update = mutation({
       ...normalizeMoneyFields(args.patch),
       stock: normalizeStockQuantity(args.patch.stock),
       quality: normalizeQuality(args.patch.quality),
+      category: normalizeCategory(args.patch.category),
     };
     if (hasModelSupplierConflict(patch)) throw modelSupplierConflictError();
 
@@ -201,6 +221,7 @@ export const importBatch = mutation({
           ...normalizeMoneyFields(rawPart),
           stock: normalizeStockQuantity(rawPart.stock),
           quality: normalizeQuality(rawPart.quality),
+          category: normalizeCategory(rawPart.category),
         };
       } catch {
         skipped += 1;
