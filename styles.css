@@ -1912,6 +1912,24 @@ input[readonly] {
   white-space: nowrap;
 }
 
+.option-action-button[data-option-action="edit"] {
+  width: 42px;
+  min-width: 42px;
+  padding-inline: 0;
+  position: relative;
+  color: var(--accent);
+  font-size: 0;
+}
+
+.option-action-button[data-option-action="edit"]::before {
+  content: "";
+  position: absolute;
+  inset: 9px;
+  background: currentColor;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cg fill='none' stroke='white' stroke-linecap='round' stroke-linejoin='round' stroke-width='2.2'%3E%3Cpath d='M4.5 5.5a2 2 0 0 1 2-2h8.5'/%3E%3Cpath d='M4.5 5.5v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8.5'/%3E%3Cpath d='M13.2 15.8 7.8 17l1.2-5.4L17.4 3.2a2 2 0 0 1 2.8 2.8z'/%3E%3Cpath d='m15.8 4.8 3.4 3.4'/%3E%3C/g%3E%3C/svg%3E") center / contain no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cg fill='none' stroke='white' stroke-linecap='round' stroke-linejoin='round' stroke-width='2.2'%3E%3Cpath d='M4.5 5.5a2 2 0 0 1 2-2h8.5'/%3E%3Cpath d='M4.5 5.5v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8.5'/%3E%3Cpath d='M13.2 15.8 7.8 17l1.2-5.4L17.4 3.2a2 2 0 0 1 2.8 2.8z'/%3E%3Cpath d='m15.8 4.8 3.4 3.4'/%3E%3C/g%3E%3C/svg%3E") center / contain no-repeat;
+}
+
 .option-delete-button {
   width: 42px;
   min-width: 42px;
