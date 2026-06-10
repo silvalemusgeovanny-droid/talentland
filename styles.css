@@ -1243,10 +1243,124 @@ input[readonly] {
   align-items: center;
 }
 
+.user-card-main {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+}
+
+.role-badge {
+  width: fit-content;
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: rgb(23 107 135 / 12%);
+  color: var(--accent);
+  font-size: 0.72rem;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
 .user-actions {
   display: flex;
   gap: 8px;
   align-items: center;
+}
+
+.permission-editor {
+  display: grid;
+  gap: 12px;
+  margin: 16px 0 8px;
+  padding: 14px;
+  border: 1px solid rgb(15 79 106 / 12%);
+  border-radius: 8px;
+  background: rgb(23 107 135 / 7%);
+}
+
+.permission-editor-heading {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.permission-editor-heading div {
+  display: grid;
+  gap: 4px;
+}
+
+.permission-editor-heading strong {
+  font-size: 1rem;
+}
+
+.permission-grid {
+  display: grid;
+  gap: 8px;
+}
+
+.permission-switch {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+  min-height: 48px;
+  margin: 0;
+  padding: 8px 10px;
+  border: 1px solid rgb(15 79 106 / 11%);
+  border-radius: 8px;
+  background: rgb(255 255 255 / 78%);
+  cursor: pointer;
+}
+
+.permission-switch input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.permission-switch span {
+  position: relative;
+  width: 42px;
+  height: 24px;
+  border-radius: 999px;
+  background: #c9d4da;
+  transition: background 160ms ease;
+}
+
+.permission-switch span::before {
+  content: "";
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #ffffff;
+  box-shadow: 0 2px 6px rgb(17 24 32 / 18%);
+  transition: transform 160ms ease;
+}
+
+.permission-switch input:checked + span {
+  background: var(--accent);
+}
+
+.permission-switch input:checked + span::before {
+  transform: translateX(18px);
+}
+
+.permission-switch input:disabled + span {
+  opacity: 0.55;
+}
+
+.permission-switch b {
+  min-width: 0;
+  color: var(--ink);
+  font-size: 0.9rem;
+}
+
+.permission-switch small {
+  color: var(--muted);
+  font-size: 0.76rem;
+  font-weight: 900;
 }
 
 .daily-sales-header {
@@ -1690,6 +1804,26 @@ input[readonly] {
 :is(body.login-dark, html.login-dark body) .pending-alert button {
   border-color: rgb(255 255 255 / 14%);
   background: #22323d;
+  color: #ffffff;
+}
+
+:is(body.login-dark, html.login-dark body) .permission-editor,
+:is(body.login-dark, html.login-dark body) .permission-switch {
+  border-color: rgb(255 255 255 / 12%);
+  background: rgb(255 255 255 / 8%);
+}
+
+:is(body.login-dark, html.login-dark body) .permission-editor-heading strong,
+:is(body.login-dark, html.login-dark body) .permission-switch b {
+  color: #f4f8fa;
+}
+
+:is(body.login-dark, html.login-dark body) .permission-switch small {
+  color: #a9b8c2;
+}
+
+:is(body.login-dark, html.login-dark body) .role-badge {
+  background: rgb(255 255 255 / 12%);
   color: #ffffff;
 }
 
