@@ -17,6 +17,22 @@ const repairFields = {
   notes: v.string(),
 };
 
+const repairPatchFields = {
+  sourceId: v.optional(v.string()),
+  repairNumber: v.optional(v.number()),
+  customer: v.optional(v.string()),
+  deviceType: v.optional(v.string()),
+  phone: v.optional(v.string()),
+  brand: v.optional(v.string()),
+  model: v.optional(v.string()),
+  repairType: v.optional(v.string()),
+  status: v.optional(v.string()),
+  createdAt: v.optional(v.string()),
+  deliveredAt: v.optional(v.string()),
+  repairPrice: v.optional(v.number()),
+  notes: v.optional(v.string()),
+};
+
 function normalizeSearch(value: string) {
   return value
     .normalize("NFD")
@@ -58,6 +74,27 @@ export const create = mutation({
   args: repairFields,
   handler: async (ctx, args) => {
     return await ctx.db.insert("reparaciones", args);
+  },
+});
+
+export const update = mutation({
+  args: {
+    id: v.id("reparaciones"),
+    patch: v.object(repairPatchFields),
+  },
+  handler: async (ctx, args) => {
+    await ctx.db.patch(args.id, args.patch);
+    return args.id;
+  },
+});
+
+export const remove = mutation({
+  args: {
+    id: v.id("reparaciones"),
+  },
+  handler: async (ctx, args) => {
+    await ctx.db.delete(args.id);
+    return args.id;
   },
 });
 
