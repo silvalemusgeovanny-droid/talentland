@@ -20,6 +20,7 @@ const usersStorageKey = "systemUsers";
 const sessionTokenStorageKey = "repairSessionToken";
 const currentUserStorageKey = "repairCurrentUser";
 const authModeStorageKey = "repairAuthMode";
+const activeModuleStorageKey = "repairActiveModule";
 const defaultUsers = [
   {
     id: "root-user",
@@ -311,6 +312,14 @@ function getSavedAuthMode() {
   return localStorage.getItem(authModeStorageKey);
 }
 
+function getSavedActiveModule() {
+  return localStorage.getItem(activeModuleStorageKey) || "permissions";
+}
+
+function saveActiveModule(moduleName) {
+  localStorage.setItem(activeModuleStorageKey, moduleName);
+}
+
 function getRoleProfile(role) {
   return roleProfiles[role] || roleProfiles.user;
 }
@@ -382,7 +391,7 @@ function applyAuthenticatedUser(user, message = "Sesion iniciada correctamente."
   loginForm.hidden = true;
   sessionPanel.hidden = false;
   credentialHint.textContent = message;
-  setModule("permissions");
+  setModule(getSavedActiveModule());
   renderQuickParts();
   renderSales();
   renderRepairs();
@@ -2056,6 +2065,7 @@ function setModule(moduleName) {
     credentialHint.textContent = "Tu rol no tiene permiso para abrir ese modulo.";
     moduleName = "permissions";
   }
+  saveActiveModule(moduleName);
   sessionPanel.classList.toggle("control-panel-wide", moduleName === "statistics");
   moduleTabs.forEach((button) => {
     const isAllowed = canAccessModule(button.dataset.module);
