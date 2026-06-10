@@ -1,4 +1,7 @@
 const storageKey = "inventoryParts";
+const deletedOptionsStorageKey = "inventoryDeletedPartOptions";
+const usersStorageKey = "systemUsers";
+const currentUserStorageKey = "repairCurrentUser";
 
 const starterParts = [
   {
@@ -55,6 +58,7 @@ const modelSelect = document.querySelector("#modelSelect");
 const modelInput = document.querySelector("#model");
 const supplierSelect = document.querySelector("#supplierSelect");
 const supplierInput = document.querySelector("#supplier");
+const categorySelect = document.querySelector("#category");
 const publishedAtInput = document.querySelector("#publishedAt");
 const updatedAtInput = document.querySelector("#updatedAt");
 const partSearch = document.querySelector("#partSearch");
@@ -70,6 +74,14 @@ let lastDeletedPart = null;
 let undoTimerId = null;
 let partsCloudMigrationDone = false;
 const newOptionValue = "__new__";
+const categoryOptions = ["Telefono", "Tablet", "Computadora", "Bocina"];
+const optionFieldLabels = {
+  name: "nombre de repuesto",
+  brand: "marca",
+  model: "modelo",
+  supplier: "proveedor",
+  category: "categoria",
+};
 
 function getUndoBar() {
   let undoBar = document.querySelector("#undoBar");
@@ -94,7 +106,13 @@ function showUndoBar(message, onUndo) {
   if (undoTimerId) clearInterval(undoTimerId);
   undoBar.innerHTML = `<span>${message}</span><small>${secondsLeft}s</small><button type="button">Deshacer</button>`;
   undoBar.hidden = false;
-  undoBar.querySelector("button").addEventListener("click", () => { onUndo(); hideUndoBar(); });
+  undoBar.querySelector("button").addEventListener("click", async () => {
+    const undoButton = undoBar.querySelector("button");
+    undoButton.disabled = true;
+    undoButton.textContent = "Restaurando...";
+    await onUndo();
+    hideUndoBar();
+  });
   undoTimerId = setInterval(() => {
     secondsLeft -= 1;
     undoBar.querySelector("small").textContent = `${secondsLeft}s`;
@@ -113,6 +131,94 @@ function loadParts() {
 
 function saveParts(parts) {
   localStorage.setItem(storageKey, JSON.stringify(parts));
+}
+
+function loadDeletedOptions() {
+  const savedOptions = localStorage.getItem(deletedOptionsStorageKey);
+  return savedOptions ? JSON.parse(savedOptions) : {};
+}
+
+function saveDeletedOptions(options) {
+  localStorage.setItem(deletedOptionsStorageKey, JSON.stringify(options));
+}
+
+function getDeletedOptionKeys(field) {
+  return new Set(loadDeletedOptions()[field] || []);
+}
+
+function markOptionDeleted(field, value) {
+  const options = loadDeletedOptions();
+  const keys = new Set(options[field] || []);
+  keys.add(normalizePartSearch(value));
+  options[field] = [...keys];
+  saveDeletedOptions(options);
+}
+
+function unmarkOptionDeleted(field, value) {
+  const options = loadDeletedOptions();
+  const keys = new Set(options[field] || []);
+  keys.delete(normalizePartSearch(value));
+  options[field] = [...keys];
+  saveDeletedOptions(options);
+}
+
+function getCurrentStoredUser() {
+  try {
+    return JSON.parse(localStorage.getItem(currentUserStorageKey) || "null");
+  } catch {
+    return null;
+  }
+}
+
+function loadSystemUsers() {
+  const defaultUsers = [
+    { username: "root", password: "root123", role: "root", active: true },
+  ];
+  try {
+    const savedUsers = localStorage.getItem(usersStorageKey);
+    return savedUsers ? JSON.parse(savedUsers) : defaultUsers;
+  } catch {
+    return defaultUsers;
+  }
+}
+
+async function verifyRootCredentials(username, password) {
+  if (window.repairCloud?.isConfigured()) {
+    await window.repairCloud.seedUsers();
+    return await window.repairCloud.verifyRoot(username, password);
+  }
+
+  const normalizedUsername = String(username || "").trim().toLowerCase();
+  return loadSystemUsers().some((user) =>
+    user.username?.toLowerCase() === normalizedUsername &&
+    user.password === password &&
+    user.role === "root" &&
+    user.active !== false
+  );
+}
+
+async function requireRootForOptionDelete(field) {
+  if (!["brand", "supplier"].includes(field)) return true;
+
+  const currentUser = getCurrentStoredUser();
+  if (currentUser?.role === "root") return true;
+
+  const username = prompt("Solo root puede borrar marca o proveedor. Usuario root:");
+  if (username === null) return false;
+  const password = prompt("Contrasena de root:");
+  if (password === null) return false;
+
+  try {
+    const isRoot = await verifyRootCredentials(username, password);
+    if (!isRoot) {
+      partsHint.textContent = "Autenticacion root incorrecta. No se elimino nada.";
+      return false;
+    }
+    return true;
+  } catch (error) {
+    partsHint.textContent = `No se pudo validar root: ${error.message}`;
+    return false;
+  }
 }
 
 function parseMoneyCents(value) {
@@ -214,6 +320,7 @@ async function refreshPartsView() {
   renderBrandOptions();
   renderModelOptions();
   renderSupplierOptions();
+  renderCategoryOptions();
   renderParts();
 }
 
@@ -226,7 +333,7 @@ function normalizeCategory(value) {
     Electrodomestico: "Bocina",
     Bocina: "Bocina",
   };
-  return categoryMap[value] || "Telefono";
+  return categoryMap[value] || normalizePartType(value) || "Telefono";
 }
 
 function normalizePartType(value) {
@@ -245,7 +352,16 @@ function escapeHtml(value) {
 }
 
 function getUniquePartValues(field) {
-  return [...new Set(loadParts().map((part) => normalizePartType(part[field])).filter(Boolean))].sort();
+  const deletedKeys = getDeletedOptionKeys(field);
+  return getUniqueNormalizedValues(loadParts().map((part) => part[field]))
+    .filter((value) => !deletedKeys.has(normalizePartSearch(value)));
+}
+
+function getCategoryValues() {
+  const deletedKeys = getDeletedOptionKeys("category");
+  const values = getUniqueNormalizedValues([...categoryOptions, ...loadParts().map((part) => normalizeCategory(part.category))])
+    .filter((value) => !deletedKeys.has(normalizePartSearch(value)));
+  return values.length ? values : ["Telefono"];
 }
 
 function renderSelectOptions(select, values, placeholder) {
@@ -258,6 +374,12 @@ function renderSelectOptions(select, values, placeholder) {
     ...values.map((value) => `<option value="${escapeHtml(value)}">${escapeHtml(value)}</option>`),
     `<option value="${newOptionValue}">Agregar nuevo</option>`,
   ].join("");
+}
+
+function renderCategoryOptions(selectedValue = categorySelect.value || "Telefono") {
+  const values = getCategoryValues();
+  categorySelect.innerHTML = values.map((value) => `<option value="${escapeHtml(value)}">${escapeHtml(value)}</option>`).join("");
+  categorySelect.value = values.includes(selectedValue) ? selectedValue : "Telefono";
 }
 
 function syncManualField(select, input) {
@@ -357,6 +479,18 @@ function syncPartSelectFields() {
 
 function getPartFormValues() {
   syncPartSelectFields();
+  const optionDuplicateFields = [
+    { field: "name", select: partNameSelect, input: partNameInput },
+    { field: "brand", select: brandSelect, input: brandInput },
+    { field: "model", select: modelSelect, input: modelInput },
+    { field: "supplier", select: supplierSelect, input: supplierInput },
+  ];
+  const duplicateOption = optionDuplicateFields.find(({ field, select, input }) =>
+    select.value === newOptionValue && isOptionValueDuplicate(field, input.value)
+  );
+  if (duplicateOption) {
+    throw new Error(getOptionDuplicateMessage(duplicateOption.field, duplicateOption.input.value));
+  }
   const priceCents = parseMoneyCents(document.querySelector("#price").value);
   const customerPriceCents = parseMoneyCents(document.querySelector("#customerPrice").value);
   const stock = parseStockQuantity(document.querySelector("#stock").value);
@@ -365,7 +499,7 @@ function getPartFormValues() {
     brand: normalizePartType(brandInput.value),
     model: normalizePartType(modelInput.value),
     supplier: normalizePartType(supplierInput.value),
-    category: normalizeCategory(document.querySelector("#category").value),
+    category: normalizeCategory(categorySelect.value),
     price: centsToMoney(priceCents),
     priceCents,
     customerPrice: centsToMoney(customerPriceCents),
@@ -401,6 +535,22 @@ function normalizePartSearch(value = "") {
     .toLowerCase();
 }
 
+function getCanonicalValue(values, value) {
+  const normalizedValue = normalizePartSearch(value);
+  if (!normalizedValue) return "";
+  return values.find((option) => normalizePartSearch(option) === normalizedValue) || "";
+}
+
+function getUniqueNormalizedValues(values) {
+  const normalizedMap = new Map();
+  values.forEach((value) => {
+    const displayValue = normalizePartType(value);
+    const key = normalizePartSearch(displayValue);
+    if (key && !normalizedMap.has(key)) normalizedMap.set(key, displayValue);
+  });
+  return [...normalizedMap.values()].sort((a, b) => a.localeCompare(b, "es", { sensitivity: "base" }));
+}
+
 function getPartSearchText(part) {
   return [part.name, part.brand, part.model, part.category, part.quality, part.supplier]
     .map(normalizePartSearch)
@@ -429,7 +579,7 @@ function compactPartSearch(value = "") {
 }
 
 function getPartDuplicateKey(part) {
-  return [part.name, part.brand, part.model, part.category, normalizeQuality(part.quality)]
+  return [part.name, part.brand, part.model, normalizeCategory(part.category), normalizeQuality(part.quality)]
     .map(normalizePartSearch)
     .join("|");
 }
@@ -456,6 +606,16 @@ function getModelSupplierConflictMessage() {
 
 function isDuplicateError(error) {
   return String(error?.message || "").toLowerCase().includes("duplicado");
+}
+
+function isOptionValueDuplicate(field, value) {
+  if (!["name", "brand", "model", "supplier"].includes(field)) return false;
+  const values = getUniquePartValues(field);
+  return Boolean(getCanonicalValue(values, value));
+}
+
+function getOptionDuplicateMessage(field, value) {
+  return `Ese ${optionFieldLabels[field]} ya existe: ${getCanonicalValue(getUniquePartValues(field), value) || normalizePartType(value)}. Seleccionalo de la lista.`;
 }
 
 function resetPartDates() {
@@ -533,9 +693,206 @@ function setColorMode(mode) {
   localStorage.setItem(colorModeStorageKey, isDarkMode ? "dark" : "light");
 }
 
+function getManagedOptionValue(field) {
+  if (field === "category") return categorySelect.value;
+  const controlMap = {
+    name: partNameSelect,
+    brand: brandSelect,
+    model: modelSelect,
+    supplier: supplierSelect,
+  };
+  const value = controlMap[field]?.value || "";
+  if (!value || value === newOptionValue) return "";
+  return value;
+}
+
+function getBlankOptionValue(field) {
+  const blankValues = {
+    name: "Sin repuesto",
+    brand: "Sin marca",
+    model: "Sin modelo",
+    supplier: "Sin proveedor",
+    category: "Sin categoria",
+  };
+  return blankValues[field] || "";
+}
+
+function isSameOptionValue(field, currentValue, selectedValue) {
+  const current = field === "category" ? normalizeCategory(currentValue) : currentValue;
+  const selected = field === "category" ? normalizeCategory(selectedValue) : selectedValue;
+  return normalizePartSearch(current) === normalizePartSearch(selected);
+}
+
+function getAffectedPartsByOption(parts, field, value) {
+  return parts.filter((part) => isSameOptionValue(field, part[field], value));
+}
+
+function normalizeOptionValueForField(field, value) {
+  if (field === "category") return normalizeCategory(value);
+  return normalizePartType(value);
+}
+
+function withUpdatedOptionValue(part, field, value) {
+  return { ...part, [field]: normalizeOptionValueForField(field, value) };
+}
+
+function hasDuplicatePartsAfterOptionChange(parts, field, oldValue, newValue) {
+  const projectedParts = parts.map((part) =>
+    isSameOptionValue(field, part[field], oldValue) ? withUpdatedOptionValue(part, field, newValue) : part
+  );
+  const seenKeys = new Set();
+  return projectedParts.some((part) => {
+    const key = getPartDuplicateKey(part);
+    if (seenKeys.has(key)) return true;
+    seenKeys.add(key);
+    return false;
+  });
+}
+
+function getCloudPatchForPart(part) {
+  const normalizedPart = normalizePartForCloud(part);
+  const { sourceId, ...patch } = normalizedPart;
+  return patch;
+}
+
+async function persistOptionChanges(updatedParts, changedParts) {
+  if (!window.repairCloud?.isConfigured()) return;
+  for (const part of changedParts) {
+    if (!part._id) continue;
+    await window.repairCloud.updatePart(part._id, getCloudPatchForPart(part));
+  }
+  const cloudParts = await window.repairCloud.listParts();
+  saveParts(cloudParts.map((part) => ({ ...part, id: part._id || part.id, stock: normalizeStockQuantity(part.stock) })));
+}
+
+async function restoreOptionDelete(previousParts, previousDeletedOptions, field, oldValue) {
+  try {
+    if (window.repairCloud?.isConfigured()) {
+      const changedParts = previousParts.filter((part) => part._id && isSameOptionValue(field, part[field], oldValue));
+      for (const part of changedParts) {
+        await window.repairCloud.updatePart(part._id, getCloudPatchForPart(part));
+      }
+      const cloudParts = await window.repairCloud.listParts();
+      saveParts(cloudParts.map((part) => ({ ...part, id: part._id || part.id, stock: normalizeStockQuantity(part.stock) })));
+    } else {
+      saveParts(previousParts);
+    }
+    saveDeletedOptions(previousDeletedOptions);
+    partsHint.textContent = "Eliminacion deshecha.";
+    await refreshPartsView();
+  } catch (error) {
+    partsHint.textContent = `No se pudo deshacer: ${error.message}`;
+  }
+}
+
+async function editManagedOption(field) {
+  const oldValue = getManagedOptionValue(field);
+  if (!oldValue) {
+    partsHint.textContent = `Selecciona un ${optionFieldLabels[field]} para editar.`;
+    return;
+  }
+
+  const typedValue = prompt(`Nuevo ${optionFieldLabels[field]} para "${oldValue}":`, oldValue);
+  if (typedValue === null) return;
+
+  const newValue = normalizeOptionValueForField(field, typedValue);
+  if (!newValue) {
+    partsHint.textContent = `Escribe un ${optionFieldLabels[field]} valido.`;
+    return;
+  }
+
+  if (isSameOptionValue(field, oldValue, newValue)) {
+    partsHint.textContent = "No hubo cambios.";
+    return;
+  }
+
+  const parts = loadParts();
+  if (["name", "brand", "model", "supplier"].includes(field) && getCanonicalValue(getUniquePartValues(field), newValue)) {
+    partsHint.textContent = getOptionDuplicateMessage(field, newValue);
+    return;
+  }
+
+  if (hasDuplicatePartsAfterOptionChange(parts, field, oldValue, newValue)) {
+    partsHint.textContent = "Ese cambio crearia repuestos duplicados. Edita el repuesto especifico primero.";
+    return;
+  }
+
+  const updatedParts = parts.map((part) =>
+    isSameOptionValue(field, part[field], oldValue) ? withUpdatedOptionValue(part, field, newValue) : part
+  );
+  const changedParts = updatedParts.filter((part, index) => part !== parts[index]);
+
+  try {
+    await persistOptionChanges(updatedParts, changedParts);
+    if (!window.repairCloud?.isConfigured()) saveParts(updatedParts);
+    markOptionDeleted(field, oldValue);
+    unmarkOptionDeleted(field, newValue);
+    partsHint.textContent = `${changedParts.length} registro${changedParts.length === 1 ? "" : "s"} actualizado${changedParts.length === 1 ? "" : "s"}.`;
+  } catch (error) {
+    partsHint.textContent = `No se pudo editar en Convex: ${error.message}`;
+  }
+
+  await refreshPartsView();
+}
+
+async function deleteManagedOption(field) {
+  const oldValue = getManagedOptionValue(field);
+  if (!oldValue) {
+    partsHint.textContent = `Selecciona un ${optionFieldLabels[field]} para eliminar.`;
+    return;
+  }
+
+  const hasRootPermission = await requireRootForOptionDelete(field);
+  if (!hasRootPermission) return;
+
+  const parts = loadParts();
+  const previousParts = parts.map((part) => ({ ...part }));
+  const previousDeletedOptions = loadDeletedOptions();
+  const affectedParts = getAffectedPartsByOption(parts, field, oldValue);
+  if (!affectedParts.length) {
+    partsHint.textContent = "Ese valor ya no esta en uso.";
+    await refreshPartsView();
+    return;
+  }
+
+  const replacementValue = getBlankOptionValue(field);
+  if (!confirm(`Eliminar "${oldValue}" de ${affectedParts.length} registro${affectedParts.length === 1 ? "" : "s"}?`)) return;
+
+  if (hasDuplicatePartsAfterOptionChange(parts, field, oldValue, replacementValue)) {
+    partsHint.textContent = "No se elimino porque eso crearia repuestos duplicados.";
+    return;
+  }
+
+  const updatedParts = parts.map((part) =>
+    isSameOptionValue(field, part[field], oldValue) ? withUpdatedOptionValue(part, field, replacementValue) : part
+  );
+  const changedParts = updatedParts.filter((part, index) => part !== parts[index]);
+
+  try {
+    await persistOptionChanges(updatedParts, changedParts);
+    if (!window.repairCloud?.isConfigured()) saveParts(updatedParts);
+    markOptionDeleted(field, oldValue);
+    unmarkOptionDeleted(field, replacementValue);
+    partsHint.textContent = `${optionFieldLabels[field]} eliminado de ${changedParts.length} registro${changedParts.length === 1 ? "" : "s"}.`;
+    showUndoBar(`${optionFieldLabels[field]} eliminado.`, () =>
+      restoreOptionDelete(previousParts, previousDeletedOptions, field, oldValue)
+    );
+  } catch (error) {
+    partsHint.textContent = `No se pudo eliminar en Convex: ${error.message}`;
+  }
+
+  await refreshPartsView();
+}
+
 partsForm.addEventListener("submit", async (event) => {
   event.preventDefault();
-  const formValues = getPartFormValues();
+  let formValues;
+  try {
+    formValues = getPartFormValues();
+  } catch (error) {
+    partsHint.textContent = error.message;
+    return;
+  }
   const parts = loadParts();
   const editingId = partsForm.dataset.editingId;
   if (formValues.stock === null) {
@@ -613,6 +970,7 @@ partsForm.addEventListener("submit", async (event) => {
     partsHint.textContent = "Repuesto guardado correctamente.";
   }
 
+  ["name", "brand", "model", "supplier", "category"].forEach((field) => unmarkOptionDeleted(field, formValues[field]));
   saveParts(parts);
   partsForm.reset();
   resetPartDates();
@@ -628,7 +986,7 @@ partsTable.addEventListener("click", async (event) => {
     setSelectValueForEditingWithSuggestions(partNameSelect, partNameInput, part.name, "name", "partNameEditOptions");
     setSelectValueForEditingWithSuggestions(brandSelect, brandInput, part.brand || "", "brand", "brandEditOptions");
     setSelectValueForEditingWithSuggestions(modelSelect, modelInput, part.model || "", "model", "modelEditOptions");
-    document.querySelector("#category").value = normalizeCategory(part.category);
+    renderCategoryOptions(normalizeCategory(part.category));
     document.querySelector("#price").value = formatMoneyInput(getMoneyCents(part, "price", "priceCents"));
     document.querySelector("#customerPrice").value = formatMoneyInput(getMoneyCents(part, "customerPrice", "customerPriceCents"));
     document.querySelector("#stock").value = normalizeStockQuantity(part.stock);
@@ -666,15 +1024,40 @@ partsTable.addEventListener("click", async (event) => {
   partsHint.textContent = "Repuesto eliminado del listado.";
   refreshPartsView();
 
-  showUndoBar("Repuesto eliminado.", () => {
+  showUndoBar("Repuesto eliminado.", async () => {
     if (!lastDeletedPart) return;
-    const restoredParts = loadParts();
-    restoredParts.splice(lastDeletedPart.index, 0, lastDeletedPart.part);
-    saveParts(restoredParts);
-    partsHint.textContent = "Eliminacion deshecha.";
-    lastDeletedPart = null;
-    refreshPartsView();
+    try {
+      if (window.repairCloud?.isConfigured()) {
+        await window.repairCloud.createPart(normalizePartForCloud(lastDeletedPart.part));
+      } else {
+        const restoredParts = loadParts();
+        restoredParts.splice(lastDeletedPart.index, 0, lastDeletedPart.part);
+        saveParts(restoredParts);
+      }
+      partsHint.textContent = "Eliminacion deshecha.";
+      lastDeletedPart = null;
+      await refreshPartsView();
+    } catch (error) {
+      partsHint.textContent = `No se pudo deshacer: ${error.message}`;
+    }
   });
+});
+
+partsForm.addEventListener("click", async (event) => {
+  const optionButton = event.target.closest("[data-option-action]");
+  if (!optionButton) return;
+
+  const { optionAction, optionField } = optionButton.dataset;
+  if (!optionField || !optionAction) return;
+
+  if (optionAction === "edit") {
+    await editManagedOption(optionField);
+    return;
+  }
+
+  if (optionAction === "delete") {
+    await deleteManagedOption(optionField);
+  }
 });
 
 partSearch.addEventListener("input", renderParts);
