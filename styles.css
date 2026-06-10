@@ -1897,7 +1897,7 @@ input[readonly] {
 
 .managed-option-row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto auto;
+  grid-template-columns: minmax(0, 1fr) auto 42px;
   gap: 8px;
   align-items: center;
 }
@@ -1910,6 +1910,16 @@ input[readonly] {
   min-height: 42px;
   padding-inline: 12px;
   white-space: nowrap;
+}
+
+.option-delete-button {
+  width: 42px;
+  min-width: 42px;
+  padding-inline: 0;
+  font-size: 20px;
+  font-weight: 800;
+  line-height: 1;
+  text-transform: uppercase;
 }
 
 .field-grid {
@@ -2213,11 +2223,11 @@ tbody tr:hover {
   }
 
   .managed-option-row {
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: minmax(0, 1fr) auto 42px;
   }
 
   .managed-option-row select {
-    grid-column: 1 / -1;
+    grid-column: auto;
   }
 
   .control-dashboard,
