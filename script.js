@@ -81,6 +81,16 @@ const roleProfiles = {
   },
 };
 
+const moduleLabels = {
+  permissions: "Inicio",
+  sales: "Ventas",
+  parts: "Repuestos",
+  repairs: "Reparaciones",
+  statistics: "Resumen",
+  database: "Datos",
+  users: "Usuarios",
+};
+
 const stage = document.querySelector("#loginStage");
 const tabButtons = document.querySelectorAll(".tab-button");
 const themeLabel = document.querySelector("#themeLabel");
@@ -106,6 +116,9 @@ const moduleTabs = document.querySelectorAll(".module-tab");
 const modulePanels = document.querySelectorAll(".module-panel");
 const moduleShortcuts = document.querySelectorAll("[data-module-shortcut]");
 const moduleLink = document.querySelector("#moduleLink");
+const moduleBackButton = document.querySelector("#moduleBackButton");
+const moduleNextButton = document.querySelector("#moduleNextButton");
+const moduleNavLabel = document.querySelector("#moduleNavLabel");
 const quickPartsForm = document.querySelector("#quickPartsForm");
 const quickPartsList = document.querySelector("#quickPartsList");
 const quickPartsHint = document.querySelector("#quickPartsHint");
@@ -2128,6 +2141,32 @@ function setColorMode(mode) {
   localStorage.setItem(colorModeStorageKey, mode);
 }
 
+function getAllowedModules() {
+  if (!currentUser) return [];
+  return getRoleProfile(currentUser.role).modules.filter((moduleName) => canAccessModule(moduleName));
+}
+
+function updateModuleNavigation(moduleName) {
+  if (!moduleNavLabel || !moduleBackButton || !moduleNextButton) return;
+  const allowedModules = getAllowedModules();
+  const currentIndex = allowedModules.indexOf(moduleName);
+  const canMove = allowedModules.length > 1 && currentIndex !== -1;
+
+  moduleNavLabel.textContent = moduleLabels[moduleName] || "Panel";
+  moduleBackButton.disabled = !canMove;
+  moduleNextButton.disabled = !canMove;
+}
+
+function moveModule(direction) {
+  const allowedModules = getAllowedModules();
+  if (allowedModules.length < 2) return;
+
+  const currentModule = getSavedActiveModule();
+  const currentIndex = Math.max(0, allowedModules.indexOf(currentModule));
+  const nextIndex = (currentIndex + direction + allowedModules.length) % allowedModules.length;
+  setModule(allowedModules[nextIndex]);
+}
+
 function setModule(moduleName) {
   if (!canAccessModule(moduleName)) {
     credentialHint.textContent = "Tu rol no tiene permiso para abrir ese modulo.";
@@ -2172,11 +2211,14 @@ function setModule(moduleName) {
   } else {
     moduleLink.hidden = true;
   }
+  updateModuleNavigation(moduleName);
   setLeftPanelForModule(moduleName);
 }
 
 tabButtons.forEach((button) => button.addEventListener("click", () => setTheme(button.dataset.theme)));
 moduleTabs.forEach((button) => button.addEventListener("click", () => setModule(button.dataset.module)));
+moduleBackButton?.addEventListener("click", () => moveModule(-1));
+moduleNextButton?.addEventListener("click", () => moveModule(1));
 statisticsPeriodButtons.forEach((button) => {
   button.addEventListener("click", () => {
     activeStatisticsPeriod = button.dataset.statisticsPeriod || "day";
