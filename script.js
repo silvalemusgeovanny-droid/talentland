@@ -304,6 +304,20 @@ function clearCurrentUser() {
   localStorage.removeItem(currentUserStorageKey);
 }
 
+function getStoredCurrentUser() {
+  const savedUser = localStorage.getItem(currentUserStorageKey);
+  if (!savedUser) return null;
+  try {
+    return JSON.parse(savedUser);
+  } catch {
+    return null;
+  }
+}
+
+function finishSessionRestore() {
+  document.documentElement.classList.remove("session-restoring");
+}
+
 function saveAuthMode(mode) {
   localStorage.setItem(authModeStorageKey, mode);
 }
@@ -422,19 +436,27 @@ async function signIn(username, password) {
 }
 
 async function restoreSession() {
+  const storedUser = getStoredCurrentUser();
+  if (storedUser) {
+    applyAuthenticatedUser(storedUser, "Restaurando sesion...");
+  }
+
   if (!window.repairCloud?.isConfigured()) {
     saveAuthMode("local");
+    finishSessionRestore();
     return;
   }
 
   if (getSavedAuthMode() === "local") {
     credentialHint.textContent = "Ahora hay conexion con Convex. Tu sesion anterior fue local; vuelve a iniciar sesion para validarla en Convex.";
+    finishSessionRestore();
     return;
   }
 
   const sessionToken = getSavedSessionToken();
   if (!sessionToken) {
     credentialHint.textContent = "Modo Convex | Inicia sesion con tu usuario.";
+    finishSessionRestore();
     return;
   }
 
@@ -442,12 +464,19 @@ async function restoreSession() {
     const user = await window.repairCloud.currentSession(sessionToken);
     if (!user) {
       clearSessionToken();
+      clearCurrentUser();
+      currentUser = null;
+      sessionPanel.hidden = true;
+      loginForm.hidden = false;
       credentialHint.textContent = "Tu sesion expiro. Inicia sesion nuevamente.";
+      finishSessionRestore();
       return;
     }
     applyAuthenticatedUser(user, "Sesion recuperada desde Convex.");
   } catch (error) {
     credentialHint.textContent = error.message;
+  } finally {
+    finishSessionRestore();
   }
 }
 
@@ -920,6 +949,16 @@ async function loadPartsFromSource() {
 }
 
 async function refreshQuickPartsView() {
+  const hasRenderedParts = quickPartsList.children.length > 0;
+  if (!hasRenderedParts) {
+    renderQuickPartTypeOptions();
+    renderQuickBrandOptions();
+    renderQuickModelOptions();
+    renderQuickSupplierOptions();
+    renderQuickCategoryOptions();
+    renderQuickParts();
+  }
+
   try {
     await loadPartsFromSource();
   } catch (error) {
@@ -1102,7 +1141,9 @@ function normalizeSearch(value) {
 
 async function loadRepairsFromSource(limit = 200, search = "") {
   if (window.repairCloud?.isConfigured()) {
-    return await window.repairCloud.listRepairs({ limit, search });
+    const repairs = await window.repairCloud.listRepairs({ limit, search });
+    if (!search) saveRepairs(repairs);
+    return repairs;
   }
 
   const repairs = loadRepairs();
@@ -1390,17 +1431,7 @@ function renderSales() {
   }).join("");
 }
 
-async function renderRepairs() {
-  let repairs = [];
-
-  try {
-    repairs = await loadRepairsFromSource(200);
-  } catch (error) {
-    repairsCount.textContent = "Error";
-    repairsList.innerHTML = `<p class="hint">${escapeHtml(error.message)}</p>`;
-    return;
-  }
-
+function renderRepairsList(repairs) {
   repairsCount.textContent = `${repairs.length} registro${repairs.length === 1 ? "" : "s"}`;
   if (importRepairsDatabaseButton) {
     const importCount = Array.isArray(window.repairExcelDatabase) ? window.repairExcelDatabase.length : 0;
@@ -1427,6 +1458,25 @@ async function renderRepairs() {
       </article>
     `;
   }).join("");
+}
+
+async function renderRepairs() {
+  let repairs = [];
+  const hasRenderedRepairs = repairsList.children.length > 0;
+
+  if (!hasRenderedRepairs) {
+    renderRepairsList(loadRepairs());
+  }
+
+  try {
+    repairs = await loadRepairsFromSource(200);
+  } catch (error) {
+    repairsCount.textContent = "Error";
+    repairsList.innerHTML = `<p class="hint">${escapeHtml(error.message)}</p>`;
+    return;
+  }
+
+  renderRepairsList(repairs);
 }
 
 async function renderSideRepairs() {

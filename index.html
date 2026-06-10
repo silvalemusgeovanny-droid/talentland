@@ -7,9 +7,12 @@
     <script>
       try {
         if (localStorage.getItem("loginColorMode") === "dark") document.documentElement.classList.add("login-dark");
+        if (localStorage.getItem("repairSessionToken") || localStorage.getItem("repairCurrentUser")) {
+          document.documentElement.classList.add("session-restoring");
+        }
       } catch {}
     </script>
-    <link rel="stylesheet" href="styles.css?v=global-action-icons-1" />
+    <link rel="stylesheet" href="styles.css?v=stable-reload-1" />
   </head>
   <body>
     <main class="app-shell">
@@ -536,6 +539,6 @@
     <script src="convex-config.js?v=parts-model-1"></script>
     <script src="convex-client.js?v=root-option-delete-1"></script>
     <script src="https://unpkg.com/convex/dist/browser.js"></script>
-    <script src="script.js?v=restore-active-module-1"></script>
+    <script src="script.js?v=stable-reload-1"></script>
   </body>
 </html>
