@@ -14,7 +14,13 @@
     });
     const result = await response.json();
     if (result.status !== "success") {
-      throw new Error(result.errorMessage || "Convex no pudo completar la operacion.");
+      const rawMessage = result.errorMessage || "Convex no pudo completar la operacion.";
+      const cleanMessage = rawMessage.includes("Usuario y contrasena incorrectos")
+        ? "Usuario y contrasena incorrectos."
+        : rawMessage.includes("Usuario o contrasena incorrectos")
+          ? "Usuario y contrasena incorrectos."
+          : rawMessage.replace(/^.*Uncaught Error:\s*/s, "").replace(/\s+at handler[\s\S]*$/s, "").trim();
+      throw new Error(cleanMessage || "Convex no pudo completar la operacion.");
     }
     return result.value;
   }
@@ -34,6 +40,10 @@
     logout: (sessionToken) => callConvex("mutation", "auth:logout", { sessionToken }),
     verifyAdmin: (username, password) => callConvex("mutation", "auth:verifyAdmin", { username, password }),
     verifyRoot: (username, password) => callConvex("mutation", "auth:verifyRoot", { username, password }),
+    listUsers: (sessionToken) => callConvex("query", "auth:listUsers", { sessionToken }),
+    createUser: (sessionToken, user) => callConvex("mutation", "auth:createUser", { sessionToken, ...user }),
+    updateUser: (sessionToken, id, user) => callConvex("mutation", "auth:updateUser", { sessionToken, id, ...user }),
+    removeUser: (sessionToken, id) => callConvex("mutation", "auth:removeUser", { sessionToken, id }),
     registrarAuditoria: (tipo, descripcion, usuario = "sistema", datos = "") =>
       callConvex("mutation", "auditoria:registrar", { tipo, descripcion, usuario, datos }),
     obtenerAuditoria: () => callConvex("query", "auditoria:obtener", {}),

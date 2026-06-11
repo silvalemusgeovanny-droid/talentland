@@ -12,13 +12,33 @@ async function sha256(value: string) {
     .join("");
 }
 
-function publicUser(user: { _id?: unknown; username: string; name: string; role: string }) {
+function publicUser(user: { _id?: unknown; username: string; name: string; role: string; modules?: string[] }) {
   return {
     id: String(user._id || ""),
     username: user.username,
     name: user.name,
     role: user.role,
+    modules: user.modules,
   };
+}
+
+async function requireRootSession(ctx: any, sessionToken: string) {
+  const tokenHash = await sha256(sessionToken);
+  const session = await ctx.db
+    .query("sesiones")
+    .withIndex("by_token_hash", (q: any) => q.eq("tokenHash", tokenHash))
+    .unique();
+
+  if (!session || session.expiresAt < Date.now()) {
+    throw new Error("Solo root puede gestionar usuarios.");
+  }
+
+  const user = await ctx.db.get(session.userId);
+  if (!user || !user.active || user.role !== "root") {
+    throw new Error("Solo root puede gestionar usuarios.");
+  }
+
+  return user;
 }
 
 async function getActivePresence(ctx: any) {
@@ -49,10 +69,10 @@ export const seedDefaultUsers = mutation({
   handler: async (ctx) => {
     const now = new Date().toISOString();
     const defaults = [
-      { username: "root", password: "root123", name: "Root", role: "root" },
-      { username: "admin", password: "admin123", name: "Administrador", role: "admin" },
-      { username: "usuario", password: "user123", name: "Usuario", role: "user" },
-      { username: "activador", password: "activador123", name: "Activador", role: "activador" },
+      { username: "root", password: "root123", name: "Root", role: "root", modules: ["permissions", "sales", "parts", "repairs", "statistics", "database", "users"] },
+      { username: "admin", password: "admin123", name: "Administrador", role: "admin", modules: ["permissions", "sales", "parts", "repairs", "statistics", "database"] },
+      { username: "usuario", password: "user123", name: "Usuario", role: "user", modules: ["permissions", "sales", "parts", "repairs", "statistics"] },
+      { username: "activador", password: "activador123", name: "Activador", role: "activador", modules: ["parts"] },
     ];
     let inserted = 0;
 
@@ -69,6 +89,7 @@ export const seedDefaultUsers = mutation({
         passwordHash: await sha256(`${user.username}:${user.password}`),
         name: user.name,
         role: user.role,
+        modules: user.modules,
         active: true,
         createdAt: now,
         updatedAt: now,
@@ -94,12 +115,12 @@ export const login = mutation({
       .unique();
 
     if (!user || !user.active) {
-      throw new Error("Usuario o contrasena incorrectos.");
+      throw new Error("Usuario y contrasena incorrectos.");
     }
 
     const passwordHash = await sha256(`${username}:${args.password}`);
     if (passwordHash !== user.passwordHash) {
-      throw new Error("Usuario o contrasena incorrectos.");
+      throw new Error("Usuario y contrasena incorrectos.");
     }
 
     const now = new Date();
@@ -238,5 +259,114 @@ export const verifyRoot = mutation({
     }
 
     return (await sha256(`${username}:${args.password}`)) === user.passwordHash;
+  },
+});
+
+export const listUsers = query({
+  args: {
+    sessionToken: v.string(),
+  },
+  handler: async (ctx, args) => {
+    await requireRootSession(ctx, args.sessionToken);
+    const users = await ctx.db.query("usuarios").take(200);
+
+    return users
+      .filter((user) => user.active)
+      .sort((a, b) => a.username.localeCompare(b.username))
+      .map(publicUser);
+  },
+});
+
+export const createUser = mutation({
+  args: {
+    sessionToken: v.string(),
+    name: v.string(),
+    username: v.string(),
+    password: v.string(),
+    role: v.string(),
+    modules: v.array(v.string()),
+  },
+  handler: async (ctx, args) => {
+    await requireRootSession(ctx, args.sessionToken);
+    const username = args.username.trim().toLowerCase();
+    const now = new Date().toISOString();
+    const existing = await ctx.db
+      .query("usuarios")
+      .withIndex("by_username", (q) => q.eq("username", username))
+      .unique();
+
+    if (existing) throw new Error("Ese usuario ya existe.");
+    if (!args.password.trim()) throw new Error("Escribe una contrasena.");
+
+    const id = await ctx.db.insert("usuarios", {
+      username,
+      passwordHash: await sha256(`${username}:${args.password.trim()}`),
+      name: args.name.trim(),
+      role: args.role,
+      modules: args.modules,
+      active: true,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    const user = await ctx.db.get(id);
+    if (!user) throw new Error("Usuario no encontrado.");
+    return publicUser(user);
+  },
+});
+
+export const updateUser = mutation({
+  args: {
+    sessionToken: v.string(),
+    id: v.id("usuarios"),
+    name: v.string(),
+    username: v.string(),
+    password: v.optional(v.string()),
+    role: v.string(),
+    modules: v.array(v.string()),
+  },
+  handler: async (ctx, args) => {
+    await requireRootSession(ctx, args.sessionToken);
+    const user = await ctx.db.get(args.id);
+    if (!user) throw new Error("Usuario no encontrado.");
+
+    const username = args.username.trim().toLowerCase();
+    const duplicated = await ctx.db
+      .query("usuarios")
+      .withIndex("by_username", (q) => q.eq("username", username))
+      .unique();
+
+    if (duplicated && duplicated._id !== args.id) throw new Error("Ese usuario ya existe.");
+
+    const patch: Record<string, unknown> = {
+      username,
+      name: args.name.trim(),
+      role: args.role,
+      modules: args.modules,
+      updatedAt: new Date().toISOString(),
+    };
+
+    if (args.password?.trim()) {
+      patch.passwordHash = await sha256(`${username}:${args.password.trim()}`);
+    }
+
+    await ctx.db.patch(args.id, patch);
+    const updatedUser = await ctx.db.get(args.id);
+    if (!updatedUser) throw new Error("Usuario no encontrado.");
+    return publicUser(updatedUser);
+  },
+});
+
+export const removeUser = mutation({
+  args: {
+    sessionToken: v.string(),
+    id: v.id("usuarios"),
+  },
+  handler: async (ctx, args) => {
+    await requireRootSession(ctx, args.sessionToken);
+    const user = await ctx.db.get(args.id);
+    if (!user) throw new Error("Usuario no encontrado.");
+    if (user.role === "root") throw new Error("El usuario root no se puede borrar.");
+    await ctx.db.patch(args.id, { active: false, updatedAt: new Date().toISOString() });
   },
 });

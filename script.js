@@ -250,6 +250,7 @@ let lastVoidedSale = null;
 let undoTimerId = null;
 let sideRepairSearchTimer = null;
 let currentUser = null;
+let managedUsersCache = [];
 let notesCloudMigrationDone = false;
 let partsCloudMigrationDone = false;
 let presenceTimer = null;
@@ -309,6 +310,34 @@ function loadUsers() {
 
 function saveUsers(users) {
   localStorage.setItem(usersStorageKey, JSON.stringify(users));
+}
+
+function getFriendlyErrorMessage(error) {
+  const message = String(error?.message || error || "No se pudo completar la operacion.");
+  if (
+    message.includes("Usuario y contrasena incorrectos") ||
+    message.includes("Usuario o contrasena incorrectos")
+  ) {
+    return "Usuario y contrasena incorrectos.";
+  }
+  return message
+    .replace(/^.*Uncaught Error:\s*/s, "")
+    .replace(/\s+at handler[\s\S]*$/s, "")
+    .trim() || "No se pudo completar la operacion.";
+}
+
+async function loadManagedUsers() {
+  if (window.repairCloud?.isConfigured()) {
+    const sessionToken = getSavedSessionToken();
+    if (sessionToken) {
+      const cloudUsers = await window.repairCloud.listUsers(sessionToken);
+      managedUsersCache = cloudUsers.map((user) => ({ ...user, password: "" }));
+      return managedUsersCache;
+    }
+  }
+
+  managedUsersCache = loadUsers();
+  return managedUsersCache;
 }
 
 function generateSessionToken() {
@@ -2093,14 +2122,20 @@ async function renderStatistics() {
   }
 }
 
-function renderUsers() {
+async function renderUsers() {
   if (!canAccessModule("users")) {
     usersList.innerHTML = `<p class="hint">Solo root puede ver este panel.</p>`;
     return;
   }
 
   renderPermissionEditor();
-  const users = loadUsers();
+  let users = [];
+  try {
+    users = await loadManagedUsers();
+  } catch (error) {
+    usersHint.textContent = getFriendlyErrorMessage(error);
+    users = managedUsersCache.length ? managedUsersCache : loadUsers();
+  }
   usersSummary.textContent = `${users.length} usuario${users.length === 1 ? "" : "s"}`;
   if (usersRoleSummary) {
     const roleCounts = users.reduce((counts, user) => {
@@ -2503,7 +2538,7 @@ loginForm.addEventListener("submit", async (event) => {
     applyAuthenticatedUser(selectedUser);
     window.repairCloud?.registrarAuditoria("LOGIN", "Sesion iniciada", selectedUser.username);
   } catch (error) {
-    credentialHint.textContent = error.message;
+    credentialHint.textContent = getFriendlyErrorMessage(error);
     window.repairCloud?.registrarAuditoria("LOGIN_FALLIDO", "Intento de login fallido", usernameInput.value.trim());
     return;
   }
@@ -2834,7 +2869,7 @@ repairsForm.addEventListener("submit", async (event) => {
   renderSideRepairs();
 });
 
-usersForm.addEventListener("submit", (event) => {
+usersForm.addEventListener("submit", async (event) => {
   event.preventDefault();
   if (!canAccessModule("users")) {
     usersHint.textContent = "Solo root puede guardar usuarios.";
@@ -2842,7 +2877,7 @@ usersForm.addEventListener("submit", (event) => {
   }
 
   const formData = new FormData(usersForm);
-  const users = loadUsers();
+  const users = window.repairCloud?.isConfigured() ? managedUsersCache : loadUsers();
   const editingId = usersForm.dataset.editingId;
   const username = formData.get("username").trim();
   const duplicatedUser = users.find((user) =>
@@ -2863,6 +2898,11 @@ usersForm.addEventListener("submit", (event) => {
     modules: getSelectedPermissionModules(),
   };
 
+  if (!editingId && !userData.password) {
+    usersHint.textContent = "Escribe una contrasena para el usuario nuevo.";
+    return;
+  }
+
   if (userData.role === "root" && !userData.modules.includes("users")) {
     userData.modules.push("users");
   }
@@ -2870,25 +2910,41 @@ usersForm.addEventListener("submit", (event) => {
     userData.modules = ["parts"];
   }
 
-  if (editingId) {
-    const index = users.findIndex((user) => user.id === editingId);
-    if (index !== -1) {
-      users[index] = { ...users[index], ...userData };
-      if (currentUser.id === editingId) {
-        currentUser = users[index];
-        saveCurrentUser(currentUser);
-        setModule(getSavedActiveModule());
+  try {
+    if (window.repairCloud?.isConfigured()) {
+      const sessionToken = getSavedSessionToken();
+      if (!sessionToken) throw new Error("Vuelve a iniciar sesion para guardar usuarios.");
+      if (editingId) {
+        await window.repairCloud.updateUser(sessionToken, editingId, userData);
+        usersHint.textContent = "Usuario actualizado en Convex correctamente.";
+      } else {
+        await window.repairCloud.createUser(sessionToken, userData);
+        usersHint.textContent = "Usuario guardado en Convex correctamente.";
       }
+    } else if (editingId) {
+      const index = users.findIndex((user) => user.id === editingId);
+      if (index !== -1) {
+        users[index] = { ...users[index], ...userData, password: userData.password || users[index].password };
+        if (currentUser.id === editingId) {
+          currentUser = users[index];
+          saveCurrentUser(currentUser);
+          setModule(getSavedActiveModule());
+        }
+      }
+      usersHint.textContent = "Usuario actualizado correctamente.";
+    } else {
+      users.unshift({ id: crypto.randomUUID(), ...userData });
+      usersHint.textContent = "Usuario guardado correctamente.";
     }
-    delete usersForm.dataset.editingId;
-    submitUserButton.textContent = "Guardar usuario";
-    usersHint.textContent = "Usuario actualizado correctamente.";
-  } else {
-    users.unshift({ id: crypto.randomUUID(), ...userData });
-    usersHint.textContent = "Usuario guardado correctamente.";
+
+    if (!window.repairCloud?.isConfigured()) saveUsers(users);
+  } catch (error) {
+    usersHint.textContent = getFriendlyErrorMessage(error);
+    return;
   }
 
-  saveUsers(users);
+  delete usersForm.dataset.editingId;
+  submitUserButton.textContent = "Guardar usuario";
   usersForm.reset();
   managedRoleInput.value = "user";
   renderPermissionEditor();
@@ -2912,19 +2968,19 @@ userPermissionGrid?.addEventListener("change", (event) => {
   if (status) status.textContent = input.checked ? "Permitido" : "Denegado";
 });
 
-usersList.addEventListener("click", (event) => {
+usersList.addEventListener("click", async (event) => {
   if (!canAccessModule("users")) return;
   const button = event.target.closest("[data-user-action]");
   if (!button) return;
 
-  const users = loadUsers();
+  const users = window.repairCloud?.isConfigured() ? managedUsersCache : loadUsers();
   const user = users.find((item) => item.id === button.dataset.userId);
   if (!user) return;
 
   if (button.dataset.userAction === "edit") {
     managedNameInput.value = user.name;
     managedUsernameInput.value = user.username;
-    managedPasswordInput.value = user.password;
+    managedPasswordInput.value = "";
     managedRoleInput.value = user.role;
     renderPermissionEditor(getUserModules(user).filter((moduleName) => manageableModules.includes(moduleName)));
     usersForm.dataset.editingId = user.id;
@@ -2939,8 +2995,20 @@ usersList.addEventListener("click", (event) => {
       return;
     }
     if (!confirm(`¿Seguro que quieres borrar a ${user.username}?`)) return;
-    saveUsers(users.filter((item) => item.id !== user.id));
-    usersHint.textContent = "Usuario borrado correctamente.";
+    if (window.repairCloud?.isConfigured()) {
+      try {
+        const sessionToken = getSavedSessionToken();
+        if (!sessionToken) throw new Error("Vuelve a iniciar sesion para borrar usuarios.");
+        await window.repairCloud.removeUser(sessionToken, user.id);
+        usersHint.textContent = "Usuario borrado en Convex correctamente.";
+      } catch (error) {
+        usersHint.textContent = getFriendlyErrorMessage(error);
+        return;
+      }
+    } else {
+      saveUsers(users.filter((item) => item.id !== user.id));
+      usersHint.textContent = "Usuario borrado correctamente.";
+    }
     renderUsers();
     renderDatabase();
   }

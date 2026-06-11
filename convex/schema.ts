@@ -7,6 +7,7 @@ export default defineSchema({
     passwordHash: v.string(),
     name: v.string(),
     role: v.string(),
+    modules: v.optional(v.array(v.string())),
     active: v.boolean(),
     createdAt: v.string(),
     updatedAt: v.string(),
