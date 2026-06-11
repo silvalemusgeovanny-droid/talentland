@@ -12,7 +12,7 @@
         }
       } catch {}
     </script>
-    <link rel="stylesheet" href="styles.css?v=users-full-panel-2" />
+    <link rel="stylesheet" href="styles.css?v=password-toggle-1" />
   </head>
   <body>
     <main class="app-shell">
@@ -65,7 +65,17 @@
           <input id="username" name="username" type="text" autocomplete="username" value="root" required />
 
           <label for="password">Contrasena</label>
-          <input id="password" name="password" type="password" autocomplete="current-password" value="root123" required />
+          <div class="password-field">
+            <input id="password" name="password" type="password" autocomplete="current-password" value="root123" required />
+            <button
+              class="password-toggle"
+              type="button"
+              id="passwordToggle"
+              aria-label="Ver contrasena"
+              title="Ver contrasena"
+              aria-pressed="false"
+            ></button>
+          </div>
 
           <button class="primary-button" type="submit">Iniciar sesion</button>
           <p class="hint" id="credentialHint">Demo root: root / root123</p>
@@ -572,6 +582,6 @@
     <script src="convex-config.js?v=parts-model-1"></script>
     <script src="convex-client.js?v=users-sync-2"></script>
     <script src="https://unpkg.com/convex/dist/browser.js"></script>
-    <script src="script.js?v=users-sync-2"></script>
+    <script src="script.js?v=password-toggle-1"></script>
   </body>
 </html>
