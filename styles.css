@@ -384,7 +384,8 @@ p {
 }
 
 .access-card[hidden],
-.side-repairs-panel[hidden] {
+.side-repairs-panel[hidden],
+.side-users-panel[hidden] {
   display: none;
 }
 
@@ -419,6 +420,51 @@ p {
   display: grid;
   min-height: 0;
   gap: 16px;
+}
+
+.side-users-panel {
+  display: grid;
+  min-height: 0;
+  align-content: start;
+  gap: 16px;
+}
+
+.side-users-panel > span {
+  width: fit-content;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: #ffffff;
+  color: var(--accent);
+  font-size: 0.78rem;
+  font-weight: 900;
+}
+
+.users-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.users-summary-grid article {
+  display: grid;
+  gap: 6px;
+  min-height: 82px;
+  padding: 13px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #f7fafb;
+}
+
+.users-summary-grid span {
+  color: var(--muted);
+  font-size: 0.74rem;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.users-summary-grid strong {
+  color: var(--accent);
+  font-size: 1.45rem;
 }
 
 .side-panel-heading {
@@ -1274,6 +1320,13 @@ input[readonly] {
   font-weight: 700;
 }
 
+.users-directory-heading p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.84rem;
+  font-weight: 700;
+}
+
 .users-panel-header > span {
   flex: 0 0 auto;
   padding: 6px 10px;
@@ -1286,8 +1339,8 @@ input[readonly] {
 
 .users-panel-layout {
   display: grid;
-  grid-template-columns: minmax(230px, 0.72fr) minmax(420px, 1.28fr);
-  gap: 18px;
+  grid-template-columns: minmax(230px, 0.8fr) minmax(360px, 1.2fr);
+  gap: 16px;
   align-items: start;
 }
 
@@ -1302,7 +1355,8 @@ input[readonly] {
 }
 
 .users-directory .compact-list {
-  max-height: 340px;
+  max-height: min(42vh, 420px);
+  padding-right: 4px;
 }
 
 .users-form {
@@ -1885,6 +1939,7 @@ input[readonly] {
 
 :is(body.login-dark, html.login-dark body) .permission-editor,
 :is(body.login-dark, html.login-dark body) .permission-switch,
+:is(body.login-dark, html.login-dark body) .users-summary-grid article,
 :is(body.login-dark, html.login-dark body) .users-panel-header,
 :is(body.login-dark, html.login-dark body) .users-directory,
 :is(body.login-dark, html.login-dark body) .users-form {
@@ -1901,11 +1956,18 @@ input[readonly] {
 }
 
 :is(body.login-dark, html.login-dark body) .permission-switch small,
-:is(body.login-dark, html.login-dark body) .users-panel-header p {
+:is(body.login-dark, html.login-dark body) .users-summary-grid span,
+:is(body.login-dark, html.login-dark body) .users-panel-header p,
+:is(body.login-dark, html.login-dark body) .users-directory-heading p {
   color: #a9b8c2;
 }
 
+:is(body.login-dark, html.login-dark body) .users-summary-grid strong {
+  color: #ffd166;
+}
+
 :is(body.login-dark, html.login-dark body) .users-panel-header > span,
+:is(body.login-dark, html.login-dark body) .side-users-panel > span,
 :is(body.login-dark, html.login-dark body) .role-badge {
   background: rgb(255 255 255 / 12%);
   color: #ffffff;
