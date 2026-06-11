@@ -117,6 +117,7 @@ const themeTitle = document.querySelector("#themeTitle");
 const themeCopy = document.querySelector("#themeCopy");
 const accessCard = document.querySelector("#accessCard");
 const sideRepairsPanel = document.querySelector("#sideRepairsPanel");
+const sideUsersPanel = document.querySelector("#sideUsersPanel");
 const sideRepairsList = document.querySelector("#sideRepairsList");
 const sideRepairSearch = document.querySelector("#sideRepairSearch");
 const usernameInput = document.querySelector("#username");
@@ -232,6 +233,7 @@ const databaseList = document.querySelector("#databaseList");
 const usersForm = document.querySelector("#usersForm");
 const usersList = document.querySelector("#usersList");
 const usersSummary = document.querySelector("#usersSummary");
+const usersRoleSummary = document.querySelector("#usersRoleSummary");
 const usersHint = document.querySelector("#usersHint");
 const managedNameInput = document.querySelector("#managedName");
 const managedUsernameInput = document.querySelector("#managedUsername");
@@ -1593,10 +1595,12 @@ async function renderSideRepairs() {
 
 function setLeftPanelForModule(moduleName) {
   const showRepairsPanel = moduleName === "repairs" && Boolean(currentUser);
+  const showUsersPanel = moduleName === "users" && Boolean(currentUser);
   const showStatisticsPanel = moduleName === "statistics" && Boolean(currentUser);
   document.body.classList.toggle("statistics-active", showStatisticsPanel);
   if (accessCard) accessCard.hidden = showRepairsPanel || showStatisticsPanel;
   sideRepairsPanel.hidden = !showRepairsPanel;
+  if (sideUsersPanel) sideUsersPanel.hidden = !showUsersPanel;
   if (showRepairsPanel) renderSideRepairs();
 }
 
@@ -2097,6 +2101,18 @@ function renderUsers() {
   renderPermissionEditor();
   const users = loadUsers();
   usersSummary.textContent = `${users.length} usuario${users.length === 1 ? "" : "s"}`;
+  if (usersRoleSummary) {
+    const roleCounts = users.reduce((counts, user) => {
+      counts[user.role] = (counts[user.role] || 0) + 1;
+      return counts;
+    }, {});
+    usersRoleSummary.innerHTML = ["root", "admin", "user", "activador"].map((role) => `
+      <article>
+        <span>${escapeHtml(getRoleProfile(role).label)}</span>
+        <strong>${roleCounts[role] || 0}</strong>
+      </article>
+    `).join("");
+  }
   usersList.innerHTML = users.map((user) => `
     <article class="compact-part-item user-item">
       <div class="user-card-main">
@@ -2261,7 +2277,7 @@ function setModule(moduleName) {
     moduleName = getAllowedModules()[0] || "permissions";
   }
   saveActiveModule(moduleName);
-  sessionPanel.classList.toggle("control-panel-wide", ["statistics", "users"].includes(moduleName));
+  sessionPanel.classList.toggle("control-panel-wide", moduleName === "statistics");
   moduleTabs.forEach((button) => {
     const isAllowed = canAccessModule(button.dataset.module);
     button.hidden = !isAllowed;

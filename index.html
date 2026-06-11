@@ -12,7 +12,7 @@
         }
       } catch {}
     </script>
-    <link rel="stylesheet" href="styles.css?v=users-panel-slim-1" />
+    <link rel="stylesheet" href="styles.css?v=users-summary-panel-1" />
   </head>
   <body>
     <main class="app-shell">
@@ -33,6 +33,16 @@
           </div>
           <input id="sideRepairSearch" type="search" placeholder="Buscar cliente, modelo o reparacion" />
           <div class="side-repairs-list" id="sideRepairsList"></div>
+        </aside>
+
+        <aside class="side-users-panel" id="sideUsersPanel" hidden>
+          <div class="users-directory-heading">
+            <span class="panel-kicker">Resumen</span>
+            <strong>Control de usuarios</strong>
+            <p>Vista rapida de cuentas y roles activos.</p>
+          </div>
+          <span id="usersSummary">0 usuarios</span>
+          <div class="users-summary-grid" id="usersRoleSummary"></div>
         </aside>
       </section>
 
@@ -358,7 +368,6 @@
                 <strong>Usuarios y permisos</strong>
                 <p>Gestiona roles, permisos por modulo y cuentas activas.</p>
               </div>
-              <span id="usersSummary">0 usuarios</span>
             </div>
 
             <div class="users-panel-layout">
@@ -563,6 +572,6 @@
     <script src="convex-config.js?v=parts-model-1"></script>
     <script src="convex-client.js?v=simple-nav-1"></script>
     <script src="https://unpkg.com/convex/dist/browser.js"></script>
-    <script src="script.js?v=users-panel-slim-2"></script>
+    <script src="script.js?v=users-summary-panel-1"></script>
   </body>
 </html>
