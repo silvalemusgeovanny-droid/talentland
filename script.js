@@ -122,6 +122,7 @@ const sideRepairsList = document.querySelector("#sideRepairsList");
 const sideRepairSearch = document.querySelector("#sideRepairSearch");
 const usernameInput = document.querySelector("#username");
 const passwordInput = document.querySelector("#password");
+const passwordToggle = document.querySelector("#passwordToggle");
 const credentialHint = document.querySelector("#credentialHint");
 const loginForm = document.querySelector("#loginForm");
 const sessionPanel = document.querySelector("#sessionPanel");
@@ -2372,6 +2373,16 @@ statisticsPeriodButtons.forEach((button) => {
 sideRepairSearch.addEventListener("input", () => {
   clearTimeout(sideRepairSearchTimer);
   sideRepairSearchTimer = setTimeout(renderSideRepairs, 220);
+});
+
+passwordToggle?.addEventListener("click", () => {
+  const shouldShowPassword = passwordInput.type === "password";
+  passwordInput.type = shouldShowPassword ? "text" : "password";
+  passwordToggle.classList.toggle("is-visible", shouldShowPassword);
+  passwordToggle.setAttribute("aria-pressed", String(shouldShowPassword));
+  passwordToggle.setAttribute("aria-label", shouldShowPassword ? "Ocultar contrasena" : "Ver contrasena");
+  passwordToggle.title = shouldShowPassword ? "Ocultar contrasena" : "Ver contrasena";
+  passwordInput.focus();
 });
 
 moduleShortcuts.forEach((button) => {
