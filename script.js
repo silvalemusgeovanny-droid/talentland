@@ -1598,6 +1598,7 @@ function setLeftPanelForModule(moduleName) {
   const showUsersPanel = moduleName === "users" && Boolean(currentUser);
   const showStatisticsPanel = moduleName === "statistics" && Boolean(currentUser);
   document.body.classList.toggle("statistics-active", showStatisticsPanel);
+  document.body.classList.toggle("users-active", showUsersPanel);
   if (accessCard) accessCard.hidden = showRepairsPanel || showStatisticsPanel;
   sideRepairsPanel.hidden = !showRepairsPanel;
   if (sideUsersPanel) sideUsersPanel.hidden = !showUsersPanel;
