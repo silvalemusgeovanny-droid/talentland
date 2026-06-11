@@ -12,7 +12,7 @@
         }
       } catch {}
     </script>
-    <link rel="stylesheet" href="styles.css?v=activator-role-1" />
+    <link rel="stylesheet" href="styles.css?v=users-panel-slim-1" />
   </head>
   <body>
     <main class="app-shell">
@@ -22,27 +22,6 @@
           <div>
             <h1>Inventario y Reparaciones</h1>
             <p>Celulares, computadoras y electrodomesticos</p>
-          </div>
-        </div>
-
-        <div class="access-card" id="accessCard">
-          <h2>Niveles de acceso</h2>
-          <div class="role-grid">
-            <article>
-              <span>Root</span>
-              <strong>Control total</strong>
-              <p>Usuarios, roles, base de datos, ventas, inventario y reparaciones.</p>
-            </article>
-            <article>
-              <span>Admin</span>
-              <strong>Operacion avanzada</strong>
-              <p>Ventas, repuestos, reparaciones y base de datos sin borrar al root.</p>
-            </article>
-            <article>
-              <span>Usuario</span>
-              <strong>Operacion limitada</strong>
-              <p>Acceso operativo sin base de datos ni gestion de usuarios.</p>
-            </article>
           </div>
         </div>
 
@@ -424,11 +403,16 @@
                   <div class="permission-grid" id="userPermissionGrid"></div>
                 </section>
 
-                <label for="managedUsername">Usuario</label>
-                <input id="managedUsername" name="username" type="text" placeholder="usuario" required />
-
-                <label for="managedPassword">Contrasena</label>
-                <input id="managedPassword" name="password" type="text" placeholder="contrasena" required />
+                <div class="field-grid credentials-grid">
+                  <div>
+                    <label for="managedUsername">Usuario</label>
+                    <input id="managedUsername" name="username" type="text" placeholder="usuario" required />
+                  </div>
+                  <div>
+                    <label for="managedPassword">Contrasena</label>
+                    <input id="managedPassword" name="password" type="text" placeholder="contrasena" required />
+                  </div>
+                </div>
 
                 <button class="primary-button" type="submit" id="submitUser">Guardar usuario</button>
                 <p class="hint" id="usersHint">Solo root puede gestionar usuarios y roles.</p>
@@ -579,6 +563,6 @@
     <script src="convex-config.js?v=parts-model-1"></script>
     <script src="convex-client.js?v=simple-nav-1"></script>
     <script src="https://unpkg.com/convex/dist/browser.js"></script>
-    <script src="script.js?v=activator-role-1"></script>
+    <script src="script.js?v=users-panel-slim-2"></script>
   </body>
 </html>
