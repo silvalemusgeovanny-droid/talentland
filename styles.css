@@ -1286,19 +1286,31 @@ input[readonly] {
 
 .users-panel-layout {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(280px, 0.9fr);
-  gap: 14px;
+  grid-template-columns: minmax(230px, 0.72fr) minmax(420px, 1.28fr);
+  gap: 18px;
   align-items: start;
 }
 
 .users-directory,
 .users-form {
   display: grid;
-  gap: 12px;
-  padding: 14px;
+  gap: 14px;
+  padding: 16px;
   border: 1px solid rgb(15 79 106 / 12%);
   border-radius: 8px;
   background: rgb(255 255 255 / 76%);
+}
+
+.users-directory .compact-list {
+  max-height: 340px;
+}
+
+.users-form {
+  gap: 10px;
+}
+
+.users-form .field-grid {
+  margin-bottom: 2px;
 }
 
 .user-card-main {
@@ -1327,7 +1339,7 @@ input[readonly] {
 .permission-editor {
   display: grid;
   gap: 12px;
-  margin: 16px 0 8px;
+  margin: 4px 0;
   padding: 14px;
   border: 1px solid rgb(15 79 106 / 12%);
   border-radius: 8px;
@@ -1352,6 +1364,7 @@ input[readonly] {
 
 .permission-grid {
   display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 8px;
 }
 
@@ -2638,6 +2651,11 @@ tbody tr:hover {
 
   .table-toolbar input {
     max-width: none;
+  }
+
+  .users-panel-layout,
+  .permission-grid {
+    grid-template-columns: 1fr;
   }
 }
 
