@@ -13,8 +13,10 @@ import type * as auth from "../auth.js";
 import type * as contactos from "../contactos.js";
 import type * as facturas from "../facturas.js";
 import type * as notas from "../notas.js";
+import type * as productos from "../productos.js";
 import type * as reparaciones from "../reparaciones.js";
 import type * as repuestos from "../repuestos.js";
+import type * as ventas from "../ventas.js";
 
 import type {
   ApiFromModules,
@@ -28,8 +30,10 @@ declare const fullApi: ApiFromModules<{
   contactos: typeof contactos;
   facturas: typeof facturas;
   notas: typeof notas;
+  productos: typeof productos;
   reparaciones: typeof reparaciones;
   repuestos: typeof repuestos;
+  ventas: typeof ventas;
 }>;
 
 /**

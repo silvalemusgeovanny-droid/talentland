@@ -995,6 +995,11 @@ input[readonly] {
   gap: 14px;
 }
 
+.products-module.active {
+  display: grid;
+  gap: 14px;
+}
+
 .repairs-module.active {
   display: grid;
   gap: 14px;
@@ -1014,6 +1019,7 @@ input[readonly] {
 }
 
 .compact-parts-form .primary-button,
+.product-catalog-form .primary-button,
 .sales-form .primary-button,
 .repairs-form .primary-button,
 .contacts-form .primary-button,
@@ -1021,6 +1027,7 @@ input[readonly] {
   margin-top: 16px;
 }
 
+.product-catalog-form,
 .sales-form,
 .repairs-form,
 .contacts-form,
@@ -1029,13 +1036,13 @@ input[readonly] {
   gap: 0;
 }
 
-body.entry-panel-active :is(.sales-form, .compact-parts-form, .repairs-form, .contacts-form) {
+body.entry-panel-active :is(.product-catalog-form, .sales-form, .compact-parts-form, .repairs-form, .contacts-form) {
   align-items: center;
   column-gap: 14px;
   row-gap: 4px;
 }
 
-body.entry-panel-active :is(.sales-form, .contacts-form) {
+body.entry-panel-active :is(.product-catalog-form, .sales-form, .contacts-form) {
   grid-template-columns: minmax(120px, 160px) repeat(2, minmax(0, 1fr));
 }
 
@@ -1043,20 +1050,20 @@ body.entry-panel-active :is(.compact-parts-form, .repairs-form) {
   grid-template-columns: minmax(120px, 150px) repeat(3, minmax(0, 1fr));
 }
 
-body.entry-panel-active :is(.sales-form, .compact-parts-form, .repairs-form, .contacts-form) > :is(label, input, select, textarea, .field-grid, .managed-option-row, .sale-total-box, .contact-actions, .users-form-heading, .hint, button) {
+body.entry-panel-active :is(.product-catalog-form, .sales-form, .compact-parts-form, .repairs-form, .contacts-form) > :is(label, input, select, textarea, .field-grid, .managed-option-row, .sale-total-box, .contact-actions, .users-form-heading, .hint, button) {
   min-width: 0;
 }
 
-body.entry-panel-active :is(.sales-form, .compact-parts-form, .repairs-form, .contacts-form) > label {
+body.entry-panel-active :is(.product-catalog-form, .sales-form, .compact-parts-form, .repairs-form, .contacts-form) > label {
   margin-top: 9px;
   align-self: center;
 }
 
-body.entry-panel-active :is(.sales-form, .contacts-form) > label {
+body.entry-panel-active :is(.product-catalog-form, .sales-form, .contacts-form) > label {
   grid-column: 1;
 }
 
-body.entry-panel-active :is(.sales-form, .contacts-form) > :is(input, select, textarea) {
+body.entry-panel-active :is(.product-catalog-form, .sales-form, .contacts-form) > :is(input, select, textarea) {
   grid-column: 2 / -1;
 }
 
@@ -1068,6 +1075,7 @@ body.entry-panel-active :is(.compact-parts-form, .repairs-form) > :is(input, sel
   grid-column: 2 / -1;
 }
 
+body.entry-panel-active .product-catalog-form > .field-grid,
 body.entry-panel-active .sales-form > .field-grid,
 body.entry-panel-active .contacts-form > .field-grid {
   grid-column: 1 / -1;
@@ -1078,7 +1086,7 @@ body.entry-panel-active .repairs-form > .field-grid {
   grid-column: 1 / -1;
 }
 
-body.entry-panel-active :is(.sales-form, .compact-parts-form, .repairs-form, .contacts-form) > :is(.sale-total-box, .contact-actions, .users-form-heading, .hint, button) {
+body.entry-panel-active :is(.product-catalog-form, .sales-form, .compact-parts-form, .repairs-form, .contacts-form) > :is(.sale-total-box, .contact-actions, .users-form-heading, .hint, button) {
   grid-column: 1 / -1;
 }
 
@@ -1105,6 +1113,15 @@ body.entry-panel-active :is(.repairs-form, .contacts-form) > textarea {
 
 .sale-total-box strong {
   font-size: 1.2rem;
+}
+
+.product-catalog-list {
+  max-height: min(170px, 22vh);
+}
+
+.product-catalog-item {
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
 }
 
 .compact-list {
@@ -1866,6 +1883,10 @@ body.users-active .users-panel-header {
   grid-template-columns: 1fr 1fr;
   gap: 10px;
   margin-top: 20px;
+}
+
+.sale-summary-actions {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
 .sale-confirm-actions .primary-button,

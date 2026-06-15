@@ -102,6 +102,36 @@ export default defineSchema({
     .index("by_source_id", ["sourceId"])
     .index("by_google_resource_name", ["googleResourceName"]),
 
+  productos: defineTable({
+    sourceId: v.optional(v.string()),
+    productNumber: v.optional(v.number()),
+    name: v.string(),
+    exactModel: v.optional(v.string()),
+    price: v.number(),
+    quantity: v.optional(v.number()),
+    active: v.boolean(),
+    createdAt: v.string(),
+    updatedAt: v.string(),
+  }).index("by_source_id", ["sourceId"]),
+
+  ventas: defineTable({
+    sourceId: v.optional(v.string()),
+    saleNumber: v.number(),
+    productId: v.string(),
+    product: v.string(),
+    productModel: v.string(),
+    quantity: v.number(),
+    price: v.number(),
+    discount: v.number(),
+    total: v.number(),
+    received: v.number(),
+    change: v.number(),
+    createdAt: v.string(),
+  })
+    .index("by_source_id", ["sourceId"])
+    .index("by_sale_number", ["saleNumber"])
+    .index("by_created_at", ["createdAt"]),
+
   repuestos: defineTable({
     sourceId: v.optional(v.string()),
     name: v.string(),
