@@ -37,6 +37,7 @@ export default defineSchema({
     customer: v.string(),
     deviceType: v.string(),
     phone: v.string(),
+    email: v.optional(v.string()),
     brand: v.string(),
     model: v.string(),
     repairType: v.string(),
@@ -44,6 +45,7 @@ export default defineSchema({
     createdAt: v.string(),
     deliveredAt: v.string(),
     repairPrice: v.number(),
+    abono: v.optional(v.number()),
     notes: v.string(),
   })
     .index("by_source_id", ["sourceId"])
@@ -57,6 +59,26 @@ export default defineSchema({
     fecha: v.string(),
   }),
 
+  facturas: defineTable({
+    repairId: v.optional(v.string()),
+    repairNumber: v.number(),
+    customer: v.string(),
+    phone: v.string(),
+    email: v.optional(v.string()),
+    brand: v.string(),
+    model: v.string(),
+    repairType: v.string(),
+    status: v.string(),
+    total: v.number(),
+    abono: v.optional(v.number()),
+    resta: v.optional(v.number()),
+    issuedAt: v.string(),
+    issuedByUsername: v.string(),
+    issuedByName: v.string(),
+  })
+    .index("by_repair_number", ["repairNumber"])
+    .index("by_issued_at", ["issuedAt"]),
+
   notas: defineTable({
     sourceId: v.optional(v.string()),
     text: v.string(),
@@ -66,6 +88,19 @@ export default defineSchema({
     createdAt: v.string(),
     updatedAt: v.string(),
   }).index("by_source_id", ["sourceId"]),
+
+  contactos: defineTable({
+    sourceId: v.optional(v.string()),
+    googleResourceName: v.optional(v.string()),
+    name: v.string(),
+    phone: v.string(),
+    email: v.string(),
+    notes: v.string(),
+    createdAt: v.string(),
+    updatedAt: v.string(),
+  })
+    .index("by_source_id", ["sourceId"])
+    .index("by_google_resource_name", ["googleResourceName"]),
 
   repuestos: defineTable({
     sourceId: v.optional(v.string()),

@@ -10,6 +10,8 @@
 
 import type * as auditoria from "../auditoria.js";
 import type * as auth from "../auth.js";
+import type * as contactos from "../contactos.js";
+import type * as facturas from "../facturas.js";
 import type * as notas from "../notas.js";
 import type * as reparaciones from "../reparaciones.js";
 import type * as repuestos from "../repuestos.js";
@@ -23,6 +25,8 @@ import type {
 declare const fullApi: ApiFromModules<{
   auditoria: typeof auditoria;
   auth: typeof auth;
+  contactos: typeof contactos;
+  facturas: typeof facturas;
   notas: typeof notas;
   reparaciones: typeof reparaciones;
   repuestos: typeof repuestos;

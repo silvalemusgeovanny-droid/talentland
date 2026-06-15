@@ -21,6 +21,7 @@ const sessionTokenStorageKey = "repairSessionToken";
 const currentUserStorageKey = "repairCurrentUser";
 const authModeStorageKey = "repairAuthMode";
 const activeModuleStorageKey = "repairActiveModule";
+const repairInvoicePhone = "69966950";
 const defaultUsers = [
   {
     id: "root-user",
@@ -56,7 +57,7 @@ const roleProfiles = {
   root: {
     label: "Root",
     access: "Control total del sistema",
-    modules: ["permissions", "sales", "parts", "repairs", "statistics", "database", "users"],
+    modules: ["permissions", "sales", "parts", "repairs", "contacts", "invoices", "statistics", "database", "users"],
     permissions: [
       "Modificar usuarios, roles y accesos",
       "Ver base de datos local completa",
@@ -67,7 +68,7 @@ const roleProfiles = {
   admin: {
     label: "Admin",
     access: "Administracion con restricciones",
-    modules: ["permissions", "sales", "parts", "repairs", "statistics", "database"],
+    modules: ["permissions", "sales", "parts", "repairs", "contacts", "invoices", "statistics", "database"],
     permissions: [
       "Registrar ventas, repuestos y reparaciones",
       "Ver base de datos local",
@@ -99,12 +100,14 @@ const roleProfiles = {
   },
 };
 
-const manageableModules = ["sales", "parts", "repairs", "statistics", "database", "users"];
+const manageableModules = ["sales", "parts", "repairs", "contacts", "invoices", "statistics", "database", "users"];
 const moduleLabels = {
   permissions: "Inicio",
   sales: "Ventas",
   parts: "Repuestos",
   repairs: "Reparaciones",
+  contacts: "Contactos",
+  invoices: "Facturas",
   statistics: "Resumen",
   database: "Datos",
   users: "Usuarios",
@@ -184,6 +187,7 @@ const salesList = document.querySelector("#salesList");
 const dailySalesTotal = document.querySelector("#dailySalesTotal");
 const dailySalesCount = document.querySelector("#dailySalesCount");
 const repairsStorageKey = "inventoryRepairs";
+const contactsStorageKey = "customerContacts";
 const repairBrandsStorageKey = "inventoryRepairBrands";
 const repairModelsStorageKey = "inventoryRepairModels";
 const repairTypesStorageKey = "inventoryRepairTypes";
@@ -192,6 +196,7 @@ const repairNumberInput = document.querySelector("#repairNumber");
 const repairCreatedAtInput = document.querySelector("#repairCreatedAt");
 const repairCustomerInput = document.querySelector("#repairCustomer");
 const repairPhoneInput = document.querySelector("#repairPhone");
+const repairEmailInput = document.querySelector("#repairEmail");
 const repairBrandInput = document.querySelector("#repairBrand");
 const repairBrandOptions = document.querySelector("#repairBrandOptions");
 const repairModelInput = document.querySelector("#repairModel");
@@ -199,12 +204,27 @@ const repairModelOptions = document.querySelector("#repairModelOptions");
 const repairTypeInput = document.querySelector("#repairType");
 const repairTypeOptions = document.querySelector("#repairTypeOptions");
 const repairPriceInput = document.querySelector("#repairPrice");
+const repairAbonoInput = document.querySelector("#repairAbono");
 const repairStatusInput = document.querySelector("#repairStatus");
 const repairDeliveredAtInput = document.querySelector("#repairDeliveredAt");
 const repairsHint = document.querySelector("#repairsHint");
 const repairsCount = document.querySelector("#repairsCount");
 const repairsList = document.querySelector("#repairsList");
 const importRepairsDatabaseButton = document.querySelector("#importRepairsDatabase");
+const contactsForm = document.querySelector("#contactsForm");
+const contactNameInput = document.querySelector("#contactName");
+const contactPhoneInput = document.querySelector("#contactPhone");
+const contactEmailInput = document.querySelector("#contactEmail");
+const contactNotesInput = document.querySelector("#contactNotes");
+const submitContactButton = document.querySelector("#submitContact");
+const saveContactToGoogleButton = document.querySelector("#saveContactToGoogle");
+const connectGoogleContactsButton = document.querySelector("#connectGoogleContacts");
+const importGoogleContactsButton = document.querySelector("#importGoogleContacts");
+const contactSearchInput = document.querySelector("#contactSearch");
+const contactRepairOptions = document.querySelector("#contactRepairOptions");
+const contactsHint = document.querySelector("#contactsHint");
+const contactsCount = document.querySelector("#contactsCount");
+const contactsList = document.querySelector("#contactsList");
 const deletedPartOptionsStorageKey = "inventoryDeletedPartOptions";
 const categoryOptions = ["Telefono", "Tablet", "Computadora", "Bocina"];
 const partOptionFieldLabels = {
@@ -219,6 +239,12 @@ const statisticsHint = document.querySelector("#statisticsHint");
 const statisticsGrid = document.querySelector("#statisticsGrid");
 const statisticsLists = document.querySelector("#statisticsLists");
 const statisticsPeriodButtons = document.querySelectorAll("[data-statistics-period]");
+const invoicesSummary = document.querySelector("#invoicesSummary");
+const invoiceSearchInput = document.querySelector("#invoiceSearch");
+const refreshInvoicesButton = document.querySelector("#refreshInvoices");
+const invoicesTotal = document.querySelector("#invoicesTotal");
+const latestInvoiceDate = document.querySelector("#latestInvoiceDate");
+const invoicesList = document.querySelector("#invoicesList");
 const saleConfirmOverlay = document.querySelector("#saleConfirmOverlay");
 const saleConfirmList = document.querySelector("#saleConfirmList");
 const editSaleButton = document.querySelector("#editSaleButton");
@@ -250,8 +276,14 @@ let pendingVoidSaleId = null;
 let lastVoidedSale = null;
 let undoTimerId = null;
 let sideRepairSearchTimer = null;
+let contactSearchTimer = null;
+let contactRepairSearchTimer = null;
+let invoiceSearchTimer = null;
+let repairContactSuggestions = [];
+let invoicesCache = [];
 let currentUser = null;
 let managedUsersCache = [];
+let googleContactsAccessToken = "";
 let notesCloudMigrationDone = false;
 let partsCloudMigrationDone = false;
 let presenceTimer = null;
@@ -315,6 +347,9 @@ function saveUsers(users) {
 
 function getFriendlyErrorMessage(error) {
   const message = String(error?.message || error || "No se pudo completar la operacion.");
+  if (message.toLowerCase().includes("root puede gestionar usuarios")) {
+    return "solo root puede gestionar usuarios";
+  }
   if (
     message.includes("Usuario y contrasena incorrectos") ||
     message.includes("Usuario o contrasena incorrectos")
@@ -413,6 +448,9 @@ function getUserModules(user) {
   if (!Array.isArray(user?.modules)) return roleModules;
   const allowedModules = new Set(["permissions", ...manageableModules]);
   const customModules = user.modules.filter((moduleName) => allowedModules.has(moduleName));
+  if (["root", "admin"].includes(user.role) && !customModules.includes("invoices")) {
+    customModules.push("invoices");
+  }
   return [...new Set(["permissions", ...customModules])];
 }
 
@@ -1227,7 +1265,17 @@ function normalizeSearch(value) {
     .toLowerCase();
 }
 
-async function loadRepairsFromSource(limit = 200, search = "") {
+function getRecentRepairs(repairs, limit = 50) {
+  return [...repairs]
+    .sort((a, b) => {
+      const dateDiff = new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime();
+      if (dateDiff) return dateDiff;
+      return (Number(b.repairNumber) || 0) - (Number(a.repairNumber) || 0);
+    })
+    .slice(0, limit);
+}
+
+async function loadRepairsFromSource(limit = 50, search = "") {
   if (window.repairCloud?.isConfigured()) {
     const repairs = await window.repairCloud.listRepairs({ limit, search });
     if (!search) saveRepairs(repairs);
@@ -1236,16 +1284,140 @@ async function loadRepairsFromSource(limit = 200, search = "") {
 
   const repairs = loadRepairs();
   const term = normalizeSearch(search.trim());
-  if (!term) return repairs;
+  if (!term) return getRecentRepairs(repairs, limit);
 
   return repairs.filter((repair) =>
     [repair.customer, repair.deviceType, repair.brand, repair.model, repair.repairType, repair.status, repair.notes, repair.repairNumber]
       .some((field) => normalizeSearch(field).includes(term)),
-  );
+  ).slice(0, limit);
 }
 
 function saveRepairs(repairs) {
   localStorage.setItem(repairsStorageKey, JSON.stringify(repairs));
+}
+
+function loadContacts() {
+  const savedContacts = localStorage.getItem(contactsStorageKey);
+  return savedContacts ? JSON.parse(savedContacts) : [];
+}
+
+function saveContacts(contacts) {
+  localStorage.setItem(contactsStorageKey, JSON.stringify(contacts));
+}
+
+function normalizePhoneDigits(value) {
+  return String(value || "").replace(/\D/g, "");
+}
+
+function getContactRecordId(contact) {
+  return contact?._id || contact?.id || contact?.sourceId || "";
+}
+
+function normalizeContactForCloud(contact) {
+  const now = new Date().toISOString();
+  return {
+    sourceId: contact.sourceId || contact.id,
+    googleResourceName: contact.googleResourceName || undefined,
+    name: contact.name || "Sin nombre",
+    phone: contact.phone || "",
+    email: contact.email || "",
+    notes: contact.notes || "",
+    createdAt: contact.createdAt || now,
+    updatedAt: contact.updatedAt || now,
+  };
+}
+
+function getRepairContactKey(repair) {
+  return normalizePhoneDigits(repair.phone) || normalizeSearch(repair.customer);
+}
+
+function buildRepairContactSuggestions(repairs) {
+  const suggestionsByKey = new Map();
+
+  for (const repair of repairs) {
+    const name = String(repair.customer || "").trim();
+    const key = getRepairContactKey(repair);
+    if (!name || !key || suggestionsByKey.has(key)) continue;
+
+    suggestionsByKey.set(key, {
+      name,
+      phone: String(repair.phone || "").trim(),
+      email: String(repair.email || "").trim(),
+      notes: [
+        repair.repairNumber ? `Cliente de reparacion #${repair.repairNumber}` : "Cliente de reparaciones",
+        [repair.brand, repair.model].filter(Boolean).join(" "),
+        repair.repairType,
+      ].filter(Boolean).join(" | "),
+    });
+  }
+
+  return [...suggestionsByKey.values()].sort((a, b) => a.name.localeCompare(b.name));
+}
+
+function renderRepairContactSuggestions(suggestions) {
+  repairContactSuggestions = suggestions;
+  if (!contactRepairOptions) return;
+  contactRepairOptions.innerHTML = suggestions.slice(0, 40).map((contact) => {
+    const label = [contact.phone, contact.email].filter(Boolean).join(" | ");
+    return `<option value="${escapeHtml(contact.name)}" label="${escapeHtml(label)}"></option>`;
+  }).join("");
+}
+
+async function refreshRepairContactSuggestions(search = "") {
+  const term = search.trim();
+  if (term.length < 2) {
+    renderRepairContactSuggestions([]);
+    return;
+  }
+
+  try {
+    const repairs = await loadRepairsFromSource(10000, term);
+    renderRepairContactSuggestions(buildRepairContactSuggestions(repairs));
+  } catch {
+    renderRepairContactSuggestions(buildRepairContactSuggestions(loadRepairs()));
+  }
+}
+
+function applySelectedRepairContact() {
+  const typedName = normalizeSearch(contactNameInput.value);
+  const selected = repairContactSuggestions.find((contact) => normalizeSearch(contact.name) === typedName);
+  if (!selected) return;
+
+  if (!contactPhoneInput.value.trim()) contactPhoneInput.value = selected.phone;
+  if (!contactEmailInput.value.trim()) contactEmailInput.value = selected.email;
+  if (!contactNotesInput.value.trim()) contactNotesInput.value = selected.notes;
+}
+
+function isValidEmailFormat(value) {
+  const email = String(value || "").trim();
+  return !email || email.includes("@");
+}
+
+function validateEmailInput(input, hintElement) {
+  if (!input) return true;
+  const isValid = isValidEmailFormat(input.value);
+  input.setCustomValidity(isValid ? "" : "formato incorrecto");
+  if (!isValid && hintElement) hintElement.textContent = "formato incorrecto";
+  return isValid;
+}
+
+async function loadContactsFromSource(search = "") {
+  let contacts = [];
+
+  if (window.repairCloud?.isConfigured()) {
+    contacts = await window.repairCloud.listContacts();
+    saveContacts(contacts);
+  } else {
+    contacts = loadContacts();
+  }
+
+  const term = normalizeSearch(search.trim());
+  if (!term) return contacts;
+
+  return contacts.filter((contact) =>
+    [contact.name, contact.phone, contact.email, contact.notes]
+      .some((field) => normalizeSearch(field).includes(term)),
+  );
 }
 
 function normalizeRepairForCloud(repair) {
@@ -1255,6 +1427,7 @@ function normalizeRepairForCloud(repair) {
     customer: repair.customer || "Sin nombre",
     deviceType: repair.deviceType || "Telefono",
     phone: repair.phone || "",
+    email: repair.email || "",
     brand: repair.brand || "",
     model: repair.model || "Sin modelo",
     repairType: repair.repairType || "Reparacion",
@@ -1262,6 +1435,7 @@ function normalizeRepairForCloud(repair) {
     createdAt: repair.createdAt || new Date().toISOString(),
     deliveredAt: repair.deliveredAt || "",
     repairPrice: Number(repair.repairPrice) || 0,
+    abono: Number(repair.abono) || 0,
     notes: repair.notes || "",
   };
 }
@@ -1374,6 +1548,368 @@ function formatSaleDateTime(value) {
 function formatRepairDateTimeInput(value) {
   const { date, time } = formatSaleDateTime(value);
   return `${date} | ${time}`;
+}
+
+function formatInvoiceDate(value) {
+  const date = value ? new Date(value) : new Date();
+  if (Number.isNaN(date.getTime())) return "";
+  return new Intl.DateTimeFormat("es-MX", { day: "2-digit", month: "2-digit", year: "numeric" }).format(date);
+}
+
+function getRepairInvoiceType(repair) {
+  const type = normalizeSearch(repair.repairType || "");
+  const checks = [
+    { label: "CAMBIO DE PANTALLA", checked: type.includes("pantalla") },
+    { label: "NO ENCIENDE", checked: type.includes("enciende") },
+    { label: "PROBLEMA DE SENAL", checked: type.includes("senal") || type.includes("senal") },
+    { label: "CAMB. DE JACK DE CARGA", checked: type.includes("carga") || type.includes("jack") },
+    { label: "MOJADO", checked: type.includes("mojado") || type.includes("agua") },
+    { label: "ACTIVACION", checked: type.includes("activacion") },
+    { label: "LIBERACION", checked: type.includes("liberacion") },
+    { label: "CONF. INICIAL", checked: type.includes("conf") || type.includes("configuracion") || type.includes("inicial") },
+    { label: "CAMBIO DE SOFTWARE", checked: type.includes("software") },
+  ];
+  if (!checks.some((item) => item.checked) && repair.repairType) {
+    checks.push({ label: String(repair.repairType).toUpperCase(), checked: true });
+  }
+  return checks;
+}
+
+function buildRepairInvoiceHtml(repair, options = {}) {
+  const total = Number(repair.repairPrice) || 0;
+  const abono = Math.max(0, Number(repair.abono) || 0);
+  const resta = Math.max(0, total - abono);
+  const date = formatInvoiceDate(repair.createdAt);
+  const orderNumber = String(repair.repairNumber || "").padStart(4, "0");
+  const showCanceledStamp = normalizeSearch(repair.status || "") === "listo";
+  const shouldRecordInvoice = options.recordOnPrint !== false;
+  const technicianName = repair.technicianName || currentUser?.name || currentUser?.username || "";
+  const invoicePayload = {
+    repairId: getRepairRecordId(repair),
+    repairNumber: Number(repair.repairNumber) || 0,
+    customer: repair.customer || "",
+    phone: repair.phone || "",
+    email: repair.email || "",
+    brand: repair.brand || "",
+    model: repair.model || "",
+    repairType: repair.repairType || "",
+    status: repair.status || "",
+    total,
+    abono,
+    resta,
+  };
+  const invoicePayloadJson = JSON.stringify(invoicePayload).replace(/</g, "\\u003c");
+  const checks = getRepairInvoiceType(repair);
+  const leftChecks = checks.slice(0, Math.ceil(checks.length / 2));
+  const rightChecks = checks.slice(Math.ceil(checks.length / 2));
+  const renderChecks = (items) => items.map((item) => `
+    <div class="check-row">
+      <span data-template-lock="true">${escapeHtml(item.label)}</span>
+      <b contenteditable="true">${item.checked ? "X" : ""}</b>
+    </div>
+  `).join("");
+
+  return `<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <title>Orden ${escapeHtml(orderNumber)} | Dr. Movil</title>
+  <style>
+    @page { size: letter; margin: 6mm; }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: #eef1f4; color: #18245b; font-family: Arial, Helvetica, sans-serif; }
+    .page { width: 184mm; margin: 0 auto; padding: 4mm; background: #fff; }
+    .invoice { position: relative; border: 1.6px solid #18245b; border-radius: 9px; padding: 8px; }
+    .toolbar { position: sticky; top: 0; z-index: 10; display: flex; gap: 10px; justify-content: center; padding: 10px; background: #eef1f4; }
+    .toolbar button { min-height: 38px; padding: 0 14px; border: 0; border-radius: 8px; background: #18245b; color: #fff; font-weight: 800; cursor: pointer; }
+    .toolbar span { align-self: center; color: #52626e; font-size: 12px; font-weight: 800; }
+    [contenteditable="true"] { outline: 1px dashed transparent; outline-offset: 2px; border-radius: 4px; }
+    [contenteditable="true"]:focus { outline-color: #b14248; background: #fff8d8; }
+    .stamp { position: absolute; top: 42%; left: 50%; z-index: 4; transform: translate(-50%, -50%) rotate(-16deg); padding: 8px 20px; border: 5px solid #b4212d; border-radius: 8px; color: #b4212d; font-size: 38px; font-weight: 900; letter-spacing: 0.08em; text-transform: uppercase; opacity: 0.82; pointer-events: none; }
+    .top { display: grid; grid-template-columns: 1fr 62mm; gap: 10px; align-items: start; }
+    .brand { font-size: 28px; font-weight: 800; letter-spacing: 0.02em; }
+    .brand small { display: block; margin-left: 58px; font-size: 11px; font-weight: 800; line-height: 1; }
+    .services { margin-top: 6px; font-size: 10.5px; font-weight: 800; line-height: 1.16; text-transform: uppercase; user-select: none; }
+    .address { margin-top: 4px; font-size: 11.5px; font-weight: 800; line-height: 1.12; }
+    .order { border: 1.6px solid #18245b; border-radius: 8px; overflow: hidden; text-align: center; }
+    .order strong { display: block; padding: 5px; background: #18245b; color: #fff; font-size: 22px; letter-spacing: 0.04em; }
+    .order span { display: block; padding: 10px 6px; color: #b14248; font-size: 22px; font-weight: 800; }
+    .box { margin-top: 6px; border: 1.6px solid #18245b; border-radius: 8px; padding: 7px; }
+    .line { display: grid; grid-template-columns: 29mm 1fr; gap: 5px; align-items: end; min-height: 24px; border-bottom: 1.4px solid #18245b; }
+    .line.two { grid-template-columns: 21mm 1fr 23mm 1fr; }
+    .line.long-label { grid-template-columns: 39mm 1fr; }
+    .line.diagnosis-line { grid-template-columns: 33mm 1fr; }
+    .label { font-size: 14.5px; font-weight: 800; }
+    .diagnosis-line .label { white-space: nowrap; }
+    .value { min-height: 19px; color: #111; font-size: 15.5px; font-weight: 700; }
+    .checks { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .check-row { display: grid; grid-template-columns: 1fr 20mm; gap: 6px; align-items: center; min-height: 23px; font-size: 14.5px; font-weight: 800; }
+    .check-row b { display: grid; min-height: 18px; place-items: center; border: 1.6px solid #18245b; color: #111; font-size: 14px; }
+    .comments { margin-top: 6px; }
+    .diagnosis { min-height: 0; padding-top: 24px; }
+    .diagnosis-line { margin-top: 0; }
+    .costs { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-top: 12px; }
+    .costs div { display: grid; grid-template-columns: auto 1fr; gap: 5px; align-items: end; border-bottom: 1.4px solid #18245b; }
+    .costs span { font-size: 15px; font-weight: 800; }
+    .costs b { color: #111; font-size: 16px; }
+    .signatures { display: grid; grid-template-columns: 1fr 1fr; gap: 32px; margin-top: 26px; text-align: center; font-weight: 800; }
+    .signatures div { border-top: 1.6px solid #18245b; padding-top: 5px; }
+    .notice { margin-top: 8px; padding: 6px; background: #18245b; color: #fff; font-size: 14.5px; font-weight: 800; line-height: 1.15; text-align: center; }
+    .thanks { margin-top: 6px; text-align: center; font-family: Georgia, serif; font-size: 20px; font-style: italic; font-weight: 800; }
+    .phone { text-align: center; font-size: 18px; font-weight: 900; }
+    @media print {
+      body { background: #fff; }
+      .page { width: auto; min-height: auto; padding: 0; zoom: 0.96; }
+      .no-print { display: none; }
+      [contenteditable="true"]:focus { outline: none; background: transparent; }
+    }
+  </style>
+</head>
+<body data-invoice-version="invoice-layout-lock-4">
+  <div class="toolbar no-print">
+    <button type="button" id="printInvoiceButton">Imprimir / Guardar PDF</button>
+    <span id="invoiceStatus"></span>
+  </div>
+  <div class="page">
+    <div class="invoice">
+      ${showCanceledStamp ? `<div class="stamp">Cancelado</div>` : ""}
+      <section class="top">
+        <div>
+          <div class="brand" data-template-lock="true">Dr. Movil<small>Servicio<br />Tecnico</small></div>
+          <div class="services" contenteditable="false" data-locked="true">Liberaciones de red de todas companias,<br />reparaciones de celulares, tablets y computadoras Windows/Apple,<br />software, actualizaciones de sistema y configuracion inicial.</div>
+          <div class="address" data-template-lock="true">Bo. El Centro, Calle Gerardo, Frente a Cruz Roja,<br />Chinameca, San Miguel.</div>
+        </div>
+        <div class="order"><strong data-template-lock="true">ORDEN</strong><span data-template-lock="true">No. ${escapeHtml(orderNumber)}</span></div>
+      </section>
+
+      <section class="box">
+        <div class="line"><span class="label" data-template-lock="true">FECHA:</span><span class="value" contenteditable="true">${escapeHtml(date)}</span></div>
+        <div class="line"><span class="label" data-template-lock="true">CLIENTE:</span><span class="value" contenteditable="true">${escapeHtml(repair.customer || "")}</span></div>
+        <div class="line"><span class="label" data-template-lock="true">ESN/IMEI:</span><span class="value" contenteditable="true"></span></div>
+        <div class="line two"><span class="label" data-template-lock="true">MARCA:</span><span class="value" contenteditable="true">${escapeHtml(repair.brand || "")}</span><span class="label" data-template-lock="true">MODELO:</span><span class="value" contenteditable="true">${escapeHtml(repair.model || "")}</span></div>
+        <div class="line long-label"><span class="label" data-template-lock="true">ACCESORIOS:</span><span class="value" contenteditable="true"></span></div>
+        <div class="line"><span class="label" data-template-lock="true">TELEFONO:</span><span class="value" contenteditable="true">${escapeHtml(repair.phone || "")}</span></div>
+        ${repair.email ? `<div class="line"><span class="label" data-template-lock="true">CORREO:</span><span class="value" contenteditable="true">${escapeHtml(repair.email)}</span></div>` : ""}
+      </section>
+
+      <section class="box">
+        <div class="checks"><div>${renderChecks(leftChecks)}</div><div>${renderChecks(rightChecks)}</div></div>
+        <div class="comments line long-label"><span class="label" data-template-lock="true">COMENTARIOS:</span><span class="value" contenteditable="true">${escapeHtml(repair.notes || "")}</span></div>
+      </section>
+
+      <section class="box diagnosis">
+        <div class="line diagnosis-line"><span class="label" data-template-lock="true">DIAGNOSTICO:</span><span class="value" contenteditable="true">${escapeHtml(repair.repairType || "")}</span></div>
+        <div class="costs">
+          <div><span data-template-lock="true">Costo Total $</span><b contenteditable="true">${total.toFixed(2)}</b></div>
+          <div><span data-template-lock="true">Abono $</span><b contenteditable="true">${abono.toFixed(2)}</b></div>
+          <div><span data-template-lock="true">Resta $</span><b contenteditable="true">${resta.toFixed(2)}</b></div>
+        </div>
+        <div class="signatures"><div data-template-lock="true">Tecnico: ${escapeHtml(technicianName)}</div><div data-template-lock="true">Bajo Riesgo del Cliente</div></div>
+      </section>
+
+      <div class="notice" data-template-lock="true">No se entregaran Telefonos si no se presenta este Documento<br />No se responde por aparatos no retirados despues de 30 dias</div>
+      <div class="thanks" data-template-lock="true">Gracias por Preferirnos</div>
+      <div class="phone" data-template-lock="true">Tel.: ${repairInvoicePhone}</div>
+    </div>
+  </div>
+  <script>
+    const lockedServices = document.querySelector(".services");
+    const invoicePayload = ${invoicePayloadJson};
+    const shouldRecordInvoice = ${shouldRecordInvoice ? "true" : "false"};
+    const printButton = document.querySelector("#printInvoiceButton");
+    const invoiceStatus = document.querySelector("#invoiceStatus");
+    if (!shouldRecordInvoice) invoiceStatus.textContent = "Factura guardada.";
+    const isTemplateLockedEvent = (event) => {
+      const selection = window.getSelection();
+      return event.target?.closest?.(".services") ||
+        event.target?.closest?.("[data-template-lock='true']") ||
+        lockedServices?.contains(selection?.anchorNode) ||
+        lockedServices?.contains(selection?.focusNode) ||
+        selection?.anchorNode?.parentElement?.closest?.("[data-template-lock='true']") ||
+        selection?.focusNode?.parentElement?.closest?.("[data-template-lock='true']");
+    };
+    ["beforeinput", "keydown", "paste", "drop", "cut"].forEach((eventName) => {
+      document.addEventListener(eventName, (event) => {
+        if (!isTemplateLockedEvent(event)) return;
+        event.preventDefault();
+        window.getSelection()?.removeAllRanges?.();
+      }, true);
+    });
+    printButton?.addEventListener("click", async () => {
+      if (!shouldRecordInvoice) {
+        window.print();
+        return;
+      }
+      if (!window.__invoiceRecorded) {
+        if (window.__invoiceRecording) return;
+        window.__invoiceRecording = true;
+        printButton.disabled = true;
+        invoiceStatus.textContent = "Registrando factura...";
+        try {
+          if (!window.opener?.recordRepairInvoiceIssued) throw new Error("No se encontro la ventana principal.");
+          await window.opener.recordRepairInvoiceIssued(invoicePayload);
+          window.__invoiceRecorded = true;
+          invoiceStatus.textContent = "Factura registrada.";
+        } catch (error) {
+          window.__invoiceRecording = false;
+          printButton.disabled = false;
+          invoiceStatus.textContent = error.message || "No se pudo registrar factura.";
+          return;
+        }
+      }
+      printButton.disabled = false;
+      window.print();
+    });
+  <\/script>
+</body>
+</html>`;
+}
+
+async function recordRepairInvoiceIssued(invoice) {
+  if (!window.repairCloud?.isConfigured()) {
+    throw new Error("Convex no esta configurado.");
+  }
+
+  const issuedAt = new Date().toISOString();
+  await window.repairCloud.createInvoice({
+    repairId: invoice.repairId || "",
+    repairNumber: Number(invoice.repairNumber) || 0,
+    customer: invoice.customer || "Sin nombre",
+    phone: invoice.phone || "",
+    email: invoice.email || "",
+    brand: invoice.brand || "",
+    model: invoice.model || "",
+    repairType: invoice.repairType || "",
+    status: invoice.status || "",
+    total: Number(invoice.total) || 0,
+    abono: Number(invoice.abono) || 0,
+    resta: Number(invoice.resta) || Math.max(0, (Number(invoice.total) || 0) - (Number(invoice.abono) || 0)),
+    issuedAt,
+    issuedByUsername: currentUser?.username || "",
+    issuedByName: currentUser?.name || currentUser?.username || "Usuario",
+  });
+  window.repairCloud?.registrarAuditoria(
+    "FACTURA_EMITIDA",
+    `Factura emitida para reparacion #${invoice.repairNumber || ""}`,
+    currentUser?.username,
+    JSON.stringify({ repairId: invoice.repairId || "", total: Number(invoice.total) || 0, issuedAt }),
+  );
+}
+
+window.recordRepairInvoiceIssued = recordRepairInvoiceIssued;
+
+function openRepairInvoice(repair) {
+  const invoiceWindow = window.open("", "_blank");
+  if (!invoiceWindow) {
+    repairsHint.textContent = "Permite ventanas emergentes para generar la factura.";
+    return;
+  }
+  invoiceWindow.document.open();
+  invoiceWindow.document.write(buildRepairInvoiceHtml(repair));
+  invoiceWindow.document.close();
+}
+
+function invoiceToRepair(invoice) {
+  return {
+    id: invoice.repairId || invoice._id || invoice.id || "",
+    _id: invoice.repairId || invoice._id || invoice.id || "",
+    repairNumber: Number(invoice.repairNumber) || 0,
+    customer: invoice.customer || "Sin nombre",
+    deviceType: "Telefono",
+    phone: invoice.phone || "",
+    email: invoice.email || "",
+    brand: invoice.brand || "",
+    model: invoice.model || "",
+    repairType: invoice.repairType || "",
+    status: invoice.status || "",
+    createdAt: invoice.issuedAt || new Date().toISOString(),
+    deliveredAt: "",
+    repairPrice: Number(invoice.total) || 0,
+    abono: Number(invoice.abono) || 0,
+    technicianName: invoice.issuedByName || invoice.issuedByUsername || "",
+    notes: "",
+  };
+}
+
+function openStoredInvoice(invoice) {
+  const invoiceWindow = window.open("", "_blank");
+  if (!invoiceWindow) {
+    if (invoicesSummary) invoicesSummary.textContent = "Permite ventanas emergentes";
+    return;
+  }
+  invoiceWindow.document.open();
+  invoiceWindow.document.write(buildRepairInvoiceHtml(invoiceToRepair(invoice), { recordOnPrint: false }));
+  invoiceWindow.document.close();
+}
+
+function matchesInvoiceSearch(invoice, term) {
+  if (!term) return true;
+  return [
+    invoice.repairNumber,
+    invoice.customer,
+    invoice.phone,
+    invoice.email,
+    invoice.brand,
+    invoice.model,
+    invoice.repairType,
+    invoice.issuedByName,
+    invoice.issuedByUsername,
+  ].some((value) => normalizeSearch(String(value || "")).includes(term));
+}
+
+function renderInvoicesList(invoices) {
+  invoicesCache = invoices;
+  const term = normalizeSearch(invoiceSearchInput?.value || "");
+  const rows = invoices.filter((invoice) => matchesInvoiceSearch(invoice, term));
+  const total = rows.reduce((sum, invoice) => sum + (Number(invoice.total) || 0), 0);
+  const latest = rows[0]?.issuedAt ? formatRepairDateTimeInput(rows[0].issuedAt) : "Sin registros";
+
+  invoicesSummary.textContent = `${rows.length} factura${rows.length === 1 ? "" : "s"}`;
+  invoicesTotal.textContent = formatCurrency(total);
+  latestInvoiceDate.textContent = latest;
+
+  if (!rows.length) {
+    invoicesList.innerHTML = `<p class="hint">No hay facturas con esa busqueda.</p>`;
+    return;
+  }
+
+  invoicesList.innerHTML = rows.map((invoice) => `
+    <article class="invoice-item" data-invoice-id="${escapeHtml(invoice._id || invoice.id || "")}">
+      <div>
+        <strong>#${escapeHtml(invoice.repairNumber || "")} ${escapeHtml(invoice.customer || "Sin nombre")}</strong>
+        <span>${escapeHtml(formatRepairDateTimeInput(invoice.issuedAt))} | ${escapeHtml(invoice.issuedByName || invoice.issuedByUsername || "Usuario")}</span>
+        <span>${escapeHtml([invoice.brand, invoice.model, invoice.repairType].filter(Boolean).join(" | "))}</span>
+      </div>
+      <div class="invoice-item-actions">
+        <b>${formatCurrency(Number(invoice.total) || 0)}</b>
+        <button class="edit-button" type="button" data-open-invoice-id="${escapeHtml(invoice._id || invoice.id || "")}">Abrir</button>
+      </div>
+    </article>
+  `).join("");
+}
+
+async function renderInvoices() {
+  if (!canAccessModule("invoices")) {
+    invoicesSummary.textContent = "Sin acceso";
+    invoicesList.innerHTML = `<p class="hint">Tu rol no puede ver facturas.</p>`;
+    return;
+  }
+
+  if (!window.repairCloud?.isConfigured()) {
+    invoicesSummary.textContent = "Base de datos requerida";
+    invoicesList.innerHTML = `<p class="hint">Las facturas se guardan en Convex.</p>`;
+    return;
+  }
+
+  invoicesSummary.textContent = "Cargando...";
+  invoicesList.innerHTML = `<p class="hint">Consultando facturas.</p>`;
+  try {
+    const invoices = await window.repairCloud.listInvoices(300);
+    renderInvoicesList(Array.isArray(invoices) ? invoices : []);
+  } catch (error) {
+    invoicesSummary.textContent = "Error";
+    invoicesList.innerHTML = `<p class="hint">${escapeHtml(error.message)}</p>`;
+  }
 }
 
 function isToday(value) {
@@ -1556,6 +2092,7 @@ function renderRepairsList(repairs) {
           <div class="table-action-icons repair-action-icons">
             <button class="edit-button icon-action-button icon-edit-button" type="button" data-repair-id="${escapeHtml(repairId)}" aria-label="Editar reparacion #${escapeHtml(repair.repairNumber || "")}" title="Editar">Editar</button>
             <button class="delete-button icon-action-button icon-delete-button" type="button" data-repair-id="${escapeHtml(repairId)}" aria-label="Eliminar reparacion #${escapeHtml(repair.repairNumber || "")}" title="Eliminar">Eliminar</button>
+            <button class="edit-button icon-action-button icon-invoice-button" type="button" data-invoice-repair-id="${escapeHtml(repairId)}" aria-label="Generar factura de reparacion #${escapeHtml(repair.repairNumber || "")}" title="Factura">Factura</button>
           </div>
         ` : "";
     return `
@@ -1566,7 +2103,8 @@ function renderRepairsList(repairs) {
         </div>
         <span>${escapeHtml(repair.deviceType)} ${repair.brand ? `${escapeHtml(repair.brand)} ` : ""}${escapeHtml(repair.model)} | ${escapeHtml(repair.status)}</span>
         <span>${escapeHtml(repair.repairType)} | Cel. ${escapeHtml(repair.phone)}</span>
-        <span>Precio ${formatCurrency(Number(repair.repairPrice) || 0)}</span>
+        ${repair.email ? `<span>Correo ${escapeHtml(repair.email)}</span>` : ""}
+        <span>Precio ${formatCurrency(Number(repair.repairPrice) || 0)} | Abono ${formatCurrency(Number(repair.abono) || 0)} | Resta ${formatCurrency(Math.max(0, (Number(repair.repairPrice) || 0) - (Number(repair.abono) || 0)))}</span>
         <span>Ingreso ${formatRepairDateTimeInput(repair.createdAt)} | ${deliveredLabel}</span>
         ${repair.notes ? `<p>${escapeHtml(repair.notes)}</p>` : ""}
       </article>
@@ -1579,11 +2117,11 @@ async function renderRepairs() {
   const hasRenderedRepairs = repairsList.children.length > 0;
 
   if (!hasRenderedRepairs) {
-    renderRepairsList(loadRepairs());
+    renderRepairsList(getRecentRepairs(loadRepairs(), 50));
   }
 
   try {
-    repairs = await loadRepairsFromSource(200);
+    repairs = await loadRepairsFromSource(50);
   } catch (error) {
     repairsCount.textContent = "Error";
     repairsList.innerHTML = `<p class="hint">${escapeHtml(error.message)}</p>`;
@@ -1591,6 +2129,35 @@ async function renderRepairs() {
   }
 
   renderRepairsList(repairs);
+}
+
+function renderContactsList(contacts) {
+  contactsCount.textContent = `${contacts.length} contacto${contacts.length === 1 ? "" : "s"}`;
+
+  if (!contacts.length) {
+    contactsList.innerHTML = `<p class="hint">Todavia no hay contactos guardados.</p>`;
+    return;
+  }
+
+  contactsList.innerHTML = contacts.map((contact) => `
+    <article class="compact-part-item contact-item">
+      <strong>${escapeHtml(contact.name || "Sin nombre")}</strong>
+      <span>Tel. ${escapeHtml(contact.phone || "Sin telefono")}${contact.email ? ` | ${escapeHtml(contact.email)}` : ""}</span>
+      ${contact.notes ? `<span>${escapeHtml(contact.notes)}</span>` : ""}
+    </article>
+  `).join("");
+}
+
+async function renderContacts() {
+  const search = contactSearchInput?.value.trim() || "";
+
+  try {
+    const contacts = await loadContactsFromSource(search);
+    renderContactsList(contacts);
+  } catch (error) {
+    contactsCount.textContent = "Error";
+    contactsList.innerHTML = `<p class="hint">${escapeHtml(error.message)}</p>`;
+  }
 }
 
 async function renderSideRepairs() {
@@ -2012,6 +2579,25 @@ function renderPartAlertList(title, parts, emptyText) {
   `;
 }
 
+function renderInvoiceHistory(invoices) {
+  const rows = invoices.slice(0, 10);
+  return `
+    <section class="statistics-list-group">
+      <h3>Facturas emitidas</h3>
+      <div class="compact-list statistics-list">
+        ${rows.length ? rows.map((invoice) => `
+          <article class="compact-part-item">
+            <strong>#${escapeHtml(invoice.repairNumber || "")} ${escapeHtml(invoice.customer || "Sin nombre")}</strong>
+            <span>${escapeHtml(formatRepairDateTimeInput(invoice.issuedAt))} | ${escapeHtml(invoice.issuedByName || invoice.issuedByUsername || "Usuario")}</span>
+            <span>${escapeHtml([invoice.brand, invoice.model, invoice.repairType].filter(Boolean).join(" | "))}</span>
+            <span>Total ${formatCurrency(Number(invoice.total) || 0)}</span>
+          </article>
+        `).join("") : `<p class="hint">Todavia no hay facturas emitidas.</p>`}
+      </div>
+    </section>
+  `;
+}
+
 async function renderStatistics() {
   if (!canAccessModule("statistics")) {
     statisticsSummary.textContent = "Sin acceso";
@@ -2032,17 +2618,19 @@ async function renderStatistics() {
   statisticsSummary.textContent = "Cargando...";
   statisticsHint.textContent = "Consultando base de datos";
   statisticsGrid.innerHTML = "";
-  statisticsLists.innerHTML = `<p class="hint">Recopilando repuestos y reparaciones.</p>`;
+  statisticsLists.innerHTML = `<p class="hint">Recopilando repuestos, reparaciones y facturas.</p>`;
 
   try {
-    const [parts, repairs] = await Promise.all([
+    const [parts, repairs, invoices] = await Promise.all([
       window.repairCloud.listParts(),
       window.repairCloud.listRepairs({ limit: 10000 }),
+      window.repairCloud.listInvoices(100),
     ]);
 
     const periodConfig = getPeriodConfig(activeStatisticsPeriod);
     const periodParts = filterRecordsByPeriod(parts, periodConfig, "publishedAt", "updatedAt");
     const periodRepairs = filterRecordsByPeriod(repairs, periodConfig, "createdAt");
+    const periodInvoices = filterRecordsByPeriod(invoices, periodConfig, "issuedAt");
     const totalStock = periodParts.reduce((sum, part) => sum + getPartStock(part), 0);
     const inventoryCostCents = periodParts.reduce((sum, part) => sum + getMoneyCents(part, "price", "priceCents") * getPartStock(part), 0);
     const inventorySaleCents = periodParts.reduce((sum, part) => sum + getMoneyCents(part, "customerPrice", "customerPriceCents") * getPartStock(part), 0);
@@ -2063,7 +2651,7 @@ async function renderStatistics() {
       .filter((item) => item.value > 0)
       .sort((a, b) => b.value - a.value);
 
-    statisticsSummary.textContent = `${periodParts.length} repuestos | ${periodRepairs.length} reparaciones`;
+    statisticsSummary.textContent = `${periodParts.length} repuestos | ${periodRepairs.length} reparaciones | ${periodInvoices.length} facturas`;
     statisticsHint.textContent = "Datos activos de base de datos";
     renderStatisticCards([
       { label: "Valor inventario", value: formatCurrencyCents(inventoryCostCents), detail: `${totalStock} piezas en existencia` },
@@ -2071,6 +2659,7 @@ async function renderStatistics() {
       { label: "Utilidad estimada", value: formatCurrencyCents(estimatedProfitCents), detail: "Antes de gastos operativos" },
       { label: "Ingresos reparaciones", value: formatCurrency(repairIncome), detail: `${periodRepairs.length} registros` },
       { label: periodConfig.label, value: formatCurrency(repairIncome), detail: `${periodRepairs.length} reparaciones` },
+      { label: "Facturas emitidas", value: String(periodInvoices.length), detail: `${invoices.length} en historial reciente` },
       { label: "Alertas", value: String(lowStockParts.length + zeroStockParts.length + priceIssues.length), detail: "Stock y precios por revisar" },
     ]);
 
@@ -2101,6 +2690,7 @@ async function renderStatistics() {
             { label: "Utilidad estimada", value: formatCompactCurrency(centsToMoney(estimatedProfitCents)), icon: "UE" },
             { label: "Ingresos reparacion", value: formatCompactCurrency(repairIncome), icon: "IR" },
             { label: `Reparaciones ${periodConfig.label.toLowerCase()}`, value: String(periodRepairs.length), icon: "RP" },
+            { label: "Facturas emitidas", value: String(periodInvoices.length), icon: "FE" },
             { label: "Alertas", value: String(lowStockParts.length + zeroStockParts.length + priceIssues.length), icon: "AL" },
           ])}
         </aside>
@@ -2114,7 +2704,7 @@ async function renderStatistics() {
         </div>
       </div>
     `;
-    statisticsLists.innerHTML = "";
+    statisticsLists.innerHTML = renderInvoiceHistory(invoices);
   } catch (error) {
     statisticsSummary.textContent = "Error";
     statisticsHint.textContent = "No se pudo consultar base de datos.";
@@ -2314,6 +2904,7 @@ function setModule(moduleName) {
     moduleName = getAllowedModules()[0] || "permissions";
   }
   saveActiveModule(moduleName);
+  document.body.classList.toggle("entry-panel-active", ["sales", "parts", "repairs", "contacts"].includes(moduleName));
   sessionPanel.classList.toggle("control-panel-wide", moduleName === "statistics");
   moduleTabs.forEach((button) => {
     const isAllowed = canAccessModule(button.dataset.module);
@@ -2326,6 +2917,8 @@ function setModule(moduleName) {
       (moduleName === "sales" && panel.id === "salesModule") ||
       (moduleName === "parts" && panel.id === "partsModule") ||
       (moduleName === "repairs" && panel.id === "repairsModule") ||
+      (moduleName === "contacts" && panel.id === "contactsModule") ||
+      (moduleName === "invoices" && panel.id === "invoicesModule") ||
       (moduleName === "statistics" && panel.id === "statisticsModule") ||
       (moduleName === "database" && panel.id === "databaseModule") ||
       (moduleName === "users" && panel.id === "usersModule");
@@ -2340,12 +2933,10 @@ function setModule(moduleName) {
   }
   if (moduleName === "database") renderDatabase();
   if (moduleName === "statistics") renderStatistics();
+  if (moduleName === "contacts") renderContacts();
+  if (moduleName === "invoices") renderInvoices();
   if (moduleName === "users") renderUsers();
-  if (moduleName === "parts") {
-    moduleLink.href = "repuestos.html";
-    moduleLink.textContent = "Ver pagina completa de repuestos";
-    moduleLink.hidden = false;
-  } else if (moduleName === "repairs") {
+  if (moduleName === "repairs") {
     moduleLink.href = "reparaciones.html";
     moduleLink.textContent = "Ver registros de reparaciones";
     moduleLink.hidden = false;
@@ -2374,6 +2965,42 @@ sideRepairSearch.addEventListener("input", () => {
   clearTimeout(sideRepairSearchTimer);
   sideRepairSearchTimer = setTimeout(renderSideRepairs, 220);
 });
+
+contactSearchInput?.addEventListener("input", () => {
+  clearTimeout(contactSearchTimer);
+  contactSearchTimer = setTimeout(renderContacts, 220);
+});
+
+invoiceSearchInput?.addEventListener("input", () => {
+  clearTimeout(invoiceSearchTimer);
+  invoiceSearchTimer = setTimeout(() => renderInvoicesList(invoicesCache), 180);
+});
+
+refreshInvoicesButton?.addEventListener("click", renderInvoices);
+
+invoicesList?.addEventListener("click", (event) => {
+  const button = event.target.closest("[data-open-invoice-id]");
+  if (!button) return;
+  const invoice = invoicesCache.find((item) => String(item._id || item.id || "") === button.dataset.openInvoiceId);
+  if (!invoice) {
+    invoicesSummary.textContent = "No se encontro la factura";
+    return;
+  }
+  openStoredInvoice(invoice);
+});
+
+contactNameInput?.addEventListener("input", () => {
+  clearTimeout(contactRepairSearchTimer);
+  contactRepairSearchTimer = setTimeout(async () => {
+    await refreshRepairContactSuggestions(contactNameInput.value);
+    applySelectedRepairContact();
+  }, 180);
+});
+
+contactNameInput?.addEventListener("change", applySelectedRepairContact);
+
+repairEmailInput?.addEventListener("input", () => validateEmailInput(repairEmailInput, repairsHint));
+contactEmailInput?.addEventListener("input", () => validateEmailInput(contactEmailInput, contactsHint));
 
 passwordToggle?.addEventListener("click", () => {
   const shouldShowPassword = passwordInput.type === "password";
@@ -2724,16 +3351,18 @@ quickPartsForm.addEventListener("submit", async (event) => {
 
 repairsList.addEventListener("click", (event) => {
   const editButton = event.target.closest(".edit-button");
-  if (!editButton) return;
+  if (!editButton || editButton.dataset.invoiceRepairId) return;
   const repairs = loadRepairs();
   const repair = findRepairByRecordId(repairs, editButton.dataset.repairId);
   if (!repair) return;
   repairCustomerInput.value = repair.customer;
   repairPhoneInput.value = repair.phone;
+  repairEmailInput.value = repair.email || "";
   repairBrandInput.value = repair.brand;
   repairModelInput.value = repair.model;
   repairTypeInput.value = repair.repairType;
   repairPriceInput.value = repair.repairPrice ?? "";
+  repairAbonoInput.value = repair.abono ?? "";
   repairStatusInput.value = repair.status;
   document.querySelector("#repairDeviceType").value = repair.deviceType;
   document.querySelector("#repairNotes").value = repair.notes || "";
@@ -2749,15 +3378,29 @@ repairsList.addEventListener("click", (event) => {
   repairsForm.scrollIntoView({ behavior: "smooth", block: "start" });
 });
 
+repairsList.addEventListener("click", (event) => {
+  const invoiceButton = event.target.closest("[data-invoice-repair-id]");
+  if (!invoiceButton) return;
+  const repairs = loadRepairs();
+  const repair = findRepairByRecordId(repairs, invoiceButton.dataset.invoiceRepairId);
+  if (!repair) {
+    repairsHint.textContent = "No se encontro la reparacion para generar factura.";
+    return;
+  }
+  openRepairInvoice(repair);
+});
+
 function openRepairInForm(repair) {
   if (!repair) return;
   setModule("repairs");
   repairCustomerInput.value = repair.customer;
   repairPhoneInput.value = repair.phone;
+  repairEmailInput.value = repair.email || "";
   repairBrandInput.value = repair.brand;
   repairModelInput.value = repair.model;
   repairTypeInput.value = repair.repairType;
   repairPriceInput.value = repair.repairPrice ?? "";
+  repairAbonoInput.value = repair.abono ?? "";
   repairStatusInput.value = repair.status;
   document.querySelector("#repairDeviceType").value = repair.deviceType;
   document.querySelector("#repairNotes").value = repair.notes || "";
@@ -2822,6 +3465,7 @@ repairsForm.addEventListener("submit", async (event) => {
   const brand = addRepairBrand(formData.get("brand"));
   const model = addRepairModel(formData.get("model"));
   const repairType = addRepairType(formData.get("repairType"));
+  if (!validateEmailInput(repairEmailInput, repairsHint)) return;
 
   if (editingId) {
     const index = repairs.findIndex((repair) => getRepairRecordId(repair) === editingId);
@@ -2833,8 +3477,10 @@ repairsForm.addEventListener("submit", async (event) => {
       customer: formData.get("customer").trim(),
       deviceType: formData.get("deviceType"),
       phone: formData.get("phone").trim(),
+      email: formData.get("email").trim(),
       brand, model, repairType, status, createdAt, deliveredAt,
       repairPrice: Number(formData.get("repairPrice")) || 0,
+      abono: Number(formData.get("abono")) || 0,
       notes: formData.get("notes").trim(),
     };
 
@@ -2857,8 +3503,10 @@ repairsForm.addEventListener("submit", async (event) => {
       customer: formData.get("customer").trim(),
       deviceType: formData.get("deviceType"),
       phone: formData.get("phone").trim(),
+      email: formData.get("email").trim(),
       brand, model, repairType, status, createdAt, deliveredAt,
       repairPrice: Number(formData.get("repairPrice")) || 0,
+      abono: Number(formData.get("abono")) || 0,
       notes: formData.get("notes").trim(),
     };
 
@@ -2878,6 +3526,50 @@ repairsForm.addEventListener("submit", async (event) => {
   updateRepairDeliveredAt();
   renderRepairs();
   renderSideRepairs();
+});
+
+contactsForm?.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  let contacts = [];
+  const now = new Date().toISOString();
+  const contact = {
+    id: crypto.randomUUID(),
+    name: contactNameInput.value.trim(),
+    phone: contactPhoneInput.value.trim(),
+    email: contactEmailInput.value.trim(),
+    notes: contactNotesInput.value.trim(),
+    createdAt: now,
+    updatedAt: now,
+  };
+
+  if (!contact.name || !normalizePhoneDigits(contact.phone)) {
+    contactsHint.textContent = "Nombre y telefono son obligatorios.";
+    return;
+  }
+  if (!validateEmailInput(contactEmailInput, contactsHint)) return;
+
+  try {
+    contacts = await loadContactsFromSource("");
+    const duplicated = contacts.find((item) => normalizePhoneDigits(item.phone) === normalizePhoneDigits(contact.phone));
+    if (duplicated) {
+      contactsHint.textContent = "Ese telefono ya existe en contactos.";
+      return;
+    }
+
+    if (window.repairCloud?.isConfigured()) {
+      await window.repairCloud.createContact(normalizeContactForCloud(contact));
+      contactsHint.textContent = "Contacto guardado en Convex correctamente.";
+    } else {
+      contacts.unshift(contact);
+      saveContacts(contacts);
+      contactsHint.textContent = "Contacto guardado correctamente.";
+    }
+
+    contactsForm.reset();
+    renderContacts();
+  } catch (error) {
+    contactsHint.textContent = `No se pudo guardar contacto: ${error.message}`;
+  }
 });
 
 usersForm.addEventListener("submit", async (event) => {
@@ -3046,6 +3738,8 @@ logoutButton.addEventListener("click", async () => {
   setLeftPanelForModule("permissions");
 });
 
+const isBootRestoringSession = document.documentElement.classList.contains("session-restoring");
+
 loadUsers();
 setLoginDemo();
 setColorMode(localStorage.getItem(colorModeStorageKey) || "light");
@@ -3056,11 +3750,13 @@ renderRepairBrandOptions();
 renderRepairModelOptions();
 renderRepairTypeOptions();
 updateSaleTotals();
-renderSales();
-renderRepairs();
 updateDateTime();
-refreshQuickPartsView();
-renderNotes();
+if (!isBootRestoringSession) {
+  renderSales();
+  renderRepairs();
+  refreshQuickPartsView();
+  renderNotes();
+}
 restoreSession();
 window.addEventListener("online", warnIfLocalSessionCanUseConvex);
 warnIfLocalSessionCanUseConvex();

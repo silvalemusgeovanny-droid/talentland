@@ -3,6 +3,7 @@ import { v } from "convex/values";
 
 const sessionDurationMs = 1000 * 60 * 60 * 12;
 const activePresenceMs = 1000 * 60;
+const rootUsersMessage = "solo root puede gestionar usuarios";
 
 async function sha256(value: string) {
   const bytes = new TextEncoder().encode(value);
@@ -30,12 +31,12 @@ async function requireRootSession(ctx: any, sessionToken: string) {
     .unique();
 
   if (!session || session.expiresAt < Date.now()) {
-    throw new Error("Solo root puede gestionar usuarios.");
+    throw new Error(rootUsersMessage);
   }
 
   const user = await ctx.db.get(session.userId);
   if (!user || !user.active || user.role !== "root") {
-    throw new Error("Solo root puede gestionar usuarios.");
+    throw new Error(rootUsersMessage);
   }
 
   return user;
@@ -69,8 +70,8 @@ export const seedDefaultUsers = mutation({
   handler: async (ctx) => {
     const now = new Date().toISOString();
     const defaults = [
-      { username: "root", password: "root123", name: "Root", role: "root", modules: ["permissions", "sales", "parts", "repairs", "statistics", "database", "users"] },
-      { username: "admin", password: "admin123", name: "Administrador", role: "admin", modules: ["permissions", "sales", "parts", "repairs", "statistics", "database"] },
+      { username: "root", password: "root123", name: "Root", role: "root", modules: ["permissions", "sales", "parts", "repairs", "contacts", "invoices", "statistics", "database", "users"] },
+      { username: "admin", password: "admin123", name: "Administrador", role: "admin", modules: ["permissions", "sales", "parts", "repairs", "contacts", "invoices", "statistics", "database"] },
       { username: "usuario", password: "user123", name: "Usuario", role: "user", modules: ["permissions", "sales", "parts", "repairs", "statistics"] },
       { username: "activador", password: "activador123", name: "Activador", role: "activador", modules: ["parts"] },
     ];
