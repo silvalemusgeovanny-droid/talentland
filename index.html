@@ -101,6 +101,7 @@
           <div class="module-tabs" role="tablist" aria-label="Modulos del sistema">
             <button class="module-tab active" type="button" data-module="permissions">Inicio</button>
             <button class="module-tab" type="button" data-module="sales">Ventas</button>
+            <button class="module-tab" type="button" data-module="products">Catalogo</button>
             <button class="module-tab" type="button" data-module="parts">Repuestos</button>
             <button class="module-tab" type="button" data-module="repairs">Reparaciones</button>
             <button class="module-tab" type="button" data-module="contacts">Contactos</button>
@@ -112,6 +113,45 @@
 
           <section class="module-panel active" id="permissionsModule">
             <ul id="permissionList"></ul>
+          </section>
+
+          <section class="module-panel products-module" id="productsModule">
+            <form class="product-catalog-form" id="productCatalogForm">
+              <div class="users-form-heading">
+                <span class="panel-kicker">Catalogo</span>
+                <strong>Productos de venta</strong>
+              </div>
+
+              <div class="field-grid">
+                <div>
+                  <label for="catalogProductNumber">No. producto</label>
+                  <input id="catalogProductNumber" name="productNumber" type="number" min="1" step="1" readonly aria-readonly="true" />
+                </div>
+                <div>
+                  <label for="catalogProductName">Producto</label>
+                  <input id="catalogProductName" name="name" type="text" placeholder="Nombre del producto" required />
+                </div>
+              </div>
+
+              <div class="field-grid">
+                <div>
+                  <label for="catalogProductModel">Modelo exacto</label>
+                  <input id="catalogProductModel" name="exactModel" type="text" placeholder="Modelo exacto" required />
+                </div>
+                <div>
+                  <label for="catalogProductPrice">Precio</label>
+                  <input id="catalogProductPrice" name="price" type="number" min="0" step="0.01" placeholder="0.00" required />
+                </div>
+              </div>
+
+              <label for="catalogProductQuantity">Cantidad</label>
+              <input id="catalogProductQuantity" name="quantity" type="number" min="0" step="1" placeholder="0" required />
+
+              <button class="primary-button" type="submit" id="submitProductCatalog">Guardar producto</button>
+              <p class="hint" id="productCatalogHint">Agrega productos para usarlos en ventas.</p>
+            </form>
+
+            <div class="compact-list product-catalog-list" id="productCatalogList"></div>
           </section>
 
           <section class="module-panel sales-module" id="salesModule">
@@ -137,16 +177,16 @@
               </div>
 
               <label for="saleProduct">Producto</label>
-              <input id="saleProduct" name="product" type="text" placeholder="Producto vendido" required />
+              <select id="saleProduct" name="product" required></select>
 
               <div class="field-grid">
                 <div>
                   <label for="salePrice">Precio unitario</label>
-                  <input id="salePrice" name="price" type="number" min="0" step="0.01" placeholder="0.00" required />
+                  <input id="salePrice" name="price" type="number" min="0" step="0.01" placeholder="0.00" readonly aria-readonly="true" required />
                 </div>
                 <div>
                   <label for="saleDiscount">Descuento</label>
-                  <input id="saleDiscount" name="discount" type="number" min="0" step="0.01" placeholder="0.00" />
+                  <input id="saleDiscount" name="discount" type="number" min="0" step="0.01" value="0.00" placeholder="0.00" />
                 </div>
               </div>
 
@@ -596,8 +636,9 @@
 
           <dl class="sale-confirm-list" id="saleConfirmList"></dl>
 
-          <div class="sale-confirm-actions">
+          <div class="sale-confirm-actions sale-summary-actions">
             <button class="secondary-button" type="button" id="editSaleButton">Editar</button>
+            <button class="secondary-button" type="button" id="printSaleInvoiceButton">Factura</button>
             <button class="primary-button" type="button" id="confirmSaleButton">Guardar</button>
           </div>
         </section>
@@ -643,9 +684,9 @@
       <div class="sale-confirm-overlay" id="adminVoidOverlay" hidden>
         <form class="sale-confirm-card admin-void-card" id="adminVoidForm" role="dialog" aria-modal="true" aria-labelledby="adminVoidTitle">
           <div>
-            <span class="panel-kicker">Anular venta</span>
+            <span class="panel-kicker">Accion protegida</span>
             <h2 id="adminVoidTitle">Credenciales de administrador</h2>
-            <p class="hint">Solo administrador puede eliminar ventas registradas.</p>
+            <p class="hint">Solo root o administrador puede autorizar esta accion.</p>
           </div>
 
           <label for="voidAdminUser">Usuario</label>
@@ -664,7 +705,7 @@
 
           <div class="sale-confirm-actions">
             <button class="secondary-button" type="button" id="cancelVoidButton">Cancelar</button>
-            <button class="primary-button danger-action" type="submit">Anular</button>
+            <button class="primary-button danger-action" type="submit" id="adminVoidSubmitButton">Autorizar</button>
           </div>
         </form>
       </div>

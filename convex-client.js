@@ -64,5 +64,11 @@
     updateContact: (id, patch) => callConvex("mutation", "contactos:update", { id, patch }),
     removeContact: (id) => callConvex("mutation", "contactos:remove", { id }),
     importContacts: (contacts) => callConvex("mutation", "contactos:importBatch", { contacts }),
+    listProducts: () => callConvex("query", "productos:list", {}),
+    createProduct: (product) => callConvex("mutation", "productos:create", product),
+    updateProduct: (id, patch) => callConvex("mutation", "productos:update", { id, patch }),
+    listSales: (limit = 500) => callConvex("query", "ventas:list", { limit }),
+    createSale: (sale) => callConvex("mutation", "ventas:create", sale),
+    removeSale: (id) => callConvex("mutation", "ventas:remove", { id }),
   };
 })();

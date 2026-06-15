@@ -57,7 +57,7 @@ const roleProfiles = {
   root: {
     label: "Root",
     access: "Control total del sistema",
-    modules: ["permissions", "sales", "parts", "repairs", "contacts", "invoices", "statistics", "database", "users"],
+    modules: ["permissions", "sales", "products", "parts", "repairs", "contacts", "invoices", "statistics", "database", "users"],
     permissions: [
       "Modificar usuarios, roles y accesos",
       "Ver base de datos local completa",
@@ -68,7 +68,7 @@ const roleProfiles = {
   admin: {
     label: "Admin",
     access: "Administracion con restricciones",
-    modules: ["permissions", "sales", "parts", "repairs", "contacts", "invoices", "statistics", "database"],
+    modules: ["permissions", "sales", "products", "parts", "repairs", "contacts", "invoices", "statistics", "database"],
     permissions: [
       "Registrar ventas, repuestos y reparaciones",
       "Ver base de datos local",
@@ -100,10 +100,11 @@ const roleProfiles = {
   },
 };
 
-const manageableModules = ["sales", "parts", "repairs", "contacts", "invoices", "statistics", "database", "users"];
+const manageableModules = ["sales", "products", "parts", "repairs", "contacts", "invoices", "statistics", "database", "users"];
 const moduleLabels = {
   permissions: "Inicio",
   sales: "Ventas",
+  products: "Catalogo productos",
   parts: "Repuestos",
   repairs: "Reparaciones",
   contacts: "Contactos",
@@ -174,9 +175,20 @@ const pendingAlertCopy = document.querySelector("#pendingAlertCopy");
 const openNotesFromAlert = document.querySelector("#openNotesFromAlert");
 const snoozePendingAlert = document.querySelector("#snoozePendingAlert");
 const salesStorageKey = "inventorySales";
+const productsStorageKey = "saleProducts";
+const productCatalogForm = document.querySelector("#productCatalogForm");
+const catalogProductNumberInput = document.querySelector("#catalogProductNumber");
+const catalogProductNameInput = document.querySelector("#catalogProductName");
+const catalogProductModelInput = document.querySelector("#catalogProductModel");
+const catalogProductPriceInput = document.querySelector("#catalogProductPrice");
+const catalogProductQuantityInput = document.querySelector("#catalogProductQuantity");
+const submitProductCatalogButton = document.querySelector("#submitProductCatalog");
+const productCatalogHint = document.querySelector("#productCatalogHint");
+const productCatalogList = document.querySelector("#productCatalogList");
 const salesForm = document.querySelector("#salesForm");
 const saleNumberInput = document.querySelector("#saleNumber");
 const saleQuantityInput = document.querySelector("#saleQuantity");
+const saleProductInput = document.querySelector("#saleProduct");
 const salePriceInput = document.querySelector("#salePrice");
 const saleDiscountInput = document.querySelector("#saleDiscount");
 const saleReceivedInput = document.querySelector("#saleReceived");
@@ -248,13 +260,16 @@ const invoicesList = document.querySelector("#invoicesList");
 const saleConfirmOverlay = document.querySelector("#saleConfirmOverlay");
 const saleConfirmList = document.querySelector("#saleConfirmList");
 const editSaleButton = document.querySelector("#editSaleButton");
+const printSaleInvoiceButton = document.querySelector("#printSaleInvoiceButton");
 const confirmSaleButton = document.querySelector("#confirmSaleButton");
 const adminVoidOverlay = document.querySelector("#adminVoidOverlay");
 const adminVoidForm = document.querySelector("#adminVoidForm");
+const adminVoidTitle = document.querySelector("#adminVoidTitle");
 const voidAdminUser = document.querySelector("#voidAdminUser");
 const voidAdminPassword = document.querySelector("#voidAdminPassword");
 const adminVoidHint = document.querySelector("#adminVoidHint");
 const cancelVoidButton = document.querySelector("#cancelVoidButton");
+const adminVoidSubmitButton = document.querySelector("#adminVoidSubmitButton");
 const databaseSummary = document.querySelector("#databaseSummary");
 const databaseList = document.querySelector("#databaseList");
 const usersForm = document.querySelector("#usersForm");
@@ -273,6 +288,8 @@ const resetRolePermissionsButton = document.querySelector("#resetRolePermissions
 let repairExcelDatabasePromise = null;
 let pendingSale = null;
 let pendingVoidSaleId = null;
+let pendingAdminAction = null;
+let pendingEditApproval = null;
 let lastVoidedSale = null;
 let undoTimerId = null;
 let sideRepairSearchTimer = null;
@@ -281,6 +298,7 @@ let contactRepairSearchTimer = null;
 let invoiceSearchTimer = null;
 let repairContactSuggestions = [];
 let invoicesCache = [];
+let salesCloudMigrationDone = false;
 let currentUser = null;
 let managedUsersCache = [];
 let googleContactsAccessToken = "";
@@ -376,6 +394,49 @@ async function loadManagedUsers() {
   return managedUsersCache;
 }
 
+async function verifyPrivilegedCredentials(username, password) {
+  const cleanUsername = String(username || "").trim();
+  const normalizedUsername = cleanUsername.toLowerCase();
+  if (!cleanUsername || !password) return null;
+
+  if (window.repairCloud?.isConfigured()) {
+    const isAuthorized = await window.repairCloud.verifyAdmin(cleanUsername, password);
+    if (!isAuthorized) return null;
+    let users = managedUsersCache;
+    try {
+      users = await loadManagedUsers();
+    } catch {
+      users = managedUsersCache;
+    }
+    const cloudUser = users.find((user) => String(user.username || "").toLowerCase() === normalizedUsername);
+    return {
+      username: cloudUser?.username || cleanUsername,
+      name: cloudUser?.name || cleanUsername,
+      role: cloudUser?.role || "admin",
+    };
+  }
+
+  const localUser = loadUsers().find((user) =>
+    String(user.username || "").toLowerCase() === normalizedUsername &&
+    user.password === password &&
+    ["root", "admin"].includes(user.role)
+  );
+  return localUser ? { username: localUser.username, name: localUser.name || localUser.username, role: localUser.role } : null;
+}
+
+function createApprovalRecord(type, approver, target = {}) {
+  return {
+    type,
+    approvedBy: approver?.username || "",
+    approvedByName: approver?.name || approver?.username || "Administrador",
+    approverRole: approver?.role || "",
+    requestedBy: currentUser?.username || "",
+    requestedByName: currentUser?.name || currentUser?.username || "Usuario",
+    approvedAt: new Date().toISOString(),
+    ...target,
+  };
+}
+
 function generateSessionToken() {
   const bytes = new Uint8Array(32);
   crypto.getRandomValues(bytes);
@@ -448,6 +509,9 @@ function getUserModules(user) {
   if (!Array.isArray(user?.modules)) return roleModules;
   const allowedModules = new Set(["permissions", ...manageableModules]);
   const customModules = user.modules.filter((moduleName) => allowedModules.has(moduleName));
+  if (user.role === "root" && !customModules.includes("products")) {
+    customModules.push("products");
+  }
   if (["root", "admin"].includes(user.role) && !customModules.includes("invoices")) {
     customModules.push("invoices");
   }
@@ -461,6 +525,10 @@ function canAccessModule(moduleName) {
 
 function canManageParts() {
   return canAccessModule("parts") && currentUser?.role !== "activador";
+}
+
+function canManageProducts() {
+  return canAccessModule("sales") && canAccessModule("products") && ["root", "admin"].includes(currentUser?.role);
 }
 
 function formatPresenceNames(users) {
@@ -532,6 +600,7 @@ function applyAuthenticatedUser(user, message = "Sesion iniciada correctamente."
   credentialHint.textContent = message;
   setModule(getSavedActiveModule());
   renderQuickParts();
+  renderProducts();
   renderSales();
   renderRepairs();
   renderDatabase();
@@ -1251,6 +1320,100 @@ function loadSales() {
 
 function saveSales(sales) {
   localStorage.setItem(salesStorageKey, JSON.stringify(sales));
+}
+
+function getSaleRecordId(sale) {
+  return sale?._id || sale?.id || sale?.sourceId || "";
+}
+
+function normalizeSaleForCloud(sale) {
+  return {
+    sourceId: sale.sourceId || sale.id,
+    saleNumber: Number(sale.saleNumber) || 0,
+    productId: sale.productId || "",
+    product: sale.product || "Producto",
+    productModel: sale.productModel || "",
+    quantity: Number(sale.quantity) || 0,
+    price: Number(sale.price) || 0,
+    discount: Number(sale.discount) || 0,
+    total: Number(sale.total) || 0,
+    received: Number(sale.received) || 0,
+    change: Number(sale.change) || 0,
+    createdAt: sale.createdAt || new Date().toISOString(),
+  };
+}
+
+async function loadSalesFromSource(limit = 500) {
+  if (window.repairCloud?.isConfigured()) {
+    if (!salesCloudMigrationDone) {
+      const localSales = loadSales().filter((sale) => !sale._id);
+      for (const sale of localSales) {
+        await window.repairCloud.createSale(normalizeSaleForCloud(sale));
+      }
+      salesCloudMigrationDone = true;
+    }
+    const sales = await window.repairCloud.listSales(limit);
+    saveSales(sales);
+    return sales;
+  }
+  return loadSales();
+}
+
+async function saveSaleToSource(sale) {
+  if (window.repairCloud?.isConfigured()) {
+    const id = await window.repairCloud.createSale(normalizeSaleForCloud(sale));
+    return { ...sale, _id: id };
+  }
+  const sales = loadSales();
+  sales.unshift(sale);
+  saveSales(sales);
+  return sale;
+}
+
+async function removeSaleFromSource(sale) {
+  const saleId = getSaleRecordId(sale);
+  if (window.repairCloud?.isConfigured() && sale._id) {
+    await window.repairCloud.removeSale(sale._id);
+    return;
+  }
+  saveSales(loadSales().filter((item) => getSaleRecordId(item) !== saleId));
+}
+
+function loadProducts() {
+  const savedProducts = localStorage.getItem(productsStorageKey);
+  return savedProducts ? JSON.parse(savedProducts) : [];
+}
+
+function saveProducts(products) {
+  localStorage.setItem(productsStorageKey, JSON.stringify(products));
+}
+
+function getProductRecordId(product) {
+  return product?._id || product?.id || product?.sourceId || "";
+}
+
+function normalizeProductForCloud(product) {
+  const now = new Date().toISOString();
+  return {
+    sourceId: product.sourceId || product.id,
+    productNumber: Number(product.productNumber) || 0,
+    name: product.name || "Sin nombre",
+    exactModel: product.exactModel || "",
+    price: Number(product.price) || 0,
+    quantity: Math.max(0, Number(product.quantity) || 0),
+    active: product.active !== false,
+    createdAt: product.createdAt || now,
+    updatedAt: product.updatedAt || now,
+  };
+}
+
+async function loadProductsFromSource() {
+  if (window.repairCloud?.isConfigured()) {
+    const products = await window.repairCloud.listProducts();
+    saveProducts(products);
+    return products;
+  }
+  return loadProducts();
 }
 
 function loadRepairs() {
@@ -2017,8 +2180,88 @@ function updateSaleTotals() {
   saleChangeInput.value = formatCurrency(change);
 }
 
-function setNextSaleNumber() {
-  saleNumberInput.value = loadSales().reduce((max, sale) => Math.max(max, sale.saleNumber), 0) + 1;
+function resetSaleDefaults() {
+  saleQuantityInput.value = 1;
+  saleDiscountInput.value = "0.00";
+  salePriceInput.value = "";
+  updateSaleTotals();
+}
+
+async function setNextSaleNumber() {
+  try {
+    const sales = await loadSalesFromSource(1000);
+    saleNumberInput.value = sales.reduce((max, sale) => Math.max(max, Number(sale.saleNumber) || 0), 0) + 1;
+  } catch {
+    saleNumberInput.value = loadSales().reduce((max, sale) => Math.max(max, Number(sale.saleNumber) || 0), 0) + 1;
+  }
+}
+
+function getNextProductNumber(products = loadProducts()) {
+  return products.reduce((max, product) => Math.max(max, Number(product.productNumber) || 0), 0) + 1;
+}
+
+function resetProductCatalogForm(products = loadProducts()) {
+  delete productCatalogForm.dataset.editingId;
+  productCatalogForm.reset();
+  catalogProductNumberInput.value = getNextProductNumber(products);
+  submitProductCatalogButton.textContent = "Guardar producto";
+}
+
+function getSelectedSaleProduct(products = loadProducts()) {
+  const productId = saleProductInput?.value || "";
+  return products.find((product) => getProductRecordId(product) === productId);
+}
+
+function applySelectedSaleProduct(products = loadProducts()) {
+  const product = getSelectedSaleProduct(products);
+  salePriceInput.value = product ? (Number(product.price) || 0).toFixed(2) : "";
+  updateSaleTotals();
+}
+
+function renderProductCatalog(products) {
+  const activeProducts = products.filter((product) => product.active !== false);
+  const canEditProducts = canManageProducts();
+  productCatalogForm.hidden = !canEditProducts;
+  saleProductInput.innerHTML = [
+    `<option value="">Selecciona producto</option>`,
+    ...activeProducts.map((product) =>
+      `<option value="${escapeHtml(getProductRecordId(product))}">#${escapeHtml(product.productNumber || "")} ${escapeHtml(product.name)} ${escapeHtml(product.exactModel || "")} - ${formatCurrency(Number(product.price) || 0)} (${Number(product.quantity) || 0})</option>`,
+    ),
+  ].join("");
+  catalogProductNumberInput.value = getNextProductNumber(products);
+
+  if (!activeProducts.length) {
+    productCatalogList.innerHTML = `<p class="hint">Todavia no hay productos guardados.</p>`;
+    salePriceInput.value = "";
+    updateSaleTotals();
+    return;
+  }
+
+  productCatalogList.innerHTML = activeProducts.slice(0, 8).map((product) => `
+    <article class="compact-part-item product-catalog-item">
+      <strong>#${escapeHtml(product.productNumber || "")} ${escapeHtml(product.name)}</strong>
+      <span>${escapeHtml(product.exactModel || "Sin modelo")} | ${formatCurrency(Number(product.price) || 0)} | Cant. ${Number(product.quantity) || 0}</span>
+      ${canEditProducts ? `<div class="table-action-icons">
+        <button class="edit-button" type="button" data-edit-product-id="${escapeHtml(getProductRecordId(product))}">Editar</button>
+        <button class="delete-button" type="button" data-delete-product-id="${escapeHtml(getProductRecordId(product))}">Eliminar</button>
+      </div>` : ""}
+    </article>
+  `).join("");
+  applySelectedSaleProduct(activeProducts);
+}
+
+async function renderProducts() {
+  try {
+    const products = await loadProductsFromSource();
+    renderProductCatalog(products);
+    const activeCount = products.filter((product) => product.active !== false).length;
+    productCatalogHint.textContent = canManageProducts()
+      ? `${activeCount} producto${activeCount === 1 ? "" : "s"} disponible${activeCount === 1 ? "" : "s"}.`
+      : "Tu rol puede vender con productos guardados, pero no editar el catalogo.";
+  } catch (error) {
+    renderProductCatalog(loadProducts());
+    productCatalogHint.textContent = `No se pudo consultar Convex: ${error.message}`;
+  }
 }
 
 async function setNextRepairNumber() {
@@ -2047,8 +2290,15 @@ function updateRepairDeliveredAt() {
   repairDeliveredAtInput.value = formatRepairDateTimeInput(repairDeliveredAtInput.dataset.value);
 }
 
-function renderSales() {
-  const dailySales = loadSales().filter((sale) => isToday(sale.createdAt));
+async function renderSales() {
+  let sales = [];
+  try {
+    sales = await loadSalesFromSource(500);
+  } catch (error) {
+    sales = loadSales();
+    salesHint.textContent = `No se pudo consultar ventas en Convex: ${error.message}`;
+  }
+  const dailySales = sales.filter((sale) => isToday(sale.createdAt));
   const dailyTotal = dailySales.reduce((sum, sale) => sum + sale.total, 0);
   dailySalesTotal.textContent = formatCurrency(dailyTotal);
   dailySalesCount.textContent = `${dailySales.length} venta${dailySales.length === 1 ? "" : "s"}`;
@@ -2058,11 +2308,16 @@ function renderSales() {
   }
   salesList.innerHTML = dailySales.map((sale) => {
     const { date, time } = formatSaleDateTime(sale.createdAt);
+    const saleId = getSaleRecordId(sale);
     return `
       <article class="compact-part-item sale-item">
         <div class="sale-item-heading">
-          <strong>Venta #${sale.saleNumber} - ${escapeHtml(sale.product)}</strong>
-          <button class="delete-button void-sale-button" type="button" data-id="${sale.id}">Anular</button>
+          <strong>Venta #${sale.saleNumber} - ${escapeHtml(sale.product)} ${sale.productModel ? escapeHtml(sale.productModel) : ""}</strong>
+          <div class="table-action-icons sale-action-icons">
+            <button class="edit-button icon-action-button icon-edit-button" type="button" data-edit-sale-id="${escapeHtml(saleId)}" aria-label="Editar venta #${escapeHtml(sale.saleNumber || "")}" title="Editar">Editar</button>
+            <button class="edit-button icon-action-button icon-invoice-button" type="button" data-print-sale-id="${escapeHtml(saleId)}" aria-label="Imprimir venta #${escapeHtml(sale.saleNumber || "")}" title="Imprimir">Imprimir</button>
+            <button class="delete-button icon-action-button icon-delete-button void-sale-button" type="button" data-id="${escapeHtml(saleId)}" aria-label="Borrar venta #${escapeHtml(sale.saleNumber || "")}" title="Borrar">Borrar</button>
+          </div>
         </div>
         <span>${date} | ${time}</span>
         <span>${sale.quantity} pza(s) x ${formatCurrency(sale.price)} | Desc. ${formatCurrency(sale.discount)} | Total ${formatCurrency(sale.total)}</span>
@@ -2598,6 +2853,65 @@ function renderInvoiceHistory(invoices) {
   `;
 }
 
+function parseAuditData(log) {
+  try {
+    return JSON.parse(log?.datos || "{}");
+  } catch {
+    return {};
+  }
+}
+
+function renderSaleInvoiceHistory(logs) {
+  const rows = logs.slice(0, 10);
+  return `
+    <section class="statistics-list-group">
+      <h3>Facturas de venta</h3>
+      <div class="compact-list statistics-list">
+        ${rows.length ? rows.map((log) => {
+          const data = parseAuditData(log);
+          return `
+            <article class="compact-part-item">
+              <strong>#${escapeHtml(data.saleNumber || "")} ${escapeHtml(data.product || "Venta")}</strong>
+              <span>${escapeHtml(formatRepairDateTimeInput(log.fecha || data.issuedAt))} | ${escapeHtml(log.usuario || "Usuario")}</span>
+              <span>${escapeHtml(data.productModel || "")}</span>
+              <span>Total ${formatCurrency(Number(data.total) || 0)}</span>
+            </article>
+          `;
+        }).join("") : `<p class="hint">Todavia no hay facturas de venta emitidas.</p>`}
+      </div>
+    </section>
+  `;
+}
+
+function renderEditApprovalHistory(logs) {
+  const rows = logs.slice(0, 10);
+  return `
+    <section class="statistics-list-group">
+      <h3>Ediciones autorizadas</h3>
+      <div class="compact-list statistics-list">
+        ${rows.length ? rows.map((log) => {
+          const data = parseAuditData(log);
+          const isSale = log.tipo === "VENTA_EDITADA";
+          const recordLabel = isSale ? `Venta #${data.saleNumber || ""}` : `Reparacion #${data.repairNumber || ""}`;
+          const approvedBy = data.approvedByName || data.approvedBy || log.usuario || "Administrador";
+          const requestedBy = data.requestedByName || data.requestedBy || "Usuario";
+          const detail = isSale
+            ? `${data.product || "Producto"} | Total ${formatCurrency(Number(data.total) || 0)}`
+            : `${data.customer || "Cliente"} | ${formatCurrency(Number(data.repairPrice) || 0)}`;
+          return `
+            <article class="compact-part-item">
+              <strong>${escapeHtml(recordLabel)}</strong>
+              <span>${escapeHtml(formatRepairDateTimeInput(log.fecha || data.approvedAt))} | Aprobado por ${escapeHtml(approvedBy)}</span>
+              <span>Solicitado por ${escapeHtml(requestedBy)}</span>
+              <span>${escapeHtml(detail)}</span>
+            </article>
+          `;
+        }).join("") : `<p class="hint">Todavia no hay ediciones autorizadas.</p>`}
+      </div>
+    </section>
+  `;
+}
+
 async function renderStatistics() {
   if (!canAccessModule("statistics")) {
     statisticsSummary.textContent = "Sin acceso";
@@ -2621,21 +2935,29 @@ async function renderStatistics() {
   statisticsLists.innerHTML = `<p class="hint">Recopilando repuestos, reparaciones y facturas.</p>`;
 
   try {
-    const [parts, repairs, invoices] = await Promise.all([
+    const [parts, repairs, invoices, sales, auditLogs] = await Promise.all([
       window.repairCloud.listParts(),
       window.repairCloud.listRepairs({ limit: 10000 }),
       window.repairCloud.listInvoices(100),
+      window.repairCloud.listSales(10000),
+      window.repairCloud.obtenerAuditoria(),
     ]);
 
     const periodConfig = getPeriodConfig(activeStatisticsPeriod);
     const periodParts = filterRecordsByPeriod(parts, periodConfig, "publishedAt", "updatedAt");
     const periodRepairs = filterRecordsByPeriod(repairs, periodConfig, "createdAt");
     const periodInvoices = filterRecordsByPeriod(invoices, periodConfig, "issuedAt");
+    const periodSales = filterRecordsByPeriod(sales, periodConfig, "createdAt");
+    const saleInvoiceLogs = auditLogs.filter((log) => log.tipo === "FACTURA_VENTA_EMITIDA");
+    const periodSaleInvoiceLogs = filterRecordsByPeriod(saleInvoiceLogs, periodConfig, "fecha");
+    const editApprovalLogs = auditLogs.filter((log) => ["VENTA_EDITADA", "REPARACION_EDITADA"].includes(log.tipo));
+    const periodEditApprovalLogs = filterRecordsByPeriod(editApprovalLogs, periodConfig, "fecha");
     const totalStock = periodParts.reduce((sum, part) => sum + getPartStock(part), 0);
     const inventoryCostCents = periodParts.reduce((sum, part) => sum + getMoneyCents(part, "price", "priceCents") * getPartStock(part), 0);
     const inventorySaleCents = periodParts.reduce((sum, part) => sum + getMoneyCents(part, "customerPrice", "customerPriceCents") * getPartStock(part), 0);
     const estimatedProfitCents = inventorySaleCents - inventoryCostCents;
     const repairIncome = periodRepairs.reduce((sum, repair) => sum + (Number(repair.repairPrice) || 0), 0);
+    const salesIncome = periodSales.reduce((sum, sale) => sum + (Number(sale.total) || 0), 0);
     const lowStockParts = periodParts.filter((part) => getPartStock(part) > 0 && getPartStock(part) <= 2);
     const zeroStockParts = periodParts.filter((part) => getPartStock(part) === 0);
     const priceIssues = periodParts.filter((part) => {
@@ -2651,15 +2973,18 @@ async function renderStatistics() {
       .filter((item) => item.value > 0)
       .sort((a, b) => b.value - a.value);
 
-    statisticsSummary.textContent = `${periodParts.length} repuestos | ${periodRepairs.length} reparaciones | ${periodInvoices.length} facturas`;
+    statisticsSummary.textContent = `${periodParts.length} repuestos | ${periodRepairs.length} reparaciones | ${periodInvoices.length + periodSaleInvoiceLogs.length} facturas`;
     statisticsHint.textContent = "Datos activos de base de datos";
     renderStatisticCards([
       { label: "Valor inventario", value: formatCurrencyCents(inventoryCostCents), detail: `${totalStock} piezas en existencia` },
       { label: "Venta potencial", value: formatCurrencyCents(inventorySaleCents), detail: "Precio cliente final x existencia" },
       { label: "Utilidad estimada", value: formatCurrencyCents(estimatedProfitCents), detail: "Antes de gastos operativos" },
       { label: "Ingresos reparaciones", value: formatCurrency(repairIncome), detail: `${periodRepairs.length} registros` },
+      { label: "Ingresos ventas", value: formatCurrency(salesIncome), detail: `${periodSales.length} ventas` },
       { label: periodConfig.label, value: formatCurrency(repairIncome), detail: `${periodRepairs.length} reparaciones` },
       { label: "Facturas emitidas", value: String(periodInvoices.length), detail: `${invoices.length} en historial reciente` },
+      { label: "Facturas de venta", value: String(periodSaleInvoiceLogs.length), detail: `${saleInvoiceLogs.length} en auditoria` },
+      { label: "Ediciones aprobadas", value: String(periodEditApprovalLogs.length), detail: `${editApprovalLogs.length} en auditoria` },
       { label: "Alertas", value: String(lowStockParts.length + zeroStockParts.length + priceIssues.length), detail: "Stock y precios por revisar" },
     ]);
 
@@ -2689,8 +3014,11 @@ async function renderStatistics() {
             { label: "Venta potencial", value: formatCompactCurrency(centsToMoney(inventorySaleCents)), icon: "VP" },
             { label: "Utilidad estimada", value: formatCompactCurrency(centsToMoney(estimatedProfitCents)), icon: "UE" },
             { label: "Ingresos reparacion", value: formatCompactCurrency(repairIncome), icon: "IR" },
+            { label: "Ingresos ventas", value: formatCompactCurrency(salesIncome), icon: "IV" },
             { label: `Reparaciones ${periodConfig.label.toLowerCase()}`, value: String(periodRepairs.length), icon: "RP" },
             { label: "Facturas emitidas", value: String(periodInvoices.length), icon: "FE" },
+            { label: "Facturas venta", value: String(periodSaleInvoiceLogs.length), icon: "FV" },
+            { label: "Ediciones aprobadas", value: String(periodEditApprovalLogs.length), icon: "EA" },
             { label: "Alertas", value: String(lowStockParts.length + zeroStockParts.length + priceIssues.length), icon: "AL" },
           ])}
         </aside>
@@ -2704,7 +3032,11 @@ async function renderStatistics() {
         </div>
       </div>
     `;
-    statisticsLists.innerHTML = renderInvoiceHistory(invoices);
+    statisticsLists.innerHTML = [
+      renderInvoiceHistory(invoices),
+      renderSaleInvoiceHistory(saleInvoiceLogs),
+      renderEditApprovalHistory(editApprovalLogs),
+    ].join("");
   } catch (error) {
     statisticsSummary.textContent = "Error";
     statisticsHint.textContent = "No se pudo consultar base de datos.";
@@ -2793,6 +3125,7 @@ function renderSaleConfirmation(sale) {
     <div><dt>Fecha y hora</dt><dd>${formatSaleDateTime(sale.createdAt).date} | ${formatSaleDateTime(sale.createdAt).time}</dd></div>
     <div><dt>No. venta</dt><dd>${sale.saleNumber}</dd></div>
     <div><dt>Producto</dt><dd>${escapeHtml(sale.product)}</dd></div>
+    <div><dt>Modelo exacto</dt><dd>${escapeHtml(sale.productModel || "")}</dd></div>
     <div><dt>Cantidad</dt><dd>${sale.quantity}</dd></div>
     <div><dt>Precio unitario</dt><dd>${formatCurrency(sale.price)}</dd></div>
     <div><dt>Descuento</dt><dd>${formatCurrency(sale.discount)}</dd></div>
@@ -2811,17 +3144,154 @@ function openSaleConfirmation(sale) {
 
 function closeSaleConfirmation() { saleConfirmOverlay.hidden = true; }
 
-function openAdminVoid(saleId) {
-  pendingVoidSaleId = saleId;
+function buildSaleInvoiceHtml(sale) {
+  const saleDate = new Date(sale.createdAt);
+  const date = Number.isNaN(saleDate.getTime())
+    ? formatInvoiceDate(new Date().toISOString())
+    : new Intl.DateTimeFormat("es-MX", { day: "2-digit", month: "2-digit", year: "numeric" }).format(saleDate);
+  const time = Number.isNaN(saleDate.getTime())
+    ? ""
+    : new Intl.DateTimeFormat("es-MX", { hour: "2-digit", minute: "2-digit" }).format(saleDate);
+  const saleNumber = String(sale.saleNumber || "").padStart(6, "0");
+  const attendedBy = currentUser?.name || currentUser?.username || "Usuario";
+  const lineTotal = (Number(sale.quantity) || 0) * (Number(sale.price) || 0);
+
+  return `<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <title>Factura venta ${escapeHtml(saleNumber)} | Dr. Movil</title>
+  <style>
+    @page { size: letter; margin: 8mm; }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: #eef1f4; color: #18245b; font-family: Arial, Helvetica, sans-serif; }
+    .toolbar { position: sticky; top: 0; z-index: 10; display: flex; justify-content: center; padding: 10px; background: #eef1f4; }
+    .toolbar button { min-height: 38px; padding: 0 14px; border: 0; border-radius: 8px; background: #18245b; color: #fff; font-weight: 800; cursor: pointer; }
+    .page { width: 184mm; margin: 0 auto; padding: 5mm; background: #fff; }
+    .invoice { border: 1.6px solid #18245b; border-radius: 9px; padding: 10px; }
+    .top { display: grid; grid-template-columns: 1fr auto; gap: 14px; align-items: start; border-bottom: 1.4px solid #18245b; padding-bottom: 9px; }
+    .brand { font-size: 27px; font-weight: 900; letter-spacing: 0.02em; }
+    .brand small { display: block; margin-left: 54px; font-size: 11px; line-height: 1; }
+    .address { margin-top: 5px; font-size: 10.5px; font-weight: 800; line-height: 1.25; }
+    .phone { margin-top: 2px; color: #52626e; font-size: 10px; font-weight: 800; }
+    .order { text-align: right; }
+    .order strong { display: block; font-size: 20px; letter-spacing: 0.08em; }
+    .order span { display: block; margin-top: 8px; color: #b14248; font-size: 19px; font-weight: 900; }
+    .meta { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 18px; padding: 10px 0; border-bottom: 1.4px solid #18245b; font-size: 13px; font-weight: 800; }
+    .meta b, .totals b { color: #111; font-weight: 800; }
+    table { width: 100%; border-collapse: collapse; margin-top: 10px; color: #111; }
+    th { border-bottom: 1.4px solid #18245b; color: #18245b; font-size: 12px; text-align: left; }
+    td { padding: 8px 4px; border-bottom: 1px solid rgb(24 36 91 / 35%); font-size: 13px; font-weight: 700; }
+    th:nth-child(1), td:nth-child(1) { width: 16mm; text-align: center; }
+    th:nth-child(3), td:nth-child(3), th:nth-child(4), td:nth-child(4) { width: 26mm; text-align: right; }
+    .totals { display: grid; gap: 5px; margin-top: 12px; padding: 8px 0; border-bottom: 1.4px solid #18245b; font-size: 14px; font-weight: 900; }
+    .totals div { display: grid; grid-template-columns: 30mm 32mm; justify-content: start; }
+    .notice { margin-top: 10px; color: #18245b; font-size: 12px; font-weight: 800; line-height: 1.3; }
+    .thanks { margin-top: 8px; font-family: Georgia, serif; font-size: 17px; font-style: italic; font-weight: 900; }
+    .attended { margin-top: 16px; padding-top: 8px; border-top: 1.4px solid #18245b; color: #111; font-size: 13px; font-weight: 800; }
+    @media print {
+      body { background: #fff; }
+      .page { width: auto; padding: 0; }
+      .no-print { display: none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="toolbar no-print"><button type="button" onclick="window.print()">Imprimir / Guardar PDF</button></div>
+  <div class="page">
+    <div class="invoice">
+      <section class="top">
+        <div>
+          <div class="brand">Dr. Movil<small>Servicio<br />Tecnico</small></div>
+          <div class="address">Bo. El Centro, Calle Gerardo, Frente a Cruz Roja,<br />Chinameca, San Miguel.</div>
+          <div class="phone">Tel. ${escapeHtml(repairInvoicePhone)}</div>
+        </div>
+        <div class="order"><strong>FACTURA VENTA</strong><span>No. ${escapeHtml(saleNumber)}</span></div>
+      </section>
+      <section class="meta">
+        <span>FECHA: <b>${escapeHtml(date)}</b></span>
+        <span>HORA: <b>${escapeHtml(time)}</b></span>
+        <span>CLIENTE: <b>Consumidor final</b></span>
+        <span>ATENDIDO POR: <b>${escapeHtml(attendedBy)}</b></span>
+      </section>
+      <table>
+        <thead><tr><th>CANT.</th><th>PRODUCTO / MODELO</th><th>PRECIO</th><th>TOTAL</th></tr></thead>
+        <tbody>
+          <tr>
+            <td>${escapeHtml(sale.quantity)}</td>
+            <td>${escapeHtml([sale.product, sale.productModel].filter(Boolean).join(" / "))}</td>
+            <td>${formatCurrency(Number(sale.price) || 0)}</td>
+            <td>${formatCurrency(lineTotal)}</td>
+          </tr>
+        </tbody>
+      </table>
+      <section class="totals">
+        <div><span>SUBTOTAL:</span><b>${formatCurrency(lineTotal)}</b></div>
+        <div><span>DESCUENTO:</span><b>${formatCurrency(Number(sale.discount) || 0)}</b></div>
+        <div><span>TOTAL:</span><b>${formatCurrency(Number(sale.total) || 0)}</b></div>
+        <div><span>RECIBIDO:</span><b>${formatCurrency(Number(sale.received) || 0)}</b></div>
+        <div><span>VUELTO:</span><b>${formatCurrency(Number(sale.change) || 0)}</b></div>
+      </section>
+      <div class="notice">No se aceptan reclamos sin este comprobante.</div>
+      <div class="thanks">Gracias por preferirnos.</div>
+      <div class="attended">Atendido por: ${escapeHtml(attendedBy)}</div>
+    </div>
+  </div>
+</body>
+</html>`;
+}
+
+function openSaleInvoice(sale) {
+  const invoiceWindow = window.open("", "_blank");
+  if (!invoiceWindow) {
+    salesHint.textContent = "Permite ventanas emergentes para generar la factura.";
+    return;
+  }
+  window.repairCloud?.registrarAuditoria(
+    "FACTURA_VENTA_EMITIDA",
+    `Factura de venta #${sale.saleNumber || ""}`,
+    currentUser?.username,
+    JSON.stringify({
+      saleId: getSaleRecordId(sale),
+      saleNumber: Number(sale.saleNumber) || 0,
+      product: sale.product || "",
+      productModel: sale.productModel || "",
+      total: Number(sale.total) || 0,
+      issuedAt: new Date().toISOString(),
+    }),
+  );
+  invoiceWindow.document.open();
+  invoiceWindow.document.write(buildSaleInvoiceHtml(sale));
+  invoiceWindow.document.close();
+}
+
+function openAdminApproval({ title, hint, submitText = "Autorizar", onApprove }) {
+  pendingAdminAction = onApprove;
+  pendingVoidSaleId = null;
   adminVoidForm.reset();
-  adminVoidHint.textContent = "Ingresa credenciales de administrador para continuar.";
+  if (adminVoidTitle) adminVoidTitle.textContent = title || "Credenciales de administrador";
+  if (adminVoidSubmitButton) adminVoidSubmitButton.textContent = submitText;
+  adminVoidHint.textContent = hint || "Ingresa credenciales root o administrador para continuar.";
   adminVoidOverlay.hidden = false;
   voidAdminUser.focus();
+}
+
+function openAdminVoid(saleId) {
+  openAdminApproval({
+    title: "Anular venta",
+    hint: "Ingresa credenciales root o administrador para anular esta venta.",
+    submitText: "Anular",
+    onApprove: (approver) => voidSaleWithApproval(saleId, approver),
+  });
+  pendingVoidSaleId = saleId;
 }
 
 function closeAdminVoid() {
   adminVoidOverlay.hidden = true;
   pendingVoidSaleId = null;
+  pendingAdminAction = null;
+  if (adminVoidTitle) adminVoidTitle.textContent = "Credenciales de administrador";
+  if (adminVoidSubmitButton) adminVoidSubmitButton.textContent = "Autorizar";
 }
 
 function getUndoBar() {
@@ -2904,7 +3374,7 @@ function setModule(moduleName) {
     moduleName = getAllowedModules()[0] || "permissions";
   }
   saveActiveModule(moduleName);
-  document.body.classList.toggle("entry-panel-active", ["sales", "parts", "repairs", "contacts"].includes(moduleName));
+  document.body.classList.toggle("entry-panel-active", ["sales", "products", "parts", "repairs", "contacts"].includes(moduleName));
   sessionPanel.classList.toggle("control-panel-wide", moduleName === "statistics");
   moduleTabs.forEach((button) => {
     const isAllowed = canAccessModule(button.dataset.module);
@@ -2915,6 +3385,7 @@ function setModule(moduleName) {
     const isActive =
       (moduleName === "permissions" && panel.id === "permissionsModule") ||
       (moduleName === "sales" && panel.id === "salesModule") ||
+      (moduleName === "products" && panel.id === "productsModule") ||
       (moduleName === "parts" && panel.id === "partsModule") ||
       (moduleName === "repairs" && panel.id === "repairsModule") ||
       (moduleName === "contacts" && panel.id === "contactsModule") ||
@@ -2924,7 +3395,8 @@ function setModule(moduleName) {
       (moduleName === "users" && panel.id === "usersModule");
     panel.classList.toggle("active", isActive);
   });
-  if (moduleName === "sales") { setNextSaleNumber(); updateSaleTotals(); renderSales(); }
+  if (moduleName === "sales") { setNextSaleNumber(); renderProducts(); updateSaleTotals(); renderSales(); }
+  if (moduleName === "products") renderProducts();
   if (moduleName === "repairs") {
     setNextRepairNumber();
     if (!repairCreatedAtInput.dataset.value) setRepairCreatedAt();
@@ -3145,6 +3617,148 @@ quickPartsForm.addEventListener("click", async (event) => {
   input.addEventListener("input", updateSaleTotals);
 });
 
+saleProductInput?.addEventListener("change", () => applySelectedSaleProduct());
+
+productCatalogForm?.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  if (!canManageProducts()) {
+    productCatalogHint.textContent = "Tu rol no puede editar el catalogo de productos.";
+    return;
+  }
+  const now = new Date().toISOString();
+  const editingId = productCatalogForm.dataset.editingId || "";
+  const product = {
+    id: editingId || crypto.randomUUID(),
+    productNumber: Number(catalogProductNumberInput.value) || getNextProductNumber(),
+    name: catalogProductNameInput.value.trim(),
+    exactModel: catalogProductModelInput.value.trim(),
+    price: Number(catalogProductPriceInput.value) || 0,
+    quantity: Math.max(0, Number(catalogProductQuantityInput.value) || 0),
+    active: true,
+    createdAt: now,
+    updatedAt: now,
+  };
+
+  if (!product.name || !product.exactModel || product.price <= 0) {
+    productCatalogHint.textContent = "Escribe producto, modelo exacto y precio mayor a cero.";
+    return;
+  }
+
+  try {
+    const products = await loadProductsFromSource();
+    const duplicated = products.find((item) =>
+      getProductRecordId(item) !== editingId &&
+      item.active !== false &&
+      normalizeSearch(item.name) === normalizeSearch(product.name) &&
+      normalizeSearch(item.exactModel) === normalizeSearch(product.exactModel)
+    );
+    if (duplicated) {
+      productCatalogHint.textContent = "Ese producto y modelo ya existen.";
+      return;
+    }
+
+    if (window.repairCloud?.isConfigured()) {
+      if (editingId) {
+        const existing = products.find((item) => getProductRecordId(item) === editingId) || {};
+        await window.repairCloud.updateProduct(editingId, normalizeProductForCloud({ ...existing, ...product, createdAt: existing.createdAt || now }));
+        await window.repairCloud.registrarAuditoria(
+          "PRODUCTO_EDITADO",
+          `Producto #${product.productNumber} editado`,
+          currentUser?.username,
+          JSON.stringify({ productId: editingId, name: product.name, exactModel: product.exactModel, quantity: product.quantity, price: product.price, editedAt: now }),
+        );
+        productCatalogHint.textContent = "Producto actualizado en Convex.";
+      } else {
+        await window.repairCloud.createProduct(normalizeProductForCloud(product));
+        await window.repairCloud.registrarAuditoria(
+          "PRODUCTO_AGREGADO",
+          `Producto #${product.productNumber} agregado`,
+          currentUser?.username,
+          JSON.stringify({ name: product.name, exactModel: product.exactModel, quantity: product.quantity, price: product.price, createdAt: now }),
+        );
+        productCatalogHint.textContent = "Producto guardado en Convex.";
+      }
+    } else {
+      if (editingId) {
+        const index = products.findIndex((item) => getProductRecordId(item) === editingId);
+        if (index !== -1) products[index] = { ...products[index], ...product, createdAt: products[index].createdAt || now };
+        productCatalogHint.textContent = "Producto actualizado.";
+      } else {
+        products.unshift(product);
+        productCatalogHint.textContent = "Producto guardado.";
+      }
+      saveProducts(products);
+    }
+
+    resetProductCatalogForm(products);
+    await renderProducts();
+  } catch (error) {
+    productCatalogHint.textContent = `No se pudo guardar producto: ${error.message}`;
+  }
+});
+
+productCatalogList?.addEventListener("click", async (event) => {
+  const editButton = event.target.closest("[data-edit-product-id]");
+  if (editButton) {
+    if (!canManageProducts()) {
+      productCatalogHint.textContent = "Tu rol no puede editar el catalogo de productos.";
+      return;
+    }
+    const productId = editButton.dataset.editProductId;
+    const product = loadProducts().find((item) => getProductRecordId(item) === productId);
+    if (!product) {
+      productCatalogHint.textContent = "No se encontro el producto.";
+      return;
+    }
+    productCatalogForm.dataset.editingId = productId;
+    catalogProductNumberInput.value = product.productNumber || "";
+    catalogProductNameInput.value = product.name || "";
+    catalogProductModelInput.value = product.exactModel || "";
+    catalogProductPriceInput.value = product.price ?? "";
+    catalogProductQuantityInput.value = product.quantity ?? "";
+    submitProductCatalogButton.textContent = "Guardar cambios";
+    productCatalogHint.textContent = "Editando producto.";
+    productCatalogForm.scrollIntoView({ behavior: "smooth", block: "center" });
+    return;
+  }
+
+  const button = event.target.closest("[data-delete-product-id]");
+  if (!button) return;
+  if (!canManageProducts()) {
+    productCatalogHint.textContent = "Tu rol no puede editar el catalogo de productos.";
+    return;
+  }
+  const productId = button.dataset.deleteProductId;
+
+  try {
+    const products = await loadProductsFromSource();
+    const product = products.find((item) => getProductRecordId(item) === productId);
+    if (window.repairCloud?.isConfigured()) {
+      await window.repairCloud.updateProduct(productId, { active: false, updatedAt: new Date().toISOString() });
+      await window.repairCloud.registrarAuditoria(
+        "PRODUCTO_BORRADO",
+        `Producto #${product?.productNumber || ""} desactivado`,
+        currentUser?.username,
+        JSON.stringify({ productId, name: product?.name || "", exactModel: product?.exactModel || "", deletedAt: new Date().toISOString() }),
+      );
+      productCatalogHint.textContent = "Producto desactivado en Convex.";
+    } else {
+      const products = loadProducts().map((product) =>
+        getProductRecordId(product) === productId ? { ...product, active: false, updatedAt: new Date().toISOString() } : product,
+      );
+      saveProducts(products);
+      productCatalogHint.textContent = "Producto desactivado.";
+    }
+    if (saleProductInput.value === productId) {
+      saleProductInput.value = "";
+      salePriceInput.value = "";
+    }
+    await renderProducts();
+  } catch (error) {
+    productCatalogHint.textContent = `No se pudo eliminar producto: ${error.message}`;
+  }
+});
+
 repairPhoneInput.addEventListener("input", () => {
   repairPhoneInput.value = repairPhoneInput.value.replace(/\D/g, "").slice(0, 11);
 });
@@ -3182,11 +3796,26 @@ loginForm.addEventListener("submit", async (event) => {
   }
 });
 
-salesForm.addEventListener("submit", (event) => {
+salesForm.addEventListener("submit", async (event) => {
   event.preventDefault();
-  const formData = new FormData(salesForm);
+  const selectedProduct = getSelectedSaleProduct();
+  if (!selectedProduct) {
+    salesHint.textContent = "Selecciona un producto del catalogo.";
+    return;
+  }
+  salePriceInput.value = (Number(selectedProduct.price) || 0).toFixed(2);
   const { quantity, price, discount, received, total, change } = getSaleValues();
-  const nextSaleNumber = loadSales().reduce((max, sale) => Math.max(max, sale.saleNumber), 0) + 1;
+  const availableQuantity = Number(selectedProduct.quantity) || 0;
+  if (quantity <= 0) {
+    salesHint.textContent = "La cantidad debe ser mayor a cero.";
+    return;
+  }
+  if (availableQuantity < quantity) {
+    salesHint.textContent = `Solo hay ${availableQuantity} disponible${availableQuantity === 1 ? "" : "s"} de ese producto.`;
+    return;
+  }
+  const existingSales = await loadSalesFromSource(1000);
+  const nextSaleNumber = Number(saleNumberInput.value) || existingSales.reduce((max, sale) => Math.max(max, Number(sale.saleNumber) || 0), 0) + 1;
   if (received < total) {
     salesHint.textContent = "El billete recibido no alcanza para cubrir el total.";
     return;
@@ -3194,7 +3823,9 @@ salesForm.addEventListener("submit", (event) => {
   openSaleConfirmation({
     id: crypto.randomUUID(),
     saleNumber: nextSaleNumber,
-    product: formData.get("product").trim(),
+    productId: getProductRecordId(selectedProduct),
+    product: selectedProduct.name,
+    productModel: selectedProduct.exactModel || "",
     quantity, price, discount, total, received, change,
     createdAt: new Date().toISOString(),
   });
@@ -3206,25 +3837,163 @@ editSaleButton.addEventListener("click", () => {
   salesHint.textContent = "Puedes corregir la venta antes de guardarla.";
 });
 
-confirmSaleButton.addEventListener("click", () => {
+async function savePendingSale() {
   if (!pendingSale) return;
-  const sales = loadSales();
-  sales.unshift(pendingSale);
-  saveSales(sales);
+  const saleToSave = pendingSale;
+  const products = await loadProductsFromSource();
+  const product = products.find((item) => getProductRecordId(item) === saleToSave.productId);
+  const currentQuantity = Number(product?.quantity) || 0;
+  if (!product || currentQuantity < saleToSave.quantity) {
+    salesHint.textContent = "La existencia cambio. Revisa el producto antes de guardar la venta.";
+    closeSaleConfirmation();
+    pendingSale = null;
+    await renderProducts();
+    return null;
+  }
+  const nextQuantity = Math.max(0, currentQuantity - saleToSave.quantity);
+  const updatedAt = new Date().toISOString();
+  if (window.repairCloud?.isConfigured()) {
+    await window.repairCloud.updateProduct(saleToSave.productId, { quantity: nextQuantity, updatedAt });
+  } else {
+    saveProducts(products.map((item) =>
+      getProductRecordId(item) === saleToSave.productId ? { ...item, quantity: nextQuantity, updatedAt } : item,
+    ));
+  }
+  const savedSale = await saveSaleToSource(saleToSave);
+  if (pendingEditApproval?.type === "sale") {
+    window.repairCloud?.registrarAuditoria(
+      "VENTA_EDITADA",
+      `Venta #${saleToSave.saleNumber} editada`,
+      pendingEditApproval.approvedBy || currentUser?.username,
+      JSON.stringify({
+        ...pendingEditApproval,
+        saleId: getSaleRecordId(savedSale || saleToSave),
+        saleNumber: Number(saleToSave.saleNumber) || 0,
+        product: saleToSave.product || "",
+        productModel: saleToSave.productModel || "",
+        quantity: Number(saleToSave.quantity) || 0,
+        discount: Number(saleToSave.discount) || 0,
+        total: Number(saleToSave.total) || 0,
+        editedAt: new Date().toISOString(),
+      }),
+    );
+    pendingEditApproval = null;
+  }
   salesForm.reset();
-  saleQuantityInput.value = 1;
+  resetSaleDefaults();
   setNextSaleNumber();
-  updateSaleTotals();
+  await renderProducts();
   renderSales();
   closeSaleConfirmation();
   pendingSale = null;
-  salesHint.textContent = "Se guardo registro.";
+  return savedSale;
+}
+
+async function restoreSaleProductStock(sale) {
+  if (!sale?.productId) return;
+  const products = await loadProductsFromSource();
+  const product = products.find((item) => getProductRecordId(item) === sale.productId);
+  if (!product) return;
+  const nextQuantity = (Number(product.quantity) || 0) + (Number(sale.quantity) || 0);
+  const updatedAt = new Date().toISOString();
+  if (window.repairCloud?.isConfigured()) {
+    await window.repairCloud.updateProduct(sale.productId, { quantity: nextQuantity, updatedAt });
+  } else {
+    saveProducts(products.map((item) =>
+      getProductRecordId(item) === sale.productId ? { ...item, quantity: nextQuantity, updatedAt } : item,
+    ));
+  }
+}
+
+async function beginEditSale(sale, approval) {
+  pendingEditApproval = approval || null;
+  await restoreSaleProductStock(sale);
+  await removeSaleFromSource(sale);
+  await renderProducts();
+  saleProductInput.value = sale.productId || "";
+  saleQuantityInput.value = sale.quantity || 1;
+  saleDiscountInput.value = (Number(sale.discount) || 0).toFixed(2);
+  saleReceivedInput.value = Number(sale.received) || "";
+  salePriceInput.value = (Number(sale.price) || 0).toFixed(2);
+  saleNumberInput.value = sale.saleNumber || saleNumberInput.value;
+  updateSaleTotals();
+  await renderSales();
+  salesHint.textContent = `Editando venta autorizada por ${approval?.approvedByName || approval?.approvedBy || "administrador"}. Guarda de nuevo para confirmar.`;
+  window.repairCloud?.registrarAuditoria(
+    "VENTA_EDICION_AUTORIZADA",
+    `Edicion autorizada para venta #${sale.saleNumber}`,
+    approval?.approvedBy || currentUser?.username,
+    JSON.stringify({
+      ...approval,
+      saleId: getSaleRecordId(sale),
+      saleNumber: sale.saleNumber,
+      product: sale.product,
+      productModel: sale.productModel,
+      total: Number(sale.total) || 0,
+    }),
+  );
+  salesForm.scrollIntoView({ behavior: "smooth", block: "center" });
+}
+
+confirmSaleButton.addEventListener("click", async () => {
+  if (!pendingSale) return;
+  try {
+    const savedSale = await savePendingSale();
+    if (savedSale) salesHint.textContent = "Se guardo registro.";
+  } catch (error) {
+    salesHint.textContent = `No se pudo guardar venta: ${error.message}`;
+  }
 });
 
-salesList.addEventListener("click", (event) => {
+printSaleInvoiceButton?.addEventListener("click", async () => {
+  if (!pendingSale) return;
+  try {
+    const savedSale = await savePendingSale();
+    if (!savedSale) return;
+    openSaleInvoice(savedSale);
+    salesHint.textContent = "Venta guardada y factura lista.";
+  } catch (error) {
+    salesHint.textContent = `No se pudo generar factura: ${error.message}`;
+  }
+});
+
+salesList.addEventListener("click", async (event) => {
+  const printButton = event.target.closest("[data-print-sale-id]");
+  if (printButton) {
+    const sale = loadSales().find((item) => getSaleRecordId(item) === printButton.dataset.printSaleId);
+    if (!sale) {
+      salesHint.textContent = "No se encontro la venta para imprimir.";
+      return;
+    }
+    openSaleInvoice(sale);
+    return;
+  }
+
+  const editButton = event.target.closest("[data-edit-sale-id]");
+  if (editButton) {
+    const sale = loadSales().find((item) => getSaleRecordId(item) === editButton.dataset.editSaleId);
+    if (!sale) {
+      salesHint.textContent = "No se encontro la venta para editar.";
+      return;
+    }
+    openAdminApproval({
+      title: "Editar venta",
+      hint: "Ingresa credenciales root o administrador para editar esta venta.",
+      submitText: "Autorizar",
+      onApprove: async (approver) => {
+        const approval = createApprovalRecord("sale", approver, {
+          saleId: getSaleRecordId(sale),
+          saleNumber: sale.saleNumber,
+        });
+        await beginEditSale(sale, approval);
+      },
+    });
+    return;
+  }
+
   const voidButton = event.target.closest(".void-sale-button");
   if (!voidButton) return;
-  const sale = loadSales().find((item) => item.id === voidButton.dataset.id);
+  const sale = loadSales().find((item) => getSaleRecordId(item) === voidButton.dataset.id);
   const saleLabel = sale ? `Venta #${sale.saleNumber}` : "esta venta";
   if (!confirm(`¿Seguro que quieres anular ${saleLabel}?`)) return;
   openAdminVoid(voidButton.dataset.id);
@@ -3232,22 +4001,9 @@ salesList.addEventListener("click", (event) => {
 
 cancelVoidButton.addEventListener("click", closeAdminVoid);
 
-adminVoidForm.addEventListener("submit", async (event) => {
-  event.preventDefault();
-  const isAdmin = window.repairCloud?.isConfigured()
-    ? await window.repairCloud.verifyAdmin(voidAdminUser.value, voidAdminPassword.value)
-    : loadUsers().some((user) =>
-        user.username.toLowerCase() === voidAdminUser.value.trim().toLowerCase() &&
-        user.password === voidAdminPassword.value &&
-        ["root", "admin"].includes(user.role)
-      );
-
-  if (!isAdmin) {
-    adminVoidHint.textContent = "Credenciales de administrador incorrectas.";
-    return;
-  }
-  const sales = loadSales();
-  const saleIndex = sales.findIndex((sale) => sale.id === pendingVoidSaleId);
+async function voidSaleWithApproval(saleId, approver) {
+  const sales = await loadSalesFromSource(500);
+  const saleIndex = sales.findIndex((sale) => getSaleRecordId(sale) === saleId);
   const saleToVoid = sales[saleIndex];
   if (!saleToVoid) {
     closeAdminVoid();
@@ -3256,22 +4012,47 @@ adminVoidForm.addEventListener("submit", async (event) => {
     return;
   }
   lastVoidedSale = { sale: saleToVoid, index: saleIndex };
-  sales.splice(saleIndex, 1);
-  saveSales(sales);
+  await restoreSaleProductStock(saleToVoid);
+  await removeSaleFromSource(saleToVoid);
   closeAdminVoid();
-  renderSales();
+  await renderProducts();
+  await renderSales();
   salesHint.textContent = "Venta anulada correctamente.";
-  window.repairCloud?.registrarAuditoria("VENTA_ANULADA", `Venta #${saleToVoid.saleNumber} anulada`, currentUser?.username, JSON.stringify({ total: saleToVoid.total, producto: saleToVoid.product }));
-  showUndoBar("Venta anulada.", () => {
-    if (!lastVoidedSale) return;
-    const restoredSales = loadSales();
-    restoredSales.splice(lastVoidedSale.index, 0, lastVoidedSale.sale);
-    saveSales(restoredSales);
-    salesHint.textContent = "Anulacion deshecha.";
-    lastVoidedSale = null;
-    renderSales();
-    setNextSaleNumber();
-  });
+  window.repairCloud?.registrarAuditoria(
+    "VENTA_ANULADA",
+    `Venta #${saleToVoid.saleNumber} anulada`,
+    approver?.username || currentUser?.username,
+    JSON.stringify({
+      approvedBy: approver?.username || "",
+      approvedByName: approver?.name || approver?.username || "Administrador",
+      requestedBy: currentUser?.username || "",
+      requestedByName: currentUser?.name || currentUser?.username || "Usuario",
+      total: saleToVoid.total,
+      producto: saleToVoid.product,
+    }),
+  );
+  lastVoidedSale = null;
+}
+
+adminVoidForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  if (!pendingAdminAction) {
+    adminVoidHint.textContent = "No hay una accion pendiente.";
+    return;
+  }
+
+  try {
+    const approver = await verifyPrivilegedCredentials(voidAdminUser.value, voidAdminPassword.value);
+    if (!approver) {
+      adminVoidHint.textContent = "Credenciales root o administrador incorrectas.";
+      return;
+    }
+    const action = pendingAdminAction;
+    await action(approver);
+    closeAdminVoid();
+  } catch (error) {
+    adminVoidHint.textContent = `No se pudo autorizar: ${error.message}`;
+  }
 });
 
 quickPartsForm.addEventListener("submit", async (event) => {
@@ -3355,27 +4136,18 @@ repairsList.addEventListener("click", (event) => {
   const repairs = loadRepairs();
   const repair = findRepairByRecordId(repairs, editButton.dataset.repairId);
   if (!repair) return;
-  repairCustomerInput.value = repair.customer;
-  repairPhoneInput.value = repair.phone;
-  repairEmailInput.value = repair.email || "";
-  repairBrandInput.value = repair.brand;
-  repairModelInput.value = repair.model;
-  repairTypeInput.value = repair.repairType;
-  repairPriceInput.value = repair.repairPrice ?? "";
-  repairAbonoInput.value = repair.abono ?? "";
-  repairStatusInput.value = repair.status;
-  document.querySelector("#repairDeviceType").value = repair.deviceType;
-  document.querySelector("#repairNotes").value = repair.notes || "";
-  repairCreatedAtInput.dataset.value = repair.createdAt;
-  repairCreatedAtInput.value = formatRepairDateTimeInput(repair.createdAt);
-  repairDeliveredAtInput.dataset.value = repair.deliveredAt || "";
-  repairDeliveredAtInput.value = repair.deliveredAt ? formatRepairDateTimeInput(repair.deliveredAt) : "";
-  repairNumberInput.value = repair.repairNumber;
-  repairsForm.dataset.editingId = getRepairRecordId(repair);
-  updateRepairDeliveredAt();
-  repairsHint.textContent = "Editando reparacion - guarda para confirmar los cambios.";
-  document.querySelector("#submitRepairs").textContent = "Guardar cambios";
-  repairsForm.scrollIntoView({ behavior: "smooth", block: "start" });
+  openAdminApproval({
+    title: "Editar reparacion",
+    hint: "Ingresa credenciales root o administrador para editar esta reparacion.",
+    submitText: "Autorizar",
+    onApprove: async (approver) => {
+      const approval = createApprovalRecord("repair", approver, {
+        repairId: getRepairRecordId(repair),
+        repairNumber: repair.repairNumber,
+      });
+      openRepairInForm(repair, approval);
+    },
+  });
 });
 
 repairsList.addEventListener("click", (event) => {
@@ -3390,8 +4162,9 @@ repairsList.addEventListener("click", (event) => {
   openRepairInvoice(repair);
 });
 
-function openRepairInForm(repair) {
+function openRepairInForm(repair, approval = null) {
   if (!repair) return;
+  pendingEditApproval = approval || null;
   setModule("repairs");
   repairCustomerInput.value = repair.customer;
   repairPhoneInput.value = repair.phone;
@@ -3411,7 +4184,23 @@ function openRepairInForm(repair) {
   repairNumberInput.value = repair.repairNumber;
   repairsForm.dataset.editingId = getRepairRecordId(repair);
   updateRepairDeliveredAt();
-  repairsHint.textContent = "Editando reparacion - guarda para confirmar los cambios.";
+  repairsHint.textContent = approval
+    ? `Editando reparacion autorizada por ${approval.approvedByName || approval.approvedBy}. Guarda para confirmar los cambios.`
+    : "Editando reparacion - guarda para confirmar los cambios.";
+  if (approval) {
+    window.repairCloud?.registrarAuditoria(
+      "REPARACION_EDICION_AUTORIZADA",
+      `Edicion autorizada para reparacion #${repair.repairNumber}`,
+      approval.approvedBy || currentUser?.username,
+      JSON.stringify({
+        ...approval,
+        repairId: getRepairRecordId(repair),
+        repairNumber: repair.repairNumber,
+        customer: repair.customer,
+        repairPrice: Number(repair.repairPrice) || 0,
+      }),
+    );
+  }
   document.querySelector("#submitRepairs").textContent = "Guardar cambios";
   repairsForm.scrollIntoView({ behavior: "smooth", block: "start" });
 }
@@ -3422,7 +4211,18 @@ function handlePendingRepairEdit() {
   sessionStorage.removeItem("pendingRepairEdit");
 
   try {
-    openRepairInForm(JSON.parse(pendingRepair));
+    const repair = JSON.parse(pendingRepair);
+    openAdminApproval({
+      title: "Editar reparacion",
+      hint: "Ingresa credenciales root o administrador para editar esta reparacion.",
+      submitText: "Autorizar",
+      onApprove: async (approver) => {
+        openRepairInForm(repair, createApprovalRecord("repair", approver, {
+          repairId: getRepairRecordId(repair),
+          repairNumber: repair.repairNumber,
+        }));
+      },
+    });
   } catch {
     repairsHint.textContent = "No se pudo abrir la reparacion para editar.";
   }
@@ -3468,6 +4268,10 @@ repairsForm.addEventListener("submit", async (event) => {
   if (!validateEmailInput(repairEmailInput, repairsHint)) return;
 
   if (editingId) {
+    if (pendingEditApproval?.type !== "repair") {
+      repairsHint.textContent = "Necesitas autorizacion root o administrador para guardar esta edicion.";
+      return;
+    }
     const index = repairs.findIndex((repair) => getRepairRecordId(repair) === editingId);
     const existingRepair = index !== -1 ? repairs[index] : {};
     const updatedRepair = {
@@ -3494,7 +4298,21 @@ repairsForm.addEventListener("submit", async (event) => {
     delete repairsForm.dataset.editingId;
     document.querySelector("#submitRepairs").textContent = "Guardar reparacion";
     repairsHint.textContent = "Reparacion actualizada correctamente.";
-    window.repairCloud?.registrarAuditoria("REPARACION_EDITADA", `Reparacion #${updatedRepair.repairNumber} editada`, currentUser?.username);
+    window.repairCloud?.registrarAuditoria(
+      "REPARACION_EDITADA",
+      `Reparacion #${updatedRepair.repairNumber} editada`,
+      pendingEditApproval.approvedBy || currentUser?.username,
+      JSON.stringify({
+        ...pendingEditApproval,
+        repairId: getRepairRecordId(updatedRepair),
+        repairNumber: updatedRepair.repairNumber,
+        customer: updatedRepair.customer,
+        repairPrice: Number(updatedRepair.repairPrice) || 0,
+        abono: Number(updatedRepair.abono) || 0,
+        editedAt: new Date().toISOString(),
+      }),
+    );
+    pendingEditApproval = null;
   } else {
     const nextRepairNumber = Number(repairNumberInput.value) || repairs.reduce((max, r) => Math.max(max, r.repairNumber), 0) + 1;
     const repairData = {
@@ -3608,6 +4426,9 @@ usersForm.addEventListener("submit", async (event) => {
 
   if (userData.role === "root" && !userData.modules.includes("users")) {
     userData.modules.push("users");
+  }
+  if (userData.modules.includes("products") && !userData.modules.includes("sales")) {
+    userData.modules.push("sales");
   }
   if (userData.role === "activador") {
     userData.modules = ["parts"];
@@ -3749,9 +4570,10 @@ setRepairCreatedAt();
 renderRepairBrandOptions();
 renderRepairModelOptions();
 renderRepairTypeOptions();
-updateSaleTotals();
+resetSaleDefaults();
 updateDateTime();
 if (!isBootRestoringSession) {
+  renderProducts();
   renderSales();
   renderRepairs();
   refreshQuickPartsView();
