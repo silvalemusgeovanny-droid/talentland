@@ -22,12 +22,21 @@ function saveRepairs(repairs) {
 
 async function loadRepairsFromSource(search = "") {
   if (window.repairCloud?.isConfigured()) {
-    const repairs = await window.repairCloud.listRepairs({ search, limit: 10000 });
+    const repairs = await window.repairCloud.listRepairs({ search, limit: 50 });
     if (!search) saveRepairs(repairs);
     return repairs;
   }
 
-  return loadRepairs();
+  const repairs = loadRepairs();
+  if (search.trim()) return repairs;
+
+  return [...repairs]
+    .sort((a, b) => {
+      const dateDiff = new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime();
+      if (dateDiff) return dateDiff;
+      return (Number(b.repairNumber) || 0) - (Number(a.repairNumber) || 0);
+    })
+    .slice(0, 50);
 }
 
 function escapeHtml(value) {
@@ -107,7 +116,7 @@ async function renderRepairs() {
     return;
   }
 
-  const filteredRepairs = window.repairCloud?.isConfigured() ? repairs : getFilteredRepairs(repairs, search);
+  const filteredRepairs = (window.repairCloud?.isConfigured() ? repairs : getFilteredRepairs(repairs, search)).slice(0, 50);
   renderedRepairs = filteredRepairs;
   const repairValue = repairs.reduce((sum, repair) => sum + (Number(repair.repairPrice) || 0), 0);
   const deliveredCount = repairs.filter((repair) => repair.status === "Entregado").length;

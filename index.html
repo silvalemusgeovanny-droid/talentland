@@ -3,6 +3,9 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate" />
+    <meta http-equiv="Pragma" content="no-cache" />
+    <meta http-equiv="Expires" content="0" />
     <title>Login | Inventario y Reparaciones</title>
     <script>
       try {
@@ -12,7 +15,7 @@
         }
       } catch {}
     </script>
-    <link rel="stylesheet" href="styles.css?v=password-toggle-1" />
+    <link rel="stylesheet" href="styles.css?v=invoices-module-1" />
   </head>
   <body>
     <main class="app-shell">
@@ -100,6 +103,8 @@
             <button class="module-tab" type="button" data-module="sales">Ventas</button>
             <button class="module-tab" type="button" data-module="parts">Repuestos</button>
             <button class="module-tab" type="button" data-module="repairs">Reparaciones</button>
+            <button class="module-tab" type="button" data-module="contacts">Contactos</button>
+            <button class="module-tab" type="button" data-module="invoices">Facturas</button>
             <button class="module-tab" type="button" data-module="statistics">Resumen</button>
             <button class="module-tab" type="button" data-module="database">Datos</button>
             <button class="module-tab" type="button" data-module="users">Usuarios</button>
@@ -284,6 +289,10 @@
                   <label for="repairPhone">Celular</label>
                   <input id="repairPhone" name="phone" type="tel" inputmode="numeric" maxlength="11" pattern="[0-9]{1,11}" placeholder="Max. 11 digitos" required />
                 </div>
+                <div>
+                  <label for="repairEmail">Correo</label>
+                  <input id="repairEmail" name="email" type="email" placeholder="correo@ejemplo.com" />
+                </div>
               </div>
 
               <label for="repairBrand">Marca</label>
@@ -314,8 +323,16 @@
                 </div>
               </div>
 
-              <label for="repairPrice">Precio de reparacion</label>
-              <input id="repairPrice" name="repairPrice" type="number" min="0" step="0.01" placeholder="0.00" required />
+              <div class="field-grid">
+                <div>
+                  <label for="repairPrice">Precio de reparacion</label>
+                  <input id="repairPrice" name="repairPrice" type="number" min="0" step="0.01" placeholder="0.00" required />
+                </div>
+                <div>
+                  <label for="repairAbono">Abono</label>
+                  <input id="repairAbono" name="abono" type="number" min="0" step="0.01" placeholder="0.00" />
+                </div>
+              </div>
 
               <label for="repairNotes">Notas</label>
               <textarea id="repairNotes" name="notes" rows="4" placeholder="Observaciones, accesorios, detalles del equipo..."></textarea>
@@ -333,6 +350,82 @@
             </div>
 
             <div class="compact-list repairs-list" id="repairsList"></div>
+          </section>
+
+          <section class="module-panel contacts-module" id="contactsModule">
+            <form class="contacts-form" id="contactsForm">
+              <div class="users-form-heading">
+                <span class="panel-kicker">Contacto</span>
+                <strong>Cliente y telefono</strong>
+              </div>
+
+              <label for="contactName">Nombre</label>
+              <input id="contactName" name="name" type="text" list="contactRepairOptions" placeholder="Nombre del cliente" required />
+              <datalist id="contactRepairOptions"></datalist>
+
+              <div class="field-grid">
+                <div>
+                  <label for="contactPhone">Telefono</label>
+                  <input id="contactPhone" name="phone" type="tel" inputmode="tel" placeholder="Numero de telefono" required />
+                </div>
+                <div>
+                  <label for="contactEmail">Correo</label>
+                  <input id="contactEmail" name="email" type="email" placeholder="correo@ejemplo.com" />
+                </div>
+              </div>
+
+              <label for="contactNotes">Notas</label>
+              <textarea id="contactNotes" name="notes" rows="3" placeholder="Equipo, referencia o detalle del cliente"></textarea>
+
+              <div class="contact-actions">
+                <button class="primary-button" type="submit" id="submitContact">Guardar contacto</button>
+                <button class="secondary-button" type="button" id="saveContactToGoogle">Guardar en Google</button>
+              </div>
+              <p class="hint" id="contactsHint">Guarda telefonos de clientes en Convex.</p>
+            </form>
+
+            <div class="daily-sales-header">
+              <div>
+                <span class="panel-kicker">Directorio</span>
+                <strong id="contactsCount">0 contactos</strong>
+              </div>
+              <div class="contact-actions">
+                <button class="inline-action-button" type="button" id="connectGoogleContacts">Conectar Google</button>
+                <button class="inline-action-button" type="button" id="importGoogleContacts">Importar Google</button>
+              </div>
+            </div>
+
+            <input id="contactSearch" type="search" placeholder="Buscar contacto o telefono" />
+            <div class="compact-list contacts-list" id="contactsList"></div>
+          </section>
+
+          <section class="module-panel invoices-module" id="invoicesModule">
+            <div class="users-panel-header">
+              <div>
+                <span class="panel-kicker">Documentos</span>
+                <strong>Facturas emitidas</strong>
+                <p>Consulta, busca y vuelve a imprimir facturas guardadas en Convex.</p>
+              </div>
+              <span id="invoicesSummary">0 facturas</span>
+            </div>
+
+            <div class="invoice-tools">
+              <input id="invoiceSearch" type="search" placeholder="Buscar cliente, telefono, equipo o numero" />
+              <button class="inline-action-button" type="button" id="refreshInvoices">Actualizar</button>
+            </div>
+
+            <div class="invoice-total-strip">
+              <article>
+                <span>Total facturado</span>
+                <strong id="invoicesTotal">$0.00</strong>
+              </article>
+              <article>
+                <span>Ultima factura</span>
+                <strong id="latestInvoiceDate">Sin registros</strong>
+              </article>
+            </div>
+
+            <div class="compact-list invoices-list" id="invoicesList"></div>
           </section>
 
           <section class="module-panel database-module" id="databaseModule">
@@ -439,7 +532,7 @@
             </div>
           </section>
 
-          <a class="module-link" href="repuestos.html" id="moduleLink">Ver pagina completa de repuestos</a>
+          <a class="module-link" href="reparaciones.html" id="moduleLink" hidden>Ver registros de reparaciones</a>
           <button class="secondary-button" type="button" id="logoutButton">Cerrar sesion</button>
         </aside>
       </section>
@@ -580,8 +673,13 @@
 
 <script src="reparaciones-db.js?v=parts-model-1"></script>
     <script src="convex-config.js?v=parts-model-1"></script>
-    <script src="convex-client.js?v=users-sync-2"></script>
+    <script src="convex-client.js?v=invoices-module-1"></script>
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
     <script src="https://unpkg.com/convex/dist/browser.js"></script>
-    <script src="script.js?v=password-toggle-1"></script>
+    <script>
+      const appScript = document.createElement("script");
+      appScript.src = `script.js?v=${Date.now()}`;
+      document.body.append(appScript);
+    </script>
   </body>
 </html>

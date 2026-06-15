@@ -23,7 +23,10 @@ body {
   color: var(--ink);
 }
 
-html.session-restoring .login-card {
+html.session-restoring .app-shell,
+html.session-restoring .date-time,
+html.session-restoring .color-mode-toggle,
+html.session-restoring .notes-toggle {
   visibility: hidden;
 }
 
@@ -43,6 +46,10 @@ textarea {
 
 body.statistics-active .app-shell {
   grid-template-columns: minmax(220px, 0.45fr) minmax(720px, 1.55fr);
+}
+
+body.entry-panel-active .app-shell {
+  grid-template-columns: minmax(260px, 0.55fr) minmax(760px, 1.45fr);
 }
 
 body.users-active .app-shell {
@@ -553,6 +560,12 @@ body.statistics-active .login-stage {
   padding-left: clamp(18px, 3vw, 44px);
 }
 
+body.entry-panel-active .login-stage {
+  place-items: center stretch;
+  padding-right: clamp(18px, 3vw, 44px);
+  padding-left: clamp(18px, 3vw, 44px);
+}
+
 body.users-active .login-stage {
   place-items: center stretch;
   min-height: 100vh;
@@ -634,6 +647,11 @@ body.users-active .login-stage {
   background: rgb(255 255 255 / 92%);
   box-shadow: 0 24px 60px rgb(17 24 32 / 18%);
   backdrop-filter: blur(18px);
+}
+
+body.entry-panel-active .session-panel {
+  width: min(100%, 920px);
+  justify-self: stretch;
 }
 
 body.users-active .session-panel {
@@ -983,6 +1001,8 @@ input[readonly] {
 }
 
 .database-module.active,
+.contacts-module.active,
+.invoices-module.active,
 .users-module.active {
   display: grid;
   gap: 14px;
@@ -996,15 +1016,74 @@ input[readonly] {
 .compact-parts-form .primary-button,
 .sales-form .primary-button,
 .repairs-form .primary-button,
+.contacts-form .primary-button,
 .users-form .primary-button {
   margin-top: 16px;
 }
 
 .sales-form,
 .repairs-form,
+.contacts-form,
 .users-form {
   display: grid;
   gap: 0;
+}
+
+body.entry-panel-active :is(.sales-form, .compact-parts-form, .repairs-form, .contacts-form) {
+  align-items: center;
+  column-gap: 14px;
+  row-gap: 4px;
+}
+
+body.entry-panel-active :is(.sales-form, .contacts-form) {
+  grid-template-columns: minmax(120px, 160px) repeat(2, minmax(0, 1fr));
+}
+
+body.entry-panel-active :is(.compact-parts-form, .repairs-form) {
+  grid-template-columns: minmax(120px, 150px) repeat(3, minmax(0, 1fr));
+}
+
+body.entry-panel-active :is(.sales-form, .compact-parts-form, .repairs-form, .contacts-form) > :is(label, input, select, textarea, .field-grid, .managed-option-row, .sale-total-box, .contact-actions, .users-form-heading, .hint, button) {
+  min-width: 0;
+}
+
+body.entry-panel-active :is(.sales-form, .compact-parts-form, .repairs-form, .contacts-form) > label {
+  margin-top: 9px;
+  align-self: center;
+}
+
+body.entry-panel-active :is(.sales-form, .contacts-form) > label {
+  grid-column: 1;
+}
+
+body.entry-panel-active :is(.sales-form, .contacts-form) > :is(input, select, textarea) {
+  grid-column: 2 / -1;
+}
+
+body.entry-panel-active :is(.compact-parts-form, .repairs-form) > label {
+  grid-column: 1;
+}
+
+body.entry-panel-active :is(.compact-parts-form, .repairs-form) > :is(input, select, textarea, .managed-option-row) {
+  grid-column: 2 / -1;
+}
+
+body.entry-panel-active .sales-form > .field-grid,
+body.entry-panel-active .contacts-form > .field-grid {
+  grid-column: 1 / -1;
+}
+
+body.entry-panel-active .compact-parts-form > .field-grid,
+body.entry-panel-active .repairs-form > .field-grid {
+  grid-column: 1 / -1;
+}
+
+body.entry-panel-active :is(.sales-form, .compact-parts-form, .repairs-form, .contacts-form) > :is(.sale-total-box, .contact-actions, .users-form-heading, .hint, button) {
+  grid-column: 1 / -1;
+}
+
+body.entry-panel-active :is(.repairs-form, .contacts-form) > textarea {
+  min-height: 82px;
 }
 
 .sale-total-box {
@@ -1031,7 +1110,7 @@ input[readonly] {
 .compact-list {
   display: grid;
   gap: 8px;
-  max-height: 180px;
+  max-height: min(220px, 28vh);
   overflow: auto;
 }
 
@@ -1121,6 +1200,73 @@ input[readonly] {
   background: white;
   color: var(--ink);
   box-shadow: 0 4px 14px rgb(17 24 32 / 9%);
+}
+
+.invoice-tools {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+}
+
+.invoice-total-strip {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.invoice-total-strip article,
+.invoice-item {
+  border: 1px solid rgb(23 32 38 / 10%);
+  border-radius: 8px;
+  background: rgb(255 255 255 / 86%);
+}
+
+.invoice-total-strip article {
+  display: grid;
+  gap: 5px;
+  padding: 12px;
+}
+
+.invoice-total-strip span,
+.invoice-item span {
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 900;
+}
+
+.invoice-total-strip strong {
+  color: var(--ink);
+  font-size: 1.05rem;
+}
+
+.invoices-list {
+  max-height: min(420px, 46vh);
+}
+
+.invoice-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  padding: 12px;
+}
+
+.invoice-item > div:first-child {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.invoice-item strong,
+.invoice-item b {
+  color: var(--ink);
+}
+
+.invoice-item-actions {
+  display: grid;
+  gap: 8px;
+  justify-items: end;
 }
 
 .control-dashboard {
@@ -2112,7 +2258,7 @@ body.users-active .users-panel-header {
 .session-panel {
   display: grid;
   gap: 22px;
-  max-height: calc(100vh - 120px);
+  max-height: calc(100vh - 72px);
   overflow: auto;
 }
 
@@ -2492,6 +2638,16 @@ body.users-active .session-panel {
   mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cg fill='none' stroke='white' stroke-linecap='round' stroke-linejoin='round' stroke-width='2.2'%3E%3Cpath d='M4 7h16'/%3E%3Cpath d='M9 7V5.3A1.3 1.3 0 0 1 10.3 4h3.4A1.3 1.3 0 0 1 15 5.3V7'/%3E%3Cpath d='M6.5 7 7.5 19A2.2 2.2 0 0 0 9.7 21h4.6a2.2 2.2 0 0 0 2.2-2L17.5 7'/%3E%3Cpath d='M10 11v6'/%3E%3Cpath d='M14 11v6'/%3E%3C/g%3E%3C/svg%3E") center / contain no-repeat;
 }
 
+.icon-invoice-button {
+  color: #176b87;
+}
+
+.icon-invoice-button::before {
+  inset: 7px;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cg fill='none' stroke='white' stroke-linecap='round' stroke-linejoin='round' stroke-width='2.1'%3E%3Cpath d='M7 3.5h7l4 4V20a1.5 1.5 0 0 1-1.5 1.5h-9A1.5 1.5 0 0 1 6 20V5A1.5 1.5 0 0 1 7.5 3.5Z'/%3E%3Cpath d='M14 3.5V8h4'/%3E%3Cpath d='M9 12h6'/%3E%3Cpath d='M9 15h6'/%3E%3Cpath d='M9 18h3'/%3E%3C/g%3E%3C/svg%3E") center / contain no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cg fill='none' stroke='white' stroke-linecap='round' stroke-linejoin='round' stroke-width='2.1'%3E%3Cpath d='M7 3.5h7l4 4V20a1.5 1.5 0 0 1-1.5 1.5h-9A1.5 1.5 0 0 1 6 20V5A1.5 1.5 0 0 1 7.5 3.5Z'/%3E%3Cpath d='M14 3.5V8h4'/%3E%3Cpath d='M9 12h6'/%3E%3Cpath d='M9 15h6'/%3E%3Cpath d='M9 18h3'/%3E%3C/g%3E%3C/svg%3E") center / contain no-repeat;
+}
+
 .field-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -2539,6 +2695,55 @@ table {
   min-width: 1180px;
   border-collapse: collapse;
   background: #ffffff;
+}
+
+.repairs-table {
+  min-width: 0;
+  table-layout: fixed;
+}
+
+.repairs-table th,
+.repairs-table td {
+  padding: 9px 8px;
+  font-size: 0.78rem;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
+.repairs-table th {
+  font-size: 0.68rem;
+}
+
+.repairs-table th:nth-child(1),
+.repairs-table td:nth-child(1) {
+  width: 48px;
+}
+
+.repairs-table th:nth-child(3),
+.repairs-table td:nth-child(3),
+.repairs-table th:nth-child(6),
+.repairs-table td:nth-child(6),
+.repairs-table th:nth-child(7),
+.repairs-table td:nth-child(7),
+.repairs-table th:nth-child(8),
+.repairs-table td:nth-child(8) {
+  width: 92px;
+}
+
+.repairs-table th:nth-child(9),
+.repairs-table td:nth-child(9) {
+  width: 96px;
+}
+
+.repairs-table .table-action-icons {
+  gap: 5px;
+  min-width: 0;
+}
+
+.repairs-table .icon-action-button {
+  width: 34px;
+  min-width: 34px;
+  min-height: 34px;
 }
 
 :is(body.login-dark, html.login-dark body) table {

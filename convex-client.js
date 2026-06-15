@@ -47,6 +47,8 @@
     registrarAuditoria: (tipo, descripcion, usuario = "sistema", datos = "") =>
       callConvex("mutation", "auditoria:registrar", { tipo, descripcion, usuario, datos }),
     obtenerAuditoria: () => callConvex("query", "auditoria:obtener", {}),
+    createInvoice: (invoice) => callConvex("mutation", "facturas:create", invoice),
+    listInvoices: (limit = 100) => callConvex("query", "facturas:list", { limit }),
     listNotes: () => callConvex("query", "notas:list", {}),
     createNote: (note) => callConvex("mutation", "notas:create", note),
     importNotes: (notes) => callConvex("mutation", "notas:importBatch", { notes }),
@@ -57,5 +59,10 @@
     updatePart: (id, patch) => callConvex("mutation", "repuestos:update", { id, patch }),
     removePart: (id) => callConvex("mutation", "repuestos:remove", { id }),
     importParts: (parts) => callConvex("mutation", "repuestos:importBatch", { parts }),
+    listContacts: () => callConvex("query", "contactos:list", {}),
+    createContact: (contact) => callConvex("mutation", "contactos:create", contact),
+    updateContact: (id, patch) => callConvex("mutation", "contactos:update", { id, patch }),
+    removeContact: (id) => callConvex("mutation", "contactos:remove", { id }),
+    importContacts: (contacts) => callConvex("mutation", "contactos:importBatch", { contacts }),
   };
 })();

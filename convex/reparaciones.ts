@@ -7,6 +7,7 @@ const repairFields = {
   customer: v.string(),
   deviceType: v.string(),
   phone: v.string(),
+  email: v.optional(v.string()),
   brand: v.string(),
   model: v.string(),
   repairType: v.string(),
@@ -14,6 +15,7 @@ const repairFields = {
   createdAt: v.string(),
   deliveredAt: v.string(),
   repairPrice: v.number(),
+  abono: v.optional(v.number()),
   notes: v.string(),
 };
 
@@ -23,6 +25,7 @@ const repairPatchFields = {
   customer: v.optional(v.string()),
   deviceType: v.optional(v.string()),
   phone: v.optional(v.string()),
+  email: v.optional(v.string()),
   brand: v.optional(v.string()),
   model: v.optional(v.string()),
   repairType: v.optional(v.string()),
@@ -30,6 +33,7 @@ const repairPatchFields = {
   createdAt: v.optional(v.string()),
   deliveredAt: v.optional(v.string()),
   repairPrice: v.optional(v.number()),
+  abono: v.optional(v.number()),
   notes: v.optional(v.string()),
 };
 
@@ -47,7 +51,7 @@ export const list = query({
   },
   handler: async (ctx, args) => {
     const search = normalizeSearch((args.search || "").trim());
-    const limit = args.limit || 200;
+    const limit = args.limit || 50;
 
     if (!search) {
       return await ctx.db.query("reparaciones").order("desc").take(limit);
@@ -58,6 +62,7 @@ export const list = query({
     return repairs.filter((repair) =>
       [
         repair.customer,
+        repair.email,
         repair.deviceType,
         repair.brand,
         repair.model,
@@ -66,7 +71,7 @@ export const list = query({
         repair.notes,
         String(repair.repairNumber),
       ].some((field) => normalizeSearch(field || "").includes(search)),
-    );
+    ).slice(0, limit);
   },
 });
 

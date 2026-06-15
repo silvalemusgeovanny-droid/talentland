@@ -18,6 +18,64 @@ El sistema sirve como prototipo visual y funcional de:
 
 ## Archivos principales
 
+### `telegram-bot.mjs`
+
+Bot de Telegram conectado a Convex. Permite buscar reparaciones, consultar repuestos,
+ver notas pendientes y crear notas desde Telegram.
+
+Comandos disponibles:
+
+- `/buscar texto`
+- `/repuestos texto`
+- `/stock texto`
+- `/precio texto`
+- `/ia pregunta`
+- `/mi_chat_id`
+- `/reset`
+- `/ayuda`
+
+Para configurarlo:
+
+1. Crear un bot con BotFather y copiar el token.
+2. Agregar estas variables en `.env.local`:
+
+```text
+TELEGRAM_BOT_TOKEN=token_de_botfather
+TELEGRAM_ALLOWED_CHAT_IDS=123456789
+TELEGRAM_REQUIRE_AUTH=true
+TELEGRAM_SILENT_UNAUTHORIZED=true
+TELEGRAM_ONLY_PARTS=true
+GOOGLE_AI_API_KEY=api_key_de_google_ai_studio
+```
+
+`CONVEX_URL` ya existe en este proyecto. `TELEGRAM_ALLOWED_CHAT_IDS` es opcional,
+pero recomendado para limitar quien puede usar el bot. Se pueden poner varios IDs
+separados por coma.
+
+La variable `GOOGLE_AI_API_KEY` es opcional y activa el comando `/ia`. Puedes crear
+la clave en Google AI Studio.
+
+Cuando alguien pregunta por repuestos sin indicar marca o modelo, el bot pide el
+dato antes de consultar. Por ejemplo, ante "hay pantallas?" respondera pidiendo
+un modelo como "iPhone 11" o "Samsung A12".
+
+El comando `/precio` muestra el precio a cliente final del repuesto consultado.
+Tambien detecta preguntas como "precio de pantalla iPhone 11".
+
+Con `TELEGRAM_REQUIRE_AUTH=true`, solo los chats listados en
+`TELEGRAM_ALLOWED_CHAT_IDS` pueden usar el bot. Con
+`TELEGRAM_SILENT_UNAUTHORIZED=true`, el bot ignora chats no autorizados sin
+responderles.
+
+Con `TELEGRAM_ONLY_PARTS=true`, el bot queda en modo pruebas y solo consulta
+repuestos. Los comandos de reparaciones y notas responden que estan desactivados.
+
+Para ejecutarlo:
+
+```text
+npm run bot:telegram
+```
+
 ### `index.html`
 
 Es la pantalla principal del proyecto. Contiene:

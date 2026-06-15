@@ -1,6 +1,8 @@
 {
+  "type": "module",
   "scripts": {
     "convex:dev": "convex dev",
+    "bot:telegram": "node telegram-bot.mjs",
     "test": "vitest"
   },
   "devDependencies": {
