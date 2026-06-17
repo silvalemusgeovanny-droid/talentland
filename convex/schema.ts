@@ -49,7 +49,9 @@ export default defineSchema({
     notes: v.string(),
   })
     .index("by_source_id", ["sourceId"])
-    .index("by_repair_number", ["repairNumber"]),
+    .index("by_repair_number", ["repairNumber"])
+    .index("by_created_at", ["createdAt"])
+    .index("by_delivered_at", ["deliveredAt"]),
 
   auditoria: defineTable({
     tipo: v.string(),
@@ -57,27 +59,22 @@ export default defineSchema({
     usuario: v.string(),
     datos: v.string(),
     fecha: v.string(),
-  }),
+  }).index("by_fecha", ["fecha"]),
 
-  facturas: defineTable({
-    repairId: v.optional(v.string()),
-    repairNumber: v.number(),
-    customer: v.string(),
-    phone: v.string(),
-    email: v.optional(v.string()),
-    brand: v.string(),
-    model: v.string(),
-    repairType: v.string(),
+  respaldos: defineTable({
+    cadence: v.string(),
+    fileName: v.string(),
+    driveFileId: v.string(),
+    folderId: v.string(),
+    periodStart: v.string(),
+    periodEnd: v.string(),
+    createdAt: v.string(),
+    bytes: v.number(),
+    recordCount: v.number(),
     status: v.string(),
-    total: v.number(),
-    abono: v.optional(v.number()),
-    resta: v.optional(v.number()),
-    issuedAt: v.string(),
-    issuedByUsername: v.string(),
-    issuedByName: v.string(),
   })
-    .index("by_repair_number", ["repairNumber"])
-    .index("by_issued_at", ["issuedAt"]),
+    .index("by_cadence", ["cadence"])
+    .index("by_created_at", ["createdAt"]),
 
   notas: defineTable({
     sourceId: v.optional(v.string()),
@@ -87,7 +84,10 @@ export default defineSchema({
     done: v.boolean(),
     createdAt: v.string(),
     updatedAt: v.string(),
-  }).index("by_source_id", ["sourceId"]),
+  })
+    .index("by_source_id", ["sourceId"])
+    .index("by_created_at", ["createdAt"])
+    .index("by_updated_at", ["updatedAt"]),
 
   contactos: defineTable({
     sourceId: v.optional(v.string()),
@@ -100,7 +100,9 @@ export default defineSchema({
     updatedAt: v.string(),
   })
     .index("by_source_id", ["sourceId"])
-    .index("by_google_resource_name", ["googleResourceName"]),
+    .index("by_google_resource_name", ["googleResourceName"])
+    .index("by_created_at", ["createdAt"])
+    .index("by_updated_at", ["updatedAt"]),
 
   productos: defineTable({
     sourceId: v.optional(v.string()),
@@ -112,7 +114,10 @@ export default defineSchema({
     active: v.boolean(),
     createdAt: v.string(),
     updatedAt: v.string(),
-  }).index("by_source_id", ["sourceId"]),
+  })
+    .index("by_source_id", ["sourceId"])
+    .index("by_created_at", ["createdAt"])
+    .index("by_updated_at", ["updatedAt"]),
 
   ventas: defineTable({
     sourceId: v.optional(v.string()),
@@ -147,5 +152,8 @@ export default defineSchema({
     supplier: v.string(),
     publishedAt: v.string(),
     updatedAt: v.string(),
-  }).index("by_source_id", ["sourceId"]),
+  })
+    .index("by_source_id", ["sourceId"])
+    .index("by_published_at", ["publishedAt"])
+    .index("by_updated_at", ["updatedAt"]),
 });

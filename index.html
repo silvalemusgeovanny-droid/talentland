@@ -19,15 +19,15 @@
   </head>
   <body>
     <main class="app-shell">
-      <section class="proposal-panel">
-        <div class="brand-row">
-          <span class="brand-mark">IR</span>
-          <div>
-            <h1>Inventario y Reparaciones</h1>
-            <p>Celulares, computadoras y electrodomesticos</p>
-          </div>
+      <div class="brand-row" aria-label="Marca del sistema">
+        <button class="brand-mark" id="brandHomeButton" type="button" aria-label="Ir al inicio" title="Ir al inicio">IR</button>
+        <div>
+          <h1>Inventario y Reparaciones</h1>
+          <p>Celulares, computadoras y electrodomesticos</p>
         </div>
+      </div>
 
+      <section class="proposal-panel">
         <aside class="side-repairs-panel" id="sideRepairsPanel" hidden>
           <div class="side-panel-heading">
             <span class="panel-kicker">Servicio tecnico</span>
@@ -50,13 +50,6 @@
       </section>
 
       <section class="login-stage admin" id="loginStage">
-        <div class="status-strip" aria-label="Accesos rapidos">
-          <button type="button" data-module-shortcut="parts">Inventario</button>
-          <button type="button" data-module-shortcut="sales">Ventas</button>
-          <button type="button" data-module-shortcut="repairs">Reparaciones</button>
-          <button type="button" data-module-shortcut="statistics">Panel</button>
-        </div>
-
         <form class="login-card" id="loginForm">
           <div class="form-heading">
             <span id="themeLabel">Propuesta 1</span>
@@ -105,7 +98,6 @@
             <button class="module-tab" type="button" data-module="parts">Repuestos</button>
             <button class="module-tab" type="button" data-module="repairs">Reparaciones</button>
             <button class="module-tab" type="button" data-module="contacts">Contactos</button>
-            <button class="module-tab" type="button" data-module="invoices">Facturas</button>
             <button class="module-tab" type="button" data-module="statistics">Resumen</button>
             <button class="module-tab" type="button" data-module="database">Datos</button>
             <button class="module-tab" type="button" data-module="users">Usuarios</button>
@@ -381,14 +373,6 @@
               <p class="hint" id="repairsHint">Registra la reparacion y su estado actual.</p>
             </form>
 
-            <div class="daily-sales-header">
-              <div>
-                <span class="panel-kicker">Reparaciones</span>
-                <strong id="repairsCount">0 registros</strong>
-              </div>
-              <button class="inline-action-button" type="button" id="importRepairsDatabase">Importar Excel</button>
-            </div>
-
             <div class="compact-list repairs-list" id="repairsList"></div>
           </section>
 
@@ -437,35 +421,6 @@
 
             <input id="contactSearch" type="search" placeholder="Buscar contacto o telefono" />
             <div class="compact-list contacts-list" id="contactsList"></div>
-          </section>
-
-          <section class="module-panel invoices-module" id="invoicesModule">
-            <div class="users-panel-header">
-              <div>
-                <span class="panel-kicker">Documentos</span>
-                <strong>Facturas emitidas</strong>
-                <p>Consulta, busca y vuelve a imprimir facturas guardadas en Convex.</p>
-              </div>
-              <span id="invoicesSummary">0 facturas</span>
-            </div>
-
-            <div class="invoice-tools">
-              <input id="invoiceSearch" type="search" placeholder="Buscar cliente, telefono, equipo o numero" />
-              <button class="inline-action-button" type="button" id="refreshInvoices">Actualizar</button>
-            </div>
-
-            <div class="invoice-total-strip">
-              <article>
-                <span>Total facturado</span>
-                <strong id="invoicesTotal">$0.00</strong>
-              </article>
-              <article>
-                <span>Ultima factura</span>
-                <strong id="latestInvoiceDate">Sin registros</strong>
-              </article>
-            </div>
-
-            <div class="compact-list invoices-list" id="invoicesList"></div>
           </section>
 
           <section class="module-panel database-module" id="databaseModule">

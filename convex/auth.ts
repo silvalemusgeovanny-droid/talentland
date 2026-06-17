@@ -70,8 +70,8 @@ export const seedDefaultUsers = mutation({
   handler: async (ctx) => {
     const now = new Date().toISOString();
     const defaults = [
-      { username: "root", password: "root123", name: "Root", role: "root", modules: ["permissions", "sales", "products", "parts", "repairs", "contacts", "invoices", "statistics", "database", "users"] },
-      { username: "admin", password: "admin123", name: "Administrador", role: "admin", modules: ["permissions", "sales", "products", "parts", "repairs", "contacts", "invoices", "statistics", "database"] },
+      { username: "root", password: "root123", name: "Root", role: "root", modules: ["permissions", "sales", "products", "parts", "repairs", "contacts", "statistics", "database", "users"] },
+      { username: "admin", password: "admin123", name: "Administrador", role: "admin", modules: ["permissions", "sales", "products", "parts", "repairs", "contacts", "statistics", "database"] },
       { username: "usuario", password: "user123", name: "Usuario", role: "user", modules: ["permissions", "sales", "parts", "repairs", "statistics"] },
       { username: "activador", password: "activador123", name: "Activador", role: "activador", modules: ["parts"] },
     ];
