@@ -3370,6 +3370,7 @@ notesForm.addEventListener("submit", async (event) => {
   localStorage.removeItem(notesSnoozeStorageKey);
   notesForm.reset();
   renderNotes();
+  closeNotesPanel();
 });
 
 noteTextInput.addEventListener("input", () => {
