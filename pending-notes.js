@@ -282,6 +282,7 @@ function setupPendingNotes() {
     localStorage.removeItem(notesSnoozeStorageKey);
     notesForm.reset();
     renderNotes();
+    closeNotesPanel();
   });
 
   noteTextInput.addEventListener("input", () => {
