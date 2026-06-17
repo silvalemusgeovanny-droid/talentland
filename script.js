@@ -57,7 +57,7 @@ const roleProfiles = {
   root: {
     label: "Root",
     access: "Control total del sistema",
-    modules: ["permissions", "sales", "products", "parts", "repairs", "contacts", "invoices", "statistics", "database", "users"],
+    modules: ["permissions", "sales", "products", "parts", "repairs", "contacts", "statistics", "database", "users"],
     permissions: [
       "Modificar usuarios, roles y accesos",
       "Ver base de datos local completa",
@@ -68,7 +68,7 @@ const roleProfiles = {
   admin: {
     label: "Admin",
     access: "Administracion con restricciones",
-    modules: ["permissions", "sales", "products", "parts", "repairs", "contacts", "invoices", "statistics", "database"],
+    modules: ["permissions", "sales", "products", "parts", "repairs", "contacts", "statistics", "database"],
     permissions: [
       "Registrar ventas, repuestos y reparaciones",
       "Ver base de datos local",
@@ -100,7 +100,7 @@ const roleProfiles = {
   },
 };
 
-const manageableModules = ["sales", "products", "parts", "repairs", "contacts", "invoices", "statistics", "database", "users"];
+const manageableModules = ["sales", "products", "parts", "repairs", "contacts", "statistics", "database", "users"];
 const moduleLabels = {
   permissions: "Inicio",
   sales: "Ventas",
@@ -108,7 +108,6 @@ const moduleLabels = {
   parts: "Repuestos",
   repairs: "Reparaciones",
   contacts: "Contactos",
-  invoices: "Facturas",
   statistics: "Resumen",
   database: "Datos",
   users: "Usuarios",
@@ -120,6 +119,7 @@ const themeLabel = document.querySelector("#themeLabel");
 const themeTitle = document.querySelector("#themeTitle");
 const themeCopy = document.querySelector("#themeCopy");
 const accessCard = document.querySelector("#accessCard");
+const brandHomeButton = document.querySelector("#brandHomeButton");
 const sideRepairsPanel = document.querySelector("#sideRepairsPanel");
 const sideUsersPanel = document.querySelector("#sideUsersPanel");
 const sideRepairsList = document.querySelector("#sideRepairsList");
@@ -139,7 +139,6 @@ const currentDate = document.querySelector("#currentDate");
 const currentTime = document.querySelector("#currentTime");
 const moduleTabs = document.querySelectorAll(".module-tab");
 const modulePanels = document.querySelectorAll(".module-panel");
-const moduleShortcuts = document.querySelectorAll("[data-module-shortcut]");
 const moduleLink = document.querySelector("#moduleLink");
 const moduleBackButton = document.querySelector("#moduleBackButton");
 const moduleNextButton = document.querySelector("#moduleNextButton");
@@ -251,12 +250,6 @@ const statisticsHint = document.querySelector("#statisticsHint");
 const statisticsGrid = document.querySelector("#statisticsGrid");
 const statisticsLists = document.querySelector("#statisticsLists");
 const statisticsPeriodButtons = document.querySelectorAll("[data-statistics-period]");
-const invoicesSummary = document.querySelector("#invoicesSummary");
-const invoiceSearchInput = document.querySelector("#invoiceSearch");
-const refreshInvoicesButton = document.querySelector("#refreshInvoices");
-const invoicesTotal = document.querySelector("#invoicesTotal");
-const latestInvoiceDate = document.querySelector("#latestInvoiceDate");
-const invoicesList = document.querySelector("#invoicesList");
 const saleConfirmOverlay = document.querySelector("#saleConfirmOverlay");
 const saleConfirmList = document.querySelector("#saleConfirmList");
 const editSaleButton = document.querySelector("#editSaleButton");
@@ -295,9 +288,7 @@ let undoTimerId = null;
 let sideRepairSearchTimer = null;
 let contactSearchTimer = null;
 let contactRepairSearchTimer = null;
-let invoiceSearchTimer = null;
 let repairContactSuggestions = [];
-let invoicesCache = [];
 let salesCloudMigrationDone = false;
 let currentUser = null;
 let managedUsersCache = [];
@@ -511,9 +502,6 @@ function getUserModules(user) {
   const customModules = user.modules.filter((moduleName) => allowedModules.has(moduleName));
   if (user.role === "root" && !customModules.includes("products")) {
     customModules.push("products");
-  }
-  if (["root", "admin"].includes(user.role) && !customModules.includes("invoices")) {
-    customModules.push("invoices");
   }
   return [...new Set(["permissions", ...customModules])];
 }
@@ -1881,7 +1869,7 @@ function buildRepairInvoiceHtml(repair, options = {}) {
     const shouldRecordInvoice = ${shouldRecordInvoice ? "true" : "false"};
     const printButton = document.querySelector("#printInvoiceButton");
     const invoiceStatus = document.querySelector("#invoiceStatus");
-    if (!shouldRecordInvoice) invoiceStatus.textContent = "Factura guardada.";
+    if (!shouldRecordInvoice) invoiceStatus.textContent = "Factura lista.";
     const isTemplateLockedEvent = (event) => {
       const selection = window.getSelection();
       return event.target?.closest?.(".services") ||
@@ -1907,16 +1895,16 @@ function buildRepairInvoiceHtml(repair, options = {}) {
         if (window.__invoiceRecording) return;
         window.__invoiceRecording = true;
         printButton.disabled = true;
-        invoiceStatus.textContent = "Registrando factura...";
+        invoiceStatus.textContent = "Registrando emision...";
         try {
           if (!window.opener?.recordRepairInvoiceIssued) throw new Error("No se encontro la ventana principal.");
           await window.opener.recordRepairInvoiceIssued(invoicePayload);
           window.__invoiceRecorded = true;
-          invoiceStatus.textContent = "Factura registrada.";
+          invoiceStatus.textContent = "Emision registrada.";
         } catch (error) {
           window.__invoiceRecording = false;
           printButton.disabled = false;
-          invoiceStatus.textContent = error.message || "No se pudo registrar factura.";
+          invoiceStatus.textContent = error.message || "No se pudo registrar la emision.";
           return;
         }
       }
@@ -1929,34 +1917,24 @@ function buildRepairInvoiceHtml(repair, options = {}) {
 }
 
 async function recordRepairInvoiceIssued(invoice) {
-  if (!window.repairCloud?.isConfigured()) {
-    throw new Error("Convex no esta configurado.");
-  }
-
   const issuedAt = new Date().toISOString();
-  await window.repairCloud.createInvoice({
-    repairId: invoice.repairId || "",
-    repairNumber: Number(invoice.repairNumber) || 0,
-    customer: invoice.customer || "Sin nombre",
-    phone: invoice.phone || "",
-    email: invoice.email || "",
-    brand: invoice.brand || "",
-    model: invoice.model || "",
-    repairType: invoice.repairType || "",
-    status: invoice.status || "",
-    total: Number(invoice.total) || 0,
-    abono: Number(invoice.abono) || 0,
-    resta: Number(invoice.resta) || Math.max(0, (Number(invoice.total) || 0) - (Number(invoice.abono) || 0)),
-    issuedAt,
-    issuedByUsername: currentUser?.username || "",
-    issuedByName: currentUser?.name || currentUser?.username || "Usuario",
-  });
-  window.repairCloud?.registrarAuditoria(
-    "FACTURA_EMITIDA",
-    `Factura emitida para reparacion #${invoice.repairNumber || ""}`,
-    currentUser?.username,
-    JSON.stringify({ repairId: invoice.repairId || "", total: Number(invoice.total) || 0, issuedAt }),
-  );
+  if (window.repairCloud?.isConfigured()) {
+    await window.repairCloud?.registrarAuditoria(
+      "FACTURA_EMITIDA",
+      `Factura emitida para reparacion #${invoice.repairNumber || ""}`,
+      currentUser?.username,
+      JSON.stringify({
+        repairId: invoice.repairId || "",
+        repairNumber: Number(invoice.repairNumber) || 0,
+        total: Number(invoice.total) || 0,
+        abono: Number(invoice.abono) || 0,
+        resta: Number(invoice.resta) || Math.max(0, (Number(invoice.total) || 0) - (Number(invoice.abono) || 0)),
+        issuedAt,
+        issuedByUsername: currentUser?.username || "",
+        issuedByName: currentUser?.name || currentUser?.username || "Usuario",
+      }),
+    );
+  }
 }
 
 window.recordRepairInvoiceIssued = recordRepairInvoiceIssued;
@@ -1970,109 +1948,6 @@ function openRepairInvoice(repair) {
   invoiceWindow.document.open();
   invoiceWindow.document.write(buildRepairInvoiceHtml(repair));
   invoiceWindow.document.close();
-}
-
-function invoiceToRepair(invoice) {
-  return {
-    id: invoice.repairId || invoice._id || invoice.id || "",
-    _id: invoice.repairId || invoice._id || invoice.id || "",
-    repairNumber: Number(invoice.repairNumber) || 0,
-    customer: invoice.customer || "Sin nombre",
-    deviceType: "Telefono",
-    phone: invoice.phone || "",
-    email: invoice.email || "",
-    brand: invoice.brand || "",
-    model: invoice.model || "",
-    repairType: invoice.repairType || "",
-    status: invoice.status || "",
-    createdAt: invoice.issuedAt || new Date().toISOString(),
-    deliveredAt: "",
-    repairPrice: Number(invoice.total) || 0,
-    abono: Number(invoice.abono) || 0,
-    technicianName: invoice.issuedByName || invoice.issuedByUsername || "",
-    notes: "",
-  };
-}
-
-function openStoredInvoice(invoice) {
-  const invoiceWindow = window.open("", "_blank");
-  if (!invoiceWindow) {
-    if (invoicesSummary) invoicesSummary.textContent = "Permite ventanas emergentes";
-    return;
-  }
-  invoiceWindow.document.open();
-  invoiceWindow.document.write(buildRepairInvoiceHtml(invoiceToRepair(invoice), { recordOnPrint: false }));
-  invoiceWindow.document.close();
-}
-
-function matchesInvoiceSearch(invoice, term) {
-  if (!term) return true;
-  return [
-    invoice.repairNumber,
-    invoice.customer,
-    invoice.phone,
-    invoice.email,
-    invoice.brand,
-    invoice.model,
-    invoice.repairType,
-    invoice.issuedByName,
-    invoice.issuedByUsername,
-  ].some((value) => normalizeSearch(String(value || "")).includes(term));
-}
-
-function renderInvoicesList(invoices) {
-  invoicesCache = invoices;
-  const term = normalizeSearch(invoiceSearchInput?.value || "");
-  const rows = invoices.filter((invoice) => matchesInvoiceSearch(invoice, term));
-  const total = rows.reduce((sum, invoice) => sum + (Number(invoice.total) || 0), 0);
-  const latest = rows[0]?.issuedAt ? formatRepairDateTimeInput(rows[0].issuedAt) : "Sin registros";
-
-  invoicesSummary.textContent = `${rows.length} factura${rows.length === 1 ? "" : "s"}`;
-  invoicesTotal.textContent = formatCurrency(total);
-  latestInvoiceDate.textContent = latest;
-
-  if (!rows.length) {
-    invoicesList.innerHTML = `<p class="hint">No hay facturas con esa busqueda.</p>`;
-    return;
-  }
-
-  invoicesList.innerHTML = rows.map((invoice) => `
-    <article class="invoice-item" data-invoice-id="${escapeHtml(invoice._id || invoice.id || "")}">
-      <div>
-        <strong>#${escapeHtml(invoice.repairNumber || "")} ${escapeHtml(invoice.customer || "Sin nombre")}</strong>
-        <span>${escapeHtml(formatRepairDateTimeInput(invoice.issuedAt))} | ${escapeHtml(invoice.issuedByName || invoice.issuedByUsername || "Usuario")}</span>
-        <span>${escapeHtml([invoice.brand, invoice.model, invoice.repairType].filter(Boolean).join(" | "))}</span>
-      </div>
-      <div class="invoice-item-actions">
-        <b>${formatCurrency(Number(invoice.total) || 0)}</b>
-        <button class="edit-button" type="button" data-open-invoice-id="${escapeHtml(invoice._id || invoice.id || "")}">Abrir</button>
-      </div>
-    </article>
-  `).join("");
-}
-
-async function renderInvoices() {
-  if (!canAccessModule("invoices")) {
-    invoicesSummary.textContent = "Sin acceso";
-    invoicesList.innerHTML = `<p class="hint">Tu rol no puede ver facturas.</p>`;
-    return;
-  }
-
-  if (!window.repairCloud?.isConfigured()) {
-    invoicesSummary.textContent = "Base de datos requerida";
-    invoicesList.innerHTML = `<p class="hint">Las facturas se guardan en Convex.</p>`;
-    return;
-  }
-
-  invoicesSummary.textContent = "Cargando...";
-  invoicesList.innerHTML = `<p class="hint">Consultando facturas.</p>`;
-  try {
-    const invoices = await window.repairCloud.listInvoices(300);
-    renderInvoicesList(Array.isArray(invoices) ? invoices : []);
-  } catch (error) {
-    invoicesSummary.textContent = "Error";
-    invoicesList.innerHTML = `<p class="hint">${escapeHtml(error.message)}</p>`;
-  }
 }
 
 function isToday(value) {
@@ -2328,7 +2203,7 @@ async function renderSales() {
 }
 
 function renderRepairsList(repairs) {
-  repairsCount.textContent = `${repairs.length} registro${repairs.length === 1 ? "" : "s"}`;
+  if (repairsCount) repairsCount.textContent = `${repairs.length} registro${repairs.length === 1 ? "" : "s"}`;
   if (importRepairsDatabaseButton) {
     const importCount = Array.isArray(window.repairExcelDatabase) ? window.repairExcelDatabase.length : 0;
     importRepairsDatabaseButton.hidden = !canAccessModule("database");
@@ -2378,7 +2253,7 @@ async function renderRepairs() {
   try {
     repairs = await loadRepairsFromSource(50);
   } catch (error) {
-    repairsCount.textContent = "Error";
+    if (repairsCount) repairsCount.textContent = "Error";
     repairsList.innerHTML = `<p class="hint">${escapeHtml(error.message)}</p>`;
     return;
   }
@@ -2446,9 +2321,10 @@ async function renderSideRepairs() {
 }
 
 function setLeftPanelForModule(moduleName) {
-  const showRepairsPanel = moduleName === "repairs" && Boolean(currentUser);
+  const showRepairsPanel = ["sales", "repairs"].includes(moduleName) && Boolean(currentUser);
   const showUsersPanel = moduleName === "users" && Boolean(currentUser);
   const showStatisticsPanel = moduleName === "statistics" && Boolean(currentUser);
+  document.body.classList.toggle("left-panel-active", showRepairsPanel || showUsersPanel);
   document.body.classList.toggle("statistics-active", showStatisticsPanel);
   document.body.classList.toggle("users-active", showUsersPanel);
   if (accessCard) accessCard.hidden = showRepairsPanel || showStatisticsPanel;
@@ -2834,25 +2710,6 @@ function renderPartAlertList(title, parts, emptyText) {
   `;
 }
 
-function renderInvoiceHistory(invoices) {
-  const rows = invoices.slice(0, 10);
-  return `
-    <section class="statistics-list-group">
-      <h3>Facturas emitidas</h3>
-      <div class="compact-list statistics-list">
-        ${rows.length ? rows.map((invoice) => `
-          <article class="compact-part-item">
-            <strong>#${escapeHtml(invoice.repairNumber || "")} ${escapeHtml(invoice.customer || "Sin nombre")}</strong>
-            <span>${escapeHtml(formatRepairDateTimeInput(invoice.issuedAt))} | ${escapeHtml(invoice.issuedByName || invoice.issuedByUsername || "Usuario")}</span>
-            <span>${escapeHtml([invoice.brand, invoice.model, invoice.repairType].filter(Boolean).join(" | "))}</span>
-            <span>Total ${formatCurrency(Number(invoice.total) || 0)}</span>
-          </article>
-        `).join("") : `<p class="hint">Todavia no hay facturas emitidas.</p>`}
-      </div>
-    </section>
-  `;
-}
-
 function parseAuditData(log) {
   try {
     return JSON.parse(log?.datos || "{}");
@@ -2865,7 +2722,7 @@ function renderSaleInvoiceHistory(logs) {
   const rows = logs.slice(0, 10);
   return `
     <section class="statistics-list-group">
-      <h3>Facturas de venta</h3>
+      <h3>Emisiones de venta</h3>
       <div class="compact-list statistics-list">
         ${rows.length ? rows.map((log) => {
           const data = parseAuditData(log);
@@ -2877,7 +2734,7 @@ function renderSaleInvoiceHistory(logs) {
               <span>Total ${formatCurrency(Number(data.total) || 0)}</span>
             </article>
           `;
-        }).join("") : `<p class="hint">Todavia no hay facturas de venta emitidas.</p>`}
+        }).join("") : `<p class="hint">Todavia no hay emisiones de venta.</p>`}
       </div>
     </section>
   `;
@@ -2932,13 +2789,12 @@ async function renderStatistics() {
   statisticsSummary.textContent = "Cargando...";
   statisticsHint.textContent = "Consultando base de datos";
   statisticsGrid.innerHTML = "";
-  statisticsLists.innerHTML = `<p class="hint">Recopilando repuestos, reparaciones y facturas.</p>`;
+  statisticsLists.innerHTML = `<p class="hint">Recopilando repuestos, reparaciones, ventas y auditoria.</p>`;
 
   try {
-    const [parts, repairs, invoices, sales, auditLogs] = await Promise.all([
+    const [parts, repairs, sales, auditLogs] = await Promise.all([
       window.repairCloud.listParts(),
       window.repairCloud.listRepairs({ limit: 10000 }),
-      window.repairCloud.listInvoices(100),
       window.repairCloud.listSales(10000),
       window.repairCloud.obtenerAuditoria(),
     ]);
@@ -2946,8 +2802,9 @@ async function renderStatistics() {
     const periodConfig = getPeriodConfig(activeStatisticsPeriod);
     const periodParts = filterRecordsByPeriod(parts, periodConfig, "publishedAt", "updatedAt");
     const periodRepairs = filterRecordsByPeriod(repairs, periodConfig, "createdAt");
-    const periodInvoices = filterRecordsByPeriod(invoices, periodConfig, "issuedAt");
     const periodSales = filterRecordsByPeriod(sales, periodConfig, "createdAt");
+    const repairInvoiceLogs = auditLogs.filter((log) => log.tipo === "FACTURA_EMITIDA");
+    const periodRepairInvoiceLogs = filterRecordsByPeriod(repairInvoiceLogs, periodConfig, "fecha");
     const saleInvoiceLogs = auditLogs.filter((log) => log.tipo === "FACTURA_VENTA_EMITIDA");
     const periodSaleInvoiceLogs = filterRecordsByPeriod(saleInvoiceLogs, periodConfig, "fecha");
     const editApprovalLogs = auditLogs.filter((log) => ["VENTA_EDITADA", "REPARACION_EDITADA"].includes(log.tipo));
@@ -2973,7 +2830,7 @@ async function renderStatistics() {
       .filter((item) => item.value > 0)
       .sort((a, b) => b.value - a.value);
 
-    statisticsSummary.textContent = `${periodParts.length} repuestos | ${periodRepairs.length} reparaciones | ${periodInvoices.length + periodSaleInvoiceLogs.length} facturas`;
+    statisticsSummary.textContent = `${periodParts.length} repuestos | ${periodRepairs.length} reparaciones | ${periodSales.length} ventas`;
     statisticsHint.textContent = "Datos activos de base de datos";
     renderStatisticCards([
       { label: "Valor inventario", value: formatCurrencyCents(inventoryCostCents), detail: `${totalStock} piezas en existencia` },
@@ -2982,8 +2839,8 @@ async function renderStatistics() {
       { label: "Ingresos reparaciones", value: formatCurrency(repairIncome), detail: `${periodRepairs.length} registros` },
       { label: "Ingresos ventas", value: formatCurrency(salesIncome), detail: `${periodSales.length} ventas` },
       { label: periodConfig.label, value: formatCurrency(repairIncome), detail: `${periodRepairs.length} reparaciones` },
-      { label: "Facturas emitidas", value: String(periodInvoices.length), detail: `${invoices.length} en historial reciente` },
-      { label: "Facturas de venta", value: String(periodSaleInvoiceLogs.length), detail: `${saleInvoiceLogs.length} en auditoria` },
+      { label: "Emisiones reparacion", value: String(periodRepairInvoiceLogs.length), detail: `${repairInvoiceLogs.length} en auditoria` },
+      { label: "Emisiones venta", value: String(periodSaleInvoiceLogs.length), detail: `${saleInvoiceLogs.length} en auditoria` },
       { label: "Ediciones aprobadas", value: String(periodEditApprovalLogs.length), detail: `${editApprovalLogs.length} en auditoria` },
       { label: "Alertas", value: String(lowStockParts.length + zeroStockParts.length + priceIssues.length), detail: "Stock y precios por revisar" },
     ]);
@@ -3016,8 +2873,8 @@ async function renderStatistics() {
             { label: "Ingresos reparacion", value: formatCompactCurrency(repairIncome), icon: "IR" },
             { label: "Ingresos ventas", value: formatCompactCurrency(salesIncome), icon: "IV" },
             { label: `Reparaciones ${periodConfig.label.toLowerCase()}`, value: String(periodRepairs.length), icon: "RP" },
-            { label: "Facturas emitidas", value: String(periodInvoices.length), icon: "FE" },
-            { label: "Facturas venta", value: String(periodSaleInvoiceLogs.length), icon: "FV" },
+            { label: "Emisiones reparacion", value: String(periodRepairInvoiceLogs.length), icon: "ER" },
+            { label: "Emisiones venta", value: String(periodSaleInvoiceLogs.length), icon: "EV" },
             { label: "Ediciones aprobadas", value: String(periodEditApprovalLogs.length), icon: "EA" },
             { label: "Alertas", value: String(lowStockParts.length + zeroStockParts.length + priceIssues.length), icon: "AL" },
           ])}
@@ -3033,7 +2890,6 @@ async function renderStatistics() {
       </div>
     `;
     statisticsLists.innerHTML = [
-      renderInvoiceHistory(invoices),
       renderSaleInvoiceHistory(saleInvoiceLogs),
       renderEditApprovalHistory(editApprovalLogs),
     ].join("");
@@ -3389,7 +3245,6 @@ function setModule(moduleName) {
       (moduleName === "parts" && panel.id === "partsModule") ||
       (moduleName === "repairs" && panel.id === "repairsModule") ||
       (moduleName === "contacts" && panel.id === "contactsModule") ||
-      (moduleName === "invoices" && panel.id === "invoicesModule") ||
       (moduleName === "statistics" && panel.id === "statisticsModule") ||
       (moduleName === "database" && panel.id === "databaseModule") ||
       (moduleName === "users" && panel.id === "usersModule");
@@ -3406,7 +3261,6 @@ function setModule(moduleName) {
   if (moduleName === "database") renderDatabase();
   if (moduleName === "statistics") renderStatistics();
   if (moduleName === "contacts") renderContacts();
-  if (moduleName === "invoices") renderInvoices();
   if (moduleName === "users") renderUsers();
   if (moduleName === "repairs") {
     moduleLink.href = "reparaciones.html";
@@ -3423,6 +3277,14 @@ tabButtons.forEach((button) => button.addEventListener("click", () => setTheme(b
 moduleTabs.forEach((button) => button.addEventListener("click", () => setModule(button.dataset.module)));
 moduleBackButton?.addEventListener("click", () => moveModule(-1));
 moduleNextButton?.addEventListener("click", () => moveModule(1));
+brandHomeButton?.addEventListener("click", () => {
+  if (!sessionPanel.hidden && currentUser) {
+    setModule("permissions");
+    sessionPanel.scrollIntoView({ behavior: "smooth", block: "center" });
+    return;
+  }
+  loginForm.scrollIntoView({ behavior: "smooth", block: "center" });
+});
 statisticsPeriodButtons.forEach((button) => {
   button.addEventListener("click", () => {
     activeStatisticsPeriod = button.dataset.statisticsPeriod || "day";
@@ -3441,24 +3303,6 @@ sideRepairSearch.addEventListener("input", () => {
 contactSearchInput?.addEventListener("input", () => {
   clearTimeout(contactSearchTimer);
   contactSearchTimer = setTimeout(renderContacts, 220);
-});
-
-invoiceSearchInput?.addEventListener("input", () => {
-  clearTimeout(invoiceSearchTimer);
-  invoiceSearchTimer = setTimeout(() => renderInvoicesList(invoicesCache), 180);
-});
-
-refreshInvoicesButton?.addEventListener("click", renderInvoices);
-
-invoicesList?.addEventListener("click", (event) => {
-  const button = event.target.closest("[data-open-invoice-id]");
-  if (!button) return;
-  const invoice = invoicesCache.find((item) => String(item._id || item.id || "") === button.dataset.openInvoiceId);
-  if (!invoice) {
-    invoicesSummary.textContent = "No se encontro la factura";
-    return;
-  }
-  openStoredInvoice(invoice);
 });
 
 contactNameInput?.addEventListener("input", () => {
@@ -3482,18 +3326,6 @@ passwordToggle?.addEventListener("click", () => {
   passwordToggle.setAttribute("aria-label", shouldShowPassword ? "Ocultar contrasena" : "Ver contrasena");
   passwordToggle.title = shouldShowPassword ? "Ocultar contrasena" : "Ver contrasena";
   passwordInput.focus();
-});
-
-moduleShortcuts.forEach((button) => {
-  button.addEventListener("click", () => {
-    if (sessionPanel.hidden) {
-      credentialHint.textContent = "Inicia sesion para abrir ese modulo.";
-      loginForm.scrollIntoView({ behavior: "smooth", block: "center" });
-      return;
-    }
-    setModule(button.dataset.moduleShortcut);
-    sessionPanel.scrollIntoView({ behavior: "smooth", block: "center" });
-  });
 });
 
 colorModeToggle.addEventListener("click", () => {
@@ -3770,7 +3602,7 @@ repairModelInput.addEventListener("change", syncKnownRepairModelCase);
 repairTypeInput.addEventListener("blur", syncKnownRepairTypeCase);
 repairTypeInput.addEventListener("change", syncKnownRepairTypeCase);
 repairStatusInput.addEventListener("change", updateRepairDeliveredAt);
-importRepairsDatabaseButton.addEventListener("click", async () => {
+importRepairsDatabaseButton?.addEventListener("click", async () => {
   try {
     const excelRepairs = await loadRepairExcelDatabase();
     const destination = window.repairCloud?.isConfigured() ? "Convex" : "Convex cuando configures la URL";

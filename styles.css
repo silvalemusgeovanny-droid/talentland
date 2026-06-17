@@ -40,16 +40,16 @@ textarea {
 .app-shell {
   position: relative;
   display: grid;
-  grid-template-columns: minmax(320px, 0.9fr) minmax(360px, 1.1fr);
+  grid-template-columns: minmax(520px, 1fr);
   min-height: 100vh;
 }
 
 body.statistics-active .app-shell {
-  grid-template-columns: minmax(220px, 0.45fr) minmax(720px, 1.55fr);
+  grid-template-columns: minmax(720px, 1fr);
 }
 
-body.entry-panel-active .app-shell {
-  grid-template-columns: minmax(260px, 0.55fr) minmax(760px, 1.45fr);
+body.left-panel-active .app-shell {
+  grid-template-columns: minmax(200px, 270px) minmax(760px, 1fr);
 }
 
 body.users-active .app-shell {
@@ -163,6 +163,12 @@ body.users-active .side-repairs-panel {
 :is(body.login-dark, html.login-dark body) .proposal-panel {
   border-right-color: rgb(255 255 255 / 12%);
   background: #111c24;
+}
+
+:is(body.login-dark, html.login-dark body) .brand-row {
+  border-color: rgb(255 255 255 / 12%);
+  background: rgb(17 28 36 / 88%);
+  box-shadow: 0 10px 26px rgb(0 0 0 / 26%);
 }
 
 :is(body.login-dark, html.login-dark body) .brand-row h1,
@@ -317,38 +323,59 @@ body.users-active .side-repairs-panel {
 }
 
 .proposal-panel {
-  display: flex;
+  display: none;
   flex-direction: column;
-  gap: 28px;
-  justify-content: center;
-  padding: clamp(24px, 5vw, 64px);
+  gap: 22px;
+  justify-content: flex-start;
+  padding: clamp(84px, 8vw, 104px) clamp(22px, 3vw, 38px) clamp(22px, 3vw, 38px);
   background: var(--surface);
   border-right: 1px solid var(--line);
 }
 
+body.left-panel-active .proposal-panel {
+  display: flex;
+}
+
 body.statistics-active .proposal-panel {
   justify-content: flex-start;
-  padding-top: clamp(56px, 8vw, 110px);
 }
 
 .brand-row {
+  position: fixed;
+  top: 12px;
+  left: 50%;
+  z-index: 20;
   display: flex;
+  width: min(92vw, 680px);
+  min-height: 64px;
+  transform: translateX(-50%);
   align-items: center;
-  gap: 16px;
+  justify-content: center;
+  gap: 14px;
+  padding: 9px 18px 9px 10px;
+  border: 1px solid rgb(23 32 38 / 10%);
+  border-radius: 14px;
+  background: rgb(255 255 255 / 92%);
+  box-shadow: 0 12px 30px rgb(17 24 32 / 14%);
+  backdrop-filter: blur(14px);
+  text-align: center;
 }
 
 .brand-mark {
   display: grid;
-  width: 54px;
-  height: 54px;
+  width: 46px;
+  height: 46px;
+  flex: 0 0 46px;
   place-items: center;
-  border-radius: 18px;
-  background: linear-gradient(135deg, #0b3f56, #176b87);
+  border-radius: 10px;
+  background: #0f4f6a;
   color: white;
-  box-shadow: 0 12px 26px rgb(15 79 106 / 28%);
+  box-shadow: 0 8px 18px rgb(15 79 106 / 18%);
   font-family: "Trebuchet MS", Aptos, sans-serif;
-  font-size: 1.05rem;
+  font-size: 0.86rem;
   font-weight: 800;
+  border: 0;
+  cursor: pointer;
 }
 
 h1,
@@ -360,8 +387,16 @@ p {
 .brand-row h1 {
   color: var(--accent);
   font-family: "Trebuchet MS", Aptos, "Segoe UI", sans-serif;
-  font-size: clamp(1.4rem, 3vw, 2.2rem);
-  line-height: 1.05;
+  font-size: 1.28rem;
+  line-height: 1.12;
+}
+
+.brand-row p {
+  max-width: none;
+  margin-top: 3px;
+  font-size: 0.84rem;
+  font-weight: 800;
+  line-height: 1.25;
 }
 
 .brand-row p,
@@ -547,15 +582,15 @@ p {
 .login-stage {
   position: relative;
   display: grid;
-  place-items: center;
+  place-items: start center;
   overflow-x: hidden;
   overflow-y: auto;
-  padding: clamp(24px, 5vw, 64px);
+  padding: clamp(108px, 10vw, 124px) clamp(24px, 5vw, 64px) clamp(24px, 5vw, 64px);
   transition: background 220ms ease;
 }
 
 body.statistics-active .login-stage {
-  place-items: center stretch;
+  place-items: start center;
   padding-right: clamp(18px, 3vw, 44px);
   padding-left: clamp(18px, 3vw, 44px);
 }
@@ -611,33 +646,6 @@ body.users-active .login-stage {
   pointer-events: none;
 }
 
-.status-strip {
-  position: absolute;
-  top: 24px;
-  right: 24px;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.status-strip button {
-  padding: 9px 12px;
-  border: 0;
-  border-radius: 999px;
-  background: rgb(255 255 255 / 80%);
-  color: #22303a;
-  cursor: pointer;
-  font-size: 0.8rem;
-  font-weight: 700;
-  backdrop-filter: blur(14px);
-}
-
-.technical .status-strip button,
-.visual .status-strip button {
-  background: rgb(255 255 255 / 13%);
-  color: white;
-}
-
 .login-card,
 .session-panel {
   width: min(100%, 430px);
@@ -651,7 +659,7 @@ body.users-active .login-stage {
 
 body.entry-panel-active .session-panel {
   width: min(100%, 920px);
-  justify-self: stretch;
+  justify-self: center;
 }
 
 body.users-active .session-panel {
@@ -1007,7 +1015,6 @@ input[readonly] {
 
 .database-module.active,
 .contacts-module.active,
-.invoices-module.active,
 .users-module.active {
   display: grid;
   gap: 14px;
@@ -1135,7 +1142,12 @@ body.entry-panel-active :is(.repairs-form, .contacts-form) > textarea {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   gap: 8px;
+  justify-items: center;
   min-width: 0;
+}
+
+.statistics-grid > * {
+  width: 100%;
 }
 
 .stat-card {
@@ -1219,77 +1231,11 @@ body.entry-panel-active :is(.repairs-form, .contacts-form) > textarea {
   box-shadow: 0 4px 14px rgb(17 24 32 / 9%);
 }
 
-.invoice-tools {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 8px;
-  align-items: center;
-}
-
-.invoice-total-strip {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px;
-}
-
-.invoice-total-strip article,
-.invoice-item {
-  border: 1px solid rgb(23 32 38 / 10%);
-  border-radius: 8px;
-  background: rgb(255 255 255 / 86%);
-}
-
-.invoice-total-strip article {
-  display: grid;
-  gap: 5px;
-  padding: 12px;
-}
-
-.invoice-total-strip span,
-.invoice-item span {
-  color: var(--muted);
-  font-size: 0.78rem;
-  font-weight: 900;
-}
-
-.invoice-total-strip strong {
-  color: var(--ink);
-  font-size: 1.05rem;
-}
-
-.invoices-list {
-  max-height: min(420px, 46vh);
-}
-
-.invoice-item {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 12px;
-  align-items: center;
-  padding: 12px;
-}
-
-.invoice-item > div:first-child {
-  display: grid;
-  gap: 4px;
-  min-width: 0;
-}
-
-.invoice-item strong,
-.invoice-item b {
-  color: var(--ink);
-}
-
-.invoice-item-actions {
-  display: grid;
-  gap: 8px;
-  justify-items: end;
-}
-
 .control-dashboard {
   display: grid;
   grid-template-columns: minmax(150px, 180px) minmax(0, 1fr);
   gap: 10px;
+  max-width: 100%;
   min-width: 0;
 }
 
@@ -2289,8 +2235,8 @@ body.users-active .session-panel {
 }
 
 .session-panel.control-panel-wide {
-  width: min(100%, 980px);
-  justify-self: stretch;
+  width: min(100%, 1040px);
+  justify-self: center;
 }
 
 .session-panel[hidden] {
@@ -2995,14 +2941,16 @@ tbody tr:hover {
     border-bottom: 1px solid var(--line);
   }
 
-  .login-stage {
-    min-height: 620px;
+  .brand-row h1 {
+    font-size: 1.18rem;
   }
 
-  .status-strip {
-    position: static;
-    justify-content: center;
-    margin-bottom: 24px;
+  .brand-row p {
+    max-width: none;
+  }
+
+  .login-stage {
+    min-height: 620px;
   }
 
   .parts-header {
@@ -3118,11 +3066,13 @@ tbody tr:hover {
   }
 
   .brand-row {
-    align-items: flex-start;
+    width: min(94vw, 520px);
+    align-items: center;
+    padding-right: 12px;
   }
 
   .login-stage {
-    padding: 20px;
+    padding: 104px 20px 20px;
   }
 
   .date-time {
