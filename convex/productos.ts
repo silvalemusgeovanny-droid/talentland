@@ -6,6 +6,7 @@ const productFields = {
   productNumber: v.optional(v.number()),
   name: v.string(),
   exactModel: v.optional(v.string()),
+  providerPrice: v.optional(v.number()),
   price: v.number(),
   quantity: v.optional(v.number()),
   active: v.boolean(),
@@ -18,6 +19,7 @@ const productPatchFields = {
   productNumber: v.optional(v.number()),
   name: v.optional(v.string()),
   exactModel: v.optional(v.string()),
+  providerPrice: v.optional(v.number()),
   price: v.optional(v.number()),
   quantity: v.optional(v.number()),
   active: v.optional(v.boolean()),
@@ -63,6 +65,7 @@ export const create = mutation({
       ...args,
       productNumber,
       exactModel: args.exactModel || "",
+      providerPrice: Math.max(0, Number(args.providerPrice) || 0),
       quantity: Math.max(0, Number(args.quantity) || 0),
     });
   },

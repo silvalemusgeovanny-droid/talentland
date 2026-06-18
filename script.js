@@ -135,6 +135,9 @@ const accessSummary = document.querySelector("#accessSummary");
 const onlinePresence = document.querySelector("#onlinePresence");
 const permissionList = document.querySelector("#permissionList");
 const logoutButton = document.querySelector("#logoutButton");
+const logoutConfirmOverlay = document.querySelector("#logoutConfirmOverlay");
+const cancelLogoutButton = document.querySelector("#cancelLogoutButton");
+const confirmLogoutButton = document.querySelector("#confirmLogoutButton");
 const currentDate = document.querySelector("#currentDate");
 const currentTime = document.querySelector("#currentTime");
 const moduleTabs = document.querySelectorAll(".module-tab");
@@ -179,7 +182,9 @@ const productCatalogForm = document.querySelector("#productCatalogForm");
 const catalogProductNumberInput = document.querySelector("#catalogProductNumber");
 const catalogProductNameInput = document.querySelector("#catalogProductName");
 const catalogProductModelInput = document.querySelector("#catalogProductModel");
+const catalogProductProviderPriceInput = document.querySelector("#catalogProductProviderPrice");
 const catalogProductPriceInput = document.querySelector("#catalogProductPrice");
+const catalogProductEstimatedProfitInput = document.querySelector("#catalogProductEstimatedProfit");
 const catalogProductQuantityInput = document.querySelector("#catalogProductQuantity");
 const submitProductCatalogButton = document.querySelector("#submitProductCatalog");
 const productCatalogHint = document.querySelector("#productCatalogHint");
@@ -557,6 +562,8 @@ async function endSessionForPasswordChange(message) {
   currentUser = null;
   sessionPanel.hidden = true;
   loginForm.hidden = false;
+  if (logoutButton) logoutButton.hidden = true;
+  closeLogoutConfirmation();
   closeNotesPanel();
   renderNotes();
   setLeftPanelForModule("permissions");
@@ -670,6 +677,7 @@ function applyAuthenticatedUser(user, message = "Sesion iniciada correctamente."
   ).join("");
   loginForm.hidden = true;
   sessionPanel.hidden = false;
+  if (logoutButton) logoutButton.hidden = false;
   credentialHint.textContent = message;
   setModule(getSavedActiveModule());
   renderQuickParts();
@@ -682,6 +690,41 @@ function applyAuthenticatedUser(user, message = "Sesion iniciada correctamente."
   handlePendingRepairEdit();
   startPresenceUpdates();
   setTimeout(() => requestPasswordChangeIfNeeded(currentUser), 120);
+}
+
+function openLogoutConfirmation() {
+  if (!currentUser) return;
+  if (!logoutConfirmOverlay || !confirmLogoutButton) return;
+  logoutConfirmOverlay.hidden = false;
+  confirmLogoutButton.focus();
+}
+
+function closeLogoutConfirmation() {
+  if (!logoutConfirmOverlay) return;
+  logoutConfirmOverlay.hidden = true;
+}
+
+async function performLogout() {
+  const sessionToken = getSavedSessionToken();
+  stopPresenceUpdates();
+  if (sessionToken && window.repairCloud?.isConfigured()) {
+    try {
+      await window.repairCloud.logout(sessionToken);
+    } catch (error) {
+      credentialHint.textContent = error.message;
+    }
+  }
+  clearSessionToken();
+  clearCurrentUser();
+  saveAuthMode("");
+  currentUser = null;
+  sessionPanel.hidden = true;
+  loginForm.hidden = false;
+  if (logoutButton) logoutButton.hidden = true;
+  closeLogoutConfirmation();
+  closeNotesPanel();
+  renderNotes();
+  setLeftPanelForModule("permissions");
 }
 
 async function signIn(username, password) {
@@ -1471,6 +1514,7 @@ function normalizeProductForCloud(product) {
     productNumber: Number(product.productNumber) || 0,
     name: product.name || "Sin nombre",
     exactModel: product.exactModel || "",
+    providerPrice: Number(product.providerPrice) || 0,
     price: Number(product.price) || 0,
     quantity: Math.max(0, Number(product.quantity) || 0),
     active: product.active !== false,
@@ -2163,7 +2207,15 @@ function resetProductCatalogForm(products = loadProducts()) {
   delete productCatalogForm.dataset.editingId;
   productCatalogForm.reset();
   catalogProductNumberInput.value = getNextProductNumber(products);
+  updateCatalogEstimatedProfit();
   submitProductCatalogButton.textContent = "Guardar producto";
+}
+
+function updateCatalogEstimatedProfit() {
+  if (!catalogProductEstimatedProfitInput) return;
+  const providerPrice = Number(catalogProductProviderPriceInput?.value) || 0;
+  const salePrice = Number(catalogProductPriceInput?.value) || 0;
+  catalogProductEstimatedProfitInput.value = formatCurrency(salePrice - providerPrice);
 }
 
 function getSelectedSaleProduct(products = loadProducts()) {
@@ -2199,7 +2251,7 @@ function renderProductCatalog(products) {
   productCatalogList.innerHTML = activeProducts.slice(0, 8).map((product) => `
     <article class="compact-part-item product-catalog-item">
       <strong>#${escapeHtml(product.productNumber || "")} ${escapeHtml(product.name)}</strong>
-      <span>${escapeHtml(product.exactModel || "Sin modelo")} | ${formatCurrency(Number(product.price) || 0)} | Cant. ${Number(product.quantity) || 0}</span>
+      <span>${escapeHtml(product.exactModel || "Sin modelo")} | Proveedor ${formatCurrency(Number(product.providerPrice) || 0)} | Precio ${formatCurrency(Number(product.price) || 0)} | Cant. ${Number(product.quantity) || 0}</span>
       ${canEditProducts ? `<div class="table-action-icons">
         <button class="edit-button" type="button" data-edit-product-id="${escapeHtml(getProductRecordId(product))}">Editar</button>
         <button class="delete-button" type="button" data-delete-product-id="${escapeHtml(getProductRecordId(product))}">Eliminar</button>
@@ -3621,6 +3673,8 @@ quickPartsForm.addEventListener("click", async (event) => {
 });
 
 saleProductInput?.addEventListener("change", () => applySelectedSaleProduct());
+catalogProductProviderPriceInput?.addEventListener("input", updateCatalogEstimatedProfit);
+catalogProductPriceInput?.addEventListener("input", updateCatalogEstimatedProfit);
 
 productCatalogForm?.addEventListener("submit", async (event) => {
   event.preventDefault();
@@ -3635,6 +3689,7 @@ productCatalogForm?.addEventListener("submit", async (event) => {
     productNumber: Number(catalogProductNumberInput.value) || getNextProductNumber(),
     name: catalogProductNameInput.value.trim(),
     exactModel: catalogProductModelInput.value.trim(),
+    providerPrice: Number(catalogProductProviderPriceInput.value) || 0,
     price: Number(catalogProductPriceInput.value) || 0,
     quantity: Math.max(0, Number(catalogProductQuantityInput.value) || 0),
     active: true,
@@ -3642,8 +3697,8 @@ productCatalogForm?.addEventListener("submit", async (event) => {
     updatedAt: now,
   };
 
-  if (!product.name || !product.exactModel || product.price <= 0) {
-    productCatalogHint.textContent = "Escribe producto, modelo exacto y precio mayor a cero.";
+  if (!product.name || !product.exactModel || product.providerPrice <= 0 || product.price <= 0) {
+    productCatalogHint.textContent = "Escribe producto, modelo exacto, precio proveedor y precio mayor a cero.";
     return;
   }
 
@@ -3668,7 +3723,7 @@ productCatalogForm?.addEventListener("submit", async (event) => {
           "PRODUCTO_EDITADO",
           `Producto #${product.productNumber} editado`,
           currentUser?.username,
-          JSON.stringify({ productId: editingId, name: product.name, exactModel: product.exactModel, quantity: product.quantity, price: product.price, editedAt: now }),
+          JSON.stringify({ productId: editingId, name: product.name, exactModel: product.exactModel, quantity: product.quantity, providerPrice: product.providerPrice, price: product.price, editedAt: now }),
         );
         productCatalogHint.textContent = "Producto actualizado en Convex.";
       } else {
@@ -3677,7 +3732,7 @@ productCatalogForm?.addEventListener("submit", async (event) => {
           "PRODUCTO_AGREGADO",
           `Producto #${product.productNumber} agregado`,
           currentUser?.username,
-          JSON.stringify({ name: product.name, exactModel: product.exactModel, quantity: product.quantity, price: product.price, createdAt: now }),
+          JSON.stringify({ name: product.name, exactModel: product.exactModel, quantity: product.quantity, providerPrice: product.providerPrice, price: product.price, createdAt: now }),
         );
         productCatalogHint.textContent = "Producto guardado en Convex.";
       }
@@ -3717,7 +3772,9 @@ productCatalogList?.addEventListener("click", async (event) => {
     catalogProductNumberInput.value = product.productNumber || "";
     catalogProductNameInput.value = product.name || "";
     catalogProductModelInput.value = product.exactModel || "";
+    catalogProductProviderPriceInput.value = product.providerPrice ?? "";
     catalogProductPriceInput.value = product.price ?? "";
+    updateCatalogEstimatedProfit();
     catalogProductQuantityInput.value = product.quantity ?? "";
     submitProductCatalogButton.textContent = "Guardar cambios";
     productCatalogHint.textContent = "Editando producto.";
@@ -4605,25 +4662,11 @@ usersList.addEventListener("click", async (event) => {
   }
 });
 
-logoutButton.addEventListener("click", async () => {
-  const sessionToken = getSavedSessionToken();
-  stopPresenceUpdates();
-  if (sessionToken && window.repairCloud?.isConfigured()) {
-    try {
-      await window.repairCloud.logout(sessionToken);
-    } catch (error) {
-      credentialHint.textContent = error.message;
-    }
-  }
-  clearSessionToken();
-  clearCurrentUser();
-  saveAuthMode("");
-  currentUser = null;
-  sessionPanel.hidden = true;
-  loginForm.hidden = false;
-  closeNotesPanel();
-  renderNotes();
-  setLeftPanelForModule("permissions");
+logoutButton?.addEventListener("click", openLogoutConfirmation);
+cancelLogoutButton?.addEventListener("click", closeLogoutConfirmation);
+confirmLogoutButton?.addEventListener("click", performLogout);
+logoutConfirmOverlay?.addEventListener("click", (event) => {
+  if (event.target === logoutConfirmOverlay) closeLogoutConfirmation();
 });
 
 const isBootRestoringSession = document.documentElement.classList.contains("session-restoring");

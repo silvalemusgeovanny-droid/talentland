@@ -116,6 +116,7 @@ export default defineSchema({
     productNumber: v.optional(v.number()),
     name: v.string(),
     exactModel: v.optional(v.string()),
+    providerPrice: v.optional(v.number()),
     price: v.number(),
     quantity: v.optional(v.number()),
     active: v.boolean(),
