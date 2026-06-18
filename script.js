@@ -453,6 +453,7 @@ function saveCurrentUser(user) {
     name: user.name || user.username || "Usuario",
     role: user.role || "user",
     modules: Array.isArray(user.modules) ? user.modules : undefined,
+    mustChangePassword: Boolean(user.mustChangePassword),
   }));
 }
 
@@ -517,6 +518,61 @@ function canManageParts() {
 
 function canManageProducts() {
   return canAccessModule("sales") && canAccessModule("products") && ["root", "admin"].includes(currentUser?.role);
+}
+
+function getUserAccountStatus(user = {}) {
+  if (user.active === false) return "disabled";
+  return user.accountStatus || "active";
+}
+
+function getUserAccountStatusLabel(user = {}) {
+  const status = getUserAccountStatus(user);
+  if (status === "disabled") return "Inhabilitado";
+  if (status === "pending_root") return "Pendiente de root";
+  if (status === "locked") return "Bloqueado";
+  if (user.mustChangePassword) return "Clave temporal";
+  return "Activo";
+}
+
+function validateLocalPasswordPolicy(password) {
+  const value = String(password || "");
+  if (value.length < 8) return "La contrasena debe tener minimo 8 caracteres.";
+  if (!/[a-z]/.test(value)) return "La contrasena debe incluir una minuscula.";
+  if (!/[A-Z]/.test(value)) return "La contrasena debe incluir una mayuscula.";
+  if (!/[0-9]/.test(value)) return "La contrasena debe incluir un numero.";
+  return "";
+}
+
+async function requestPasswordChangeIfNeeded(user) {
+  if (!user?.mustChangePassword || !window.repairCloud?.isConfigured()) return;
+  const sessionToken = getSavedSessionToken();
+  if (!sessionToken) return;
+
+  credentialHint.textContent = "Debes cambiar la contrasena temporal para continuar.";
+  const currentPassword = prompt("Escribe tu contrasena temporal actual:");
+  if (currentPassword === null) return;
+  const newPassword = prompt("Escribe una nueva contrasena empresarial (minimo 8, mayuscula, minuscula y numero):");
+  if (newPassword === null) return;
+  const policyError = validateLocalPasswordPolicy(newPassword);
+  if (policyError) {
+    credentialHint.textContent = policyError;
+    return;
+  }
+  const repeatedPassword = prompt("Confirma la nueva contrasena:");
+  if (repeatedPassword === null) return;
+  if (newPassword !== repeatedPassword) {
+    credentialHint.textContent = "Las contrasenas no coinciden.";
+    return;
+  }
+
+  try {
+    await window.repairCloud.changeOwnPassword(sessionToken, currentPassword, newPassword);
+    currentUser.mustChangePassword = false;
+    saveCurrentUser(currentUser);
+    credentialHint.textContent = "Contrasena actualizada correctamente.";
+  } catch (error) {
+    credentialHint.textContent = getFriendlyErrorMessage(error);
+  }
 }
 
 function formatPresenceNames(users) {
@@ -596,6 +652,7 @@ function applyAuthenticatedUser(user, message = "Sesion iniciada correctamente."
   renderNotes();
   handlePendingRepairEdit();
   startPresenceUpdates();
+  setTimeout(() => requestPasswordChangeIfNeeded(currentUser), 120);
 }
 
 async function signIn(username, password) {
@@ -613,7 +670,7 @@ async function signIn(username, password) {
     user.password === password
   );
 
-  if (!selectedUser) throw new Error("Usuario o contrasena incorrectos.");
+  if (!selectedUser || selectedUser.active === false) throw new Error("Usuario o contrasena incorrectos.");
   saveAuthMode("local");
   return selectedUser;
 }
@@ -675,10 +732,8 @@ async function warnIfLocalSessionCanUseConvex() {
 }
 
 function setLoginDemo() {
-  usernameInput.value = "root";
-  passwordInput.value = "root123";
   const authMode = window.repairCloud?.isConfigured() ? "Modo Convex" : "Modo local";
-  credentialHint.textContent = `${authMode} | root: root / root123 | admin: admin / admin123 | usuario: usuario / user123 | activador: activador / activador123`;
+  credentialHint.textContent = `${authMode} | Ingresa con tu usuario interno autorizado.`;
 }
 
 function updateDateTime() {
@@ -2740,6 +2795,42 @@ function renderSaleInvoiceHistory(logs) {
   `;
 }
 
+function getBackupCadenceLabel(cadence = "") {
+  const labels = {
+    daily: "Diario",
+    weekly: "Semanal",
+    monthly: "Mensual",
+  };
+  return labels[String(cadence)] || String(cadence || "Backup");
+}
+
+function renderBackupHistory(logs) {
+  const rows = logs.slice(0, 10);
+  return `
+    <section class="statistics-list-group">
+      <h3>Copias de seguridad</h3>
+      <div class="compact-list statistics-list">
+        ${rows.length ? rows.map((log) => {
+          const data = parseAuditData(log);
+          const cadenceLabel = getBackupCadenceLabel(data.cadence);
+          const isCreated = log.tipo === "BACKUP_DRIVE_CREADO";
+          const status = isCreated ? "Guardado en Google Drive" : `Omitido: ${data.reason || "Sin actividad"}`;
+          const detail = isCreated
+            ? `${data.fileName || "backup.json"} | ${Number(data.recordCount) || 0} registros`
+            : `${formatRepairDateTimeInput(data.periodStart)} a ${formatRepairDateTimeInput(data.periodEnd)}`;
+          return `
+            <article class="compact-part-item">
+              <strong>${escapeHtml(cadenceLabel)} - ${escapeHtml(status)}</strong>
+              <span>${escapeHtml(formatRepairDateTimeInput(log.fecha))} | ${escapeHtml(log.usuario || "sistema")}</span>
+              <span>${escapeHtml(detail)}</span>
+            </article>
+          `;
+        }).join("") : `<p class="hint">Todavia no hay copias de seguridad registradas.</p>`}
+      </div>
+    </section>
+  `;
+}
+
 function renderEditApprovalHistory(logs) {
   const rows = logs.slice(0, 10);
   return `
@@ -2809,6 +2900,10 @@ async function renderStatistics() {
     const periodSaleInvoiceLogs = filterRecordsByPeriod(saleInvoiceLogs, periodConfig, "fecha");
     const editApprovalLogs = auditLogs.filter((log) => ["VENTA_EDITADA", "REPARACION_EDITADA"].includes(log.tipo));
     const periodEditApprovalLogs = filterRecordsByPeriod(editApprovalLogs, periodConfig, "fecha");
+    const backupLogs = auditLogs.filter((log) => String(log.tipo || "").startsWith("BACKUP_DRIVE_"));
+    const periodBackupLogs = filterRecordsByPeriod(backupLogs, periodConfig, "fecha");
+    const createdBackupLogs = backupLogs.filter((log) => log.tipo === "BACKUP_DRIVE_CREADO");
+    const periodCreatedBackupLogs = filterRecordsByPeriod(createdBackupLogs, periodConfig, "fecha");
     const totalStock = periodParts.reduce((sum, part) => sum + getPartStock(part), 0);
     const inventoryCostCents = periodParts.reduce((sum, part) => sum + getMoneyCents(part, "price", "priceCents") * getPartStock(part), 0);
     const inventorySaleCents = periodParts.reduce((sum, part) => sum + getMoneyCents(part, "customerPrice", "customerPriceCents") * getPartStock(part), 0);
@@ -2842,6 +2937,7 @@ async function renderStatistics() {
       { label: "Emisiones reparacion", value: String(periodRepairInvoiceLogs.length), detail: `${repairInvoiceLogs.length} en auditoria` },
       { label: "Emisiones venta", value: String(periodSaleInvoiceLogs.length), detail: `${saleInvoiceLogs.length} en auditoria` },
       { label: "Ediciones aprobadas", value: String(periodEditApprovalLogs.length), detail: `${editApprovalLogs.length} en auditoria` },
+      { label: "Copias seguridad", value: String(periodCreatedBackupLogs.length), detail: `${backupLogs.length} eventos en auditoria` },
       { label: "Alertas", value: String(lowStockParts.length + zeroStockParts.length + priceIssues.length), detail: "Stock y precios por revisar" },
     ]);
 
@@ -2876,6 +2972,7 @@ async function renderStatistics() {
             { label: "Emisiones reparacion", value: String(periodRepairInvoiceLogs.length), icon: "ER" },
             { label: "Emisiones venta", value: String(periodSaleInvoiceLogs.length), icon: "EV" },
             { label: "Ediciones aprobadas", value: String(periodEditApprovalLogs.length), icon: "EA" },
+            { label: "Copias seguridad", value: String(periodCreatedBackupLogs.length), icon: "CS" },
             { label: "Alertas", value: String(lowStockParts.length + zeroStockParts.length + priceIssues.length), icon: "AL" },
           ])}
         </aside>
@@ -2890,6 +2987,7 @@ async function renderStatistics() {
       </div>
     `;
     statisticsLists.innerHTML = [
+      renderBackupHistory(periodBackupLogs.length ? periodBackupLogs : backupLogs),
       renderSaleInvoiceHistory(saleInvoiceLogs),
       renderEditApprovalHistory(editApprovalLogs),
     ].join("");
@@ -2918,12 +3016,13 @@ async function renderUsers() {
   usersSummary.textContent = `${users.length} usuario${users.length === 1 ? "" : "s"}`;
   if (usersRoleSummary) {
     const roleCounts = users.reduce((counts, user) => {
-      counts[user.role] = (counts[user.role] || 0) + 1;
+      const key = getUserAccountStatus(user) === "disabled" ? "disabled" : user.role;
+      counts[key] = (counts[key] || 0) + 1;
       return counts;
     }, {});
-    usersRoleSummary.innerHTML = ["root", "admin", "user", "activador"].map((role) => `
+    usersRoleSummary.innerHTML = ["root", "admin", "user", "activador", "disabled"].map((role) => `
       <article>
-        <span>${escapeHtml(getRoleProfile(role).label)}</span>
+        <span>${escapeHtml(role === "disabled" ? "Inhabilitados" : getRoleProfile(role).label)}</span>
         <strong>${roleCounts[role] || 0}</strong>
       </article>
     `).join("");
@@ -2933,11 +3032,14 @@ async function renderUsers() {
       <div class="user-card-main">
         <span class="role-badge">${escapeHtml(getRoleProfile(user.role).label)}</span>
         <strong>${escapeHtml(user.name)} (${escapeHtml(user.username)})</strong>
+        <span>Estado: ${escapeHtml(getUserAccountStatusLabel(user))}${user.failedLoginCount ? ` | Intentos fallidos ${Number(user.failedLoginCount)}` : ""}</span>
         <span>${getUserModules(user).map((moduleName) => moduleLabels[moduleName]).filter(Boolean).join(" | ")}</span>
       </div>
       <div class="user-actions">
         <button class="edit-button icon-action-button icon-edit-button" type="button" data-user-action="edit" data-user-id="${user.id}" aria-label="Editar ${escapeHtml(user.username)}" title="Editar">Editar</button>
-        <button class="delete-button icon-action-button icon-delete-button" type="button" data-user-action="delete" data-user-id="${user.id}" aria-label="Eliminar ${escapeHtml(user.username)}" title="Eliminar">Borrar</button>
+        ${getUserAccountStatus(user) !== "active" ? `<button class="edit-button" type="button" data-user-action="unlock" data-user-id="${user.id}">Autorizar</button>` : ""}
+        <button class="edit-button" type="button" data-user-action="reset-password" data-user-id="${user.id}">Clave temp.</button>
+        <button class="delete-button icon-action-button icon-delete-button" type="button" data-user-action="delete" data-user-id="${user.id}" aria-label="Inhabilitar ${escapeHtml(user.username)}" title="Inhabilitar">Inhabilitar</button>
       </div>
     </article>
   `).join("");
@@ -4256,6 +4358,13 @@ usersForm.addEventListener("submit", async (event) => {
     usersHint.textContent = "Escribe una contrasena para el usuario nuevo.";
     return;
   }
+  if (userData.password) {
+    const policyError = validateLocalPasswordPolicy(userData.password);
+    if (policyError) {
+      usersHint.textContent = policyError;
+      return;
+    }
+  }
 
   if (userData.role === "root" && !userData.modules.includes("users")) {
     userData.modules.push("users");
@@ -4346,25 +4455,82 @@ usersList.addEventListener("click", async (event) => {
     return;
   }
 
-  if (button.dataset.userAction === "delete") {
-    if (user.role === "root") {
-      usersHint.textContent = "El usuario root no se puede borrar.";
+  if (button.dataset.userAction === "unlock") {
+    try {
+      if (window.repairCloud?.isConfigured()) {
+        const sessionToken = getSavedSessionToken();
+        if (!sessionToken) throw new Error("Vuelve a iniciar sesion para autorizar usuarios.");
+        await window.repairCloud.unlockUser(sessionToken, user.id);
+      } else {
+        const index = users.findIndex((item) => item.id === user.id);
+        if (index !== -1) users[index] = { ...users[index], active: true, accountStatus: "active", failedLoginCount: 0, lockedUntil: 0 };
+        saveUsers(users);
+      }
+      usersHint.textContent = "Cuenta autorizada correctamente.";
+      renderUsers();
+      renderDatabase();
+    } catch (error) {
+      usersHint.textContent = getFriendlyErrorMessage(error);
+    }
+    return;
+  }
+
+  if (button.dataset.userAction === "reset-password") {
+    const newPassword = prompt(`Nueva contrasena temporal para ${user.username}:`);
+    if (newPassword === null) return;
+    const policyError = validateLocalPasswordPolicy(newPassword);
+    if (policyError) {
+      usersHint.textContent = policyError;
       return;
     }
-    if (!confirm(`¿Seguro que quieres borrar a ${user.username}?`)) return;
+
+    try {
+      const userPatch = {
+        name: user.name,
+        username: user.username,
+        password: newPassword,
+        role: user.role,
+        modules: getUserModules(user).filter((moduleName) => manageableModules.includes(moduleName)),
+      };
+      if (window.repairCloud?.isConfigured()) {
+        const sessionToken = getSavedSessionToken();
+        if (!sessionToken) throw new Error("Vuelve a iniciar sesion para restablecer contrasenas.");
+        await window.repairCloud.updateUser(sessionToken, user.id, userPatch);
+      } else {
+        const index = users.findIndex((item) => item.id === user.id);
+        if (index !== -1) users[index] = { ...users[index], ...userPatch, active: true, accountStatus: "active", mustChangePassword: true, failedLoginCount: 0 };
+        saveUsers(users);
+      }
+      usersHint.textContent = "Contrasena temporal guardada. El usuario debera cambiarla al entrar.";
+      renderUsers();
+      renderDatabase();
+    } catch (error) {
+      usersHint.textContent = getFriendlyErrorMessage(error);
+    }
+    return;
+  }
+
+  if (button.dataset.userAction === "delete") {
+    if (user.role === "root") {
+      usersHint.textContent = "El usuario root no se puede inhabilitar.";
+      return;
+    }
+    if (!confirm(`Inhabilitar a ${user.username}? No podra iniciar sesion, pero su historial se conserva para auditoria.`)) return;
     if (window.repairCloud?.isConfigured()) {
       try {
         const sessionToken = getSavedSessionToken();
-        if (!sessionToken) throw new Error("Vuelve a iniciar sesion para borrar usuarios.");
+        if (!sessionToken) throw new Error("Vuelve a iniciar sesion para inhabilitar usuarios.");
         await window.repairCloud.removeUser(sessionToken, user.id);
-        usersHint.textContent = "Usuario borrado en Convex correctamente.";
+        usersHint.textContent = "Usuario inhabilitado en Convex correctamente.";
       } catch (error) {
         usersHint.textContent = getFriendlyErrorMessage(error);
         return;
       }
     } else {
-      saveUsers(users.filter((item) => item.id !== user.id));
-      usersHint.textContent = "Usuario borrado correctamente.";
+      const index = users.findIndex((item) => item.id === user.id);
+      if (index !== -1) users[index] = { ...users[index], active: false, accountStatus: "disabled" };
+      saveUsers(users);
+      usersHint.textContent = "Usuario inhabilitado correctamente.";
     }
     renderUsers();
     renderDatabase();

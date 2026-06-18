@@ -44,6 +44,9 @@
     createUser: (sessionToken, user) => callConvex("mutation", "auth:createUser", { sessionToken, ...user }),
     updateUser: (sessionToken, id, user) => callConvex("mutation", "auth:updateUser", { sessionToken, id, ...user }),
     removeUser: (sessionToken, id) => callConvex("mutation", "auth:removeUser", { sessionToken, id }),
+    unlockUser: (sessionToken, id) => callConvex("mutation", "auth:unlockUser", { sessionToken, id }),
+    changeOwnPassword: (sessionToken, currentPassword, newPassword) =>
+      callConvex("mutation", "auth:changeOwnPassword", { sessionToken, currentPassword, newPassword }),
     registrarAuditoria: (tipo, descripcion, usuario = "sistema", datos = "") =>
       callConvex("mutation", "auditoria:registrar", { tipo, descripcion, usuario, datos }),
     obtenerAuditoria: () => callConvex("query", "auditoria:obtener", {}),

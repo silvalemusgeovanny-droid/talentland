@@ -3,6 +3,8 @@ import { v } from "convex/values";
 
 const sessionDurationMs = 1000 * 60 * 60 * 12;
 const activePresenceMs = 1000 * 60;
+const maxFailedLoginAttempts = 5;
+const lockDurationMs = 1000 * 60 * 15;
 const rootUsersMessage = "solo root puede gestionar usuarios";
 
 async function sha256(value: string) {
@@ -13,14 +15,59 @@ async function sha256(value: string) {
     .join("");
 }
 
-function publicUser(user: { _id?: unknown; username: string; name: string; role: string; modules?: string[] }) {
+function publicUser(user: {
+  _id?: unknown;
+  username: string;
+  name: string;
+  role: string;
+  modules?: string[];
+  active?: boolean;
+  accountStatus?: string;
+  failedLoginCount?: number;
+  lockedUntil?: number;
+  mustChangePassword?: boolean;
+  lastLoginAt?: string;
+  lastFailedLoginAt?: string;
+  disabledAt?: string;
+}) {
   return {
     id: String(user._id || ""),
     username: user.username,
     name: user.name,
     role: user.role,
     modules: user.modules,
+    active: user.active !== false,
+    accountStatus: getAccountStatus(user),
+    failedLoginCount: user.failedLoginCount || 0,
+    lockedUntil: user.lockedUntil || 0,
+    mustChangePassword: Boolean(user.mustChangePassword),
+    lastLoginAt: user.lastLoginAt || "",
+    lastFailedLoginAt: user.lastFailedLoginAt || "",
+    disabledAt: user.disabledAt || "",
   };
+}
+
+function getAccountStatus(user: { active?: boolean; accountStatus?: string }) {
+  if (user.active === false) return "disabled";
+  return user.accountStatus || "active";
+}
+
+function validatePasswordStrength(password: string) {
+  const value = String(password || "");
+  if (value.length < 8) throw new Error("La contrasena debe tener minimo 8 caracteres.");
+  if (!/[a-z]/.test(value)) throw new Error("La contrasena debe incluir una minuscula.");
+  if (!/[A-Z]/.test(value)) throw new Error("La contrasena debe incluir una mayuscula.");
+  if (!/[0-9]/.test(value)) throw new Error("La contrasena debe incluir un numero.");
+}
+
+async function registerAudit(ctx: any, tipo: string, descripcion: string, usuario = "sistema", datos: Record<string, unknown> = {}) {
+  await ctx.db.insert("auditoria", {
+    tipo,
+    descripcion,
+    usuario,
+    datos: JSON.stringify(datos),
+    fecha: new Date().toISOString(),
+  });
 }
 
 async function requireRootSession(ctx: any, sessionToken: string) {
@@ -92,6 +139,10 @@ export const seedDefaultUsers = mutation({
         role: user.role,
         modules: user.modules,
         active: true,
+        accountStatus: "active",
+        failedLoginCount: 0,
+        lockedUntil: 0,
+        mustChangePassword: false,
         createdAt: now,
         updatedAt: now,
       });
@@ -115,16 +166,48 @@ export const login = mutation({
       .withIndex("by_username", (q) => q.eq("username", username))
       .unique();
 
-    if (!user || !user.active) {
+    if (!user) {
       throw new Error("Usuario y contrasena incorrectos.");
+    }
+
+    const status = getAccountStatus(user);
+    if (status === "disabled") throw new Error("Cuenta inhabilitada. Contacta a root.");
+    if (status === "pending_root") throw new Error("Cuenta bloqueada. Root debe autorizar el acceso.");
+    if (status === "locked" && Number(user.lockedUntil || 0) > Date.now()) {
+      throw new Error("Cuenta bloqueada temporalmente. Root puede desbloquearla o restablecer contrasena.");
     }
 
     const passwordHash = await sha256(`${username}:${args.password}`);
     if (passwordHash !== user.passwordHash) {
+      const failedLoginCount = Number(user.failedLoginCount || 0) + 1;
+      const now = new Date();
+      const patch: Record<string, unknown> = {
+        failedLoginCount,
+        lastFailedLoginAt: now.toISOString(),
+        updatedAt: now.toISOString(),
+      };
+
+      if (failedLoginCount >= maxFailedLoginAttempts) {
+        patch.accountStatus = "pending_root";
+        patch.lockedUntil = now.getTime() + lockDurationMs;
+        await registerAudit(ctx, "USUARIO_BLOQUEADO", `Usuario ${user.username} bloqueado por intentos fallidos`, "sistema", {
+          username: user.username,
+          failedLoginCount,
+        });
+      }
+
+      await ctx.db.patch(user._id, patch);
       throw new Error("Usuario y contrasena incorrectos.");
     }
 
     const now = new Date();
+    await ctx.db.patch(user._id, {
+      accountStatus: "active",
+      failedLoginCount: 0,
+      lockedUntil: 0,
+      lastLoginAt: now.toISOString(),
+      updatedAt: now.toISOString(),
+    });
     await ctx.db.insert("sesiones", {
       tokenHash: await sha256(args.sessionToken),
       userId: user._id,
@@ -153,6 +236,7 @@ export const currentSession = query({
 
     const user = await ctx.db.get(session.userId);
     if (!user || !user.active) return null;
+    if (getAccountStatus(user) !== "active") return null;
 
     return publicUser(user);
   },
@@ -172,7 +256,7 @@ export const heartbeatPresence = mutation({
     if (!session || session.expiresAt < Date.now()) return [];
 
     const user = await ctx.db.get(session.userId);
-    if (!user || !user.active) return [];
+    if (!user || !user.active || getAccountStatus(user) !== "active") return [];
 
     const now = Date.now();
     await ctx.db.patch(session._id, { lastSeenAt: new Date(now).toISOString() });
@@ -235,7 +319,7 @@ export const verifyAdmin = mutation({
       .withIndex("by_username", (q) => q.eq("username", username))
       .unique();
 
-    if (!user || !user.active || !["root", "admin"].includes(user.role)) {
+    if (!user || !user.active || getAccountStatus(user) !== "active" || !["root", "admin"].includes(user.role)) {
       return false;
     }
 
@@ -255,7 +339,7 @@ export const verifyRoot = mutation({
       .withIndex("by_username", (q) => q.eq("username", username))
       .unique();
 
-    if (!user || !user.active || user.role !== "root") {
+    if (!user || !user.active || getAccountStatus(user) !== "active" || user.role !== "root") {
       return false;
     }
 
@@ -272,7 +356,6 @@ export const listUsers = query({
     const users = await ctx.db.query("usuarios").take(200);
 
     return users
-      .filter((user) => user.active)
       .sort((a, b) => a.username.localeCompare(b.username))
       .map(publicUser);
   },
@@ -298,6 +381,7 @@ export const createUser = mutation({
 
     if (existing) throw new Error("Ese usuario ya existe.");
     if (!args.password.trim()) throw new Error("Escribe una contrasena.");
+    validatePasswordStrength(args.password.trim());
 
     const id = await ctx.db.insert("usuarios", {
       username,
@@ -306,6 +390,10 @@ export const createUser = mutation({
       role: args.role,
       modules: args.modules,
       active: true,
+      accountStatus: "active",
+      failedLoginCount: 0,
+      lockedUntil: 0,
+      mustChangePassword: true,
       createdAt: now,
       updatedAt: now,
     });
@@ -327,7 +415,7 @@ export const updateUser = mutation({
     modules: v.array(v.string()),
   },
   handler: async (ctx, args) => {
-    await requireRootSession(ctx, args.sessionToken);
+    const root = await requireRootSession(ctx, args.sessionToken);
     const user = await ctx.db.get(args.id);
     if (!user) throw new Error("Usuario no encontrado.");
 
@@ -348,7 +436,12 @@ export const updateUser = mutation({
     };
 
     if (args.password?.trim()) {
+      validatePasswordStrength(args.password.trim());
       patch.passwordHash = await sha256(`${username}:${args.password.trim()}`);
+      patch.mustChangePassword = true;
+      patch.accountStatus = "active";
+      patch.failedLoginCount = 0;
+      patch.lockedUntil = 0;
     }
 
     await ctx.db.patch(args.id, patch);
@@ -368,6 +461,73 @@ export const removeUser = mutation({
     const user = await ctx.db.get(args.id);
     if (!user) throw new Error("Usuario no encontrado.");
     if (user.role === "root") throw new Error("El usuario root no se puede borrar.");
-    await ctx.db.patch(args.id, { active: false, updatedAt: new Date().toISOString() });
+    const now = new Date().toISOString();
+    await ctx.db.patch(args.id, {
+      active: false,
+      accountStatus: "disabled",
+      disabledAt: now,
+      updatedAt: now,
+    });
+    await registerAudit(ctx, "USUARIO_INHABILITADO", `Usuario ${user.username} inhabilitado`, root.username, {
+      username: user.username,
+      userId: String(user._id),
+    });
+  },
+});
+
+export const unlockUser = mutation({
+  args: {
+    sessionToken: v.string(),
+    id: v.id("usuarios"),
+  },
+  handler: async (ctx, args) => {
+    const root = await requireRootSession(ctx, args.sessionToken);
+    const user = await ctx.db.get(args.id);
+    if (!user) throw new Error("Usuario no encontrado.");
+    if (user.role === "root") throw new Error("El usuario root no se puede desbloquear desde aqui.");
+    await ctx.db.patch(args.id, {
+      active: true,
+      accountStatus: "active",
+      failedLoginCount: 0,
+      lockedUntil: 0,
+      updatedAt: new Date().toISOString(),
+    });
+    await registerAudit(ctx, "USUARIO_DESBLOQUEADO", `Usuario ${user.username} desbloqueado`, root.username, {
+      username: user.username,
+      userId: String(user._id),
+    });
+  },
+});
+
+export const changeOwnPassword = mutation({
+  args: {
+    sessionToken: v.string(),
+    currentPassword: v.string(),
+    newPassword: v.string(),
+  },
+  handler: async (ctx, args) => {
+    validatePasswordStrength(args.newPassword);
+    const tokenHash = await sha256(args.sessionToken);
+    const session = await ctx.db
+      .query("sesiones")
+      .withIndex("by_token_hash", (q) => q.eq("tokenHash", tokenHash))
+      .unique();
+
+    if (!session || session.expiresAt < Date.now()) throw new Error("Sesion expirada.");
+    const user = await ctx.db.get(session.userId);
+    if (!user || !user.active || getAccountStatus(user) !== "active") throw new Error("Usuario no autorizado.");
+
+    const currentHash = await sha256(`${user.username}:${args.currentPassword}`);
+    if (currentHash !== user.passwordHash) throw new Error("Contrasena actual incorrecta.");
+
+    await ctx.db.patch(user._id, {
+      passwordHash: await sha256(`${user.username}:${args.newPassword.trim()}`),
+      mustChangePassword: false,
+      updatedAt: new Date().toISOString(),
+    });
+    await registerAudit(ctx, "CONTRASENA_CAMBIADA", `Usuario ${user.username} cambio su contrasena`, user.username, {
+      username: user.username,
+      userId: String(user._id),
+    });
   },
 });

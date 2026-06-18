@@ -42,6 +42,7 @@ textarea {
   display: grid;
   grid-template-columns: minmax(520px, 1fr);
   min-height: 100vh;
+  padding-top: 88px;
 }
 
 body.statistics-active .app-shell {
@@ -327,7 +328,7 @@ body.users-active .side-repairs-panel {
   flex-direction: column;
   gap: 22px;
   justify-content: flex-start;
-  padding: clamp(84px, 8vw, 104px) clamp(22px, 3vw, 38px) clamp(22px, 3vw, 38px);
+  padding: clamp(22px, 3vw, 38px);
   background: var(--surface);
   border-right: 1px solid var(--line);
 }
@@ -342,21 +343,21 @@ body.statistics-active .proposal-panel {
 
 .brand-row {
   position: fixed;
-  top: 12px;
-  left: 50%;
+  top: 0;
+  left: 0;
   z-index: 20;
   display: flex;
-  width: min(92vw, 680px);
-  min-height: 64px;
-  transform: translateX(-50%);
+  width: 100%;
+  min-height: 72px;
   align-items: center;
   justify-content: center;
   gap: 14px;
-  padding: 9px 18px 9px 10px;
-  border: 1px solid rgb(23 32 38 / 10%);
-  border-radius: 14px;
-  background: rgb(255 255 255 / 92%);
-  box-shadow: 0 12px 30px rgb(17 24 32 / 14%);
+  padding: 10px clamp(18px, 4vw, 42px);
+  border: 0;
+  border-bottom: 1px solid rgb(23 32 38 / 10%);
+  border-radius: 0;
+  background: rgb(255 255 255 / 94%);
+  box-shadow: 0 12px 30px rgb(17 24 32 / 10%);
   backdrop-filter: blur(14px);
   text-align: center;
 }
@@ -585,7 +586,7 @@ p {
   place-items: start center;
   overflow-x: hidden;
   overflow-y: auto;
-  padding: clamp(108px, 10vw, 124px) clamp(24px, 5vw, 64px) clamp(24px, 5vw, 64px);
+  padding: clamp(24px, 5vw, 64px);
   transition: background 220ms ease;
 }
 
@@ -604,7 +605,7 @@ body.entry-panel-active .login-stage {
 body.users-active .login-stage {
   place-items: center stretch;
   min-height: 100vh;
-  padding: clamp(84px, 7vw, 118px) clamp(24px, 6vw, 96px) 42px;
+  padding: clamp(24px, 6vw, 64px) clamp(24px, 6vw, 96px) 42px;
 }
 
 .login-stage.admin {
@@ -3066,13 +3067,13 @@ tbody tr:hover {
   }
 
   .brand-row {
-    width: min(94vw, 520px);
+    width: 100%;
     align-items: center;
-    padding-right: 12px;
+    padding: 9px 12px;
   }
 
   .login-stage {
-    padding: 104px 20px 20px;
+    padding: 20px;
   }
 
   .date-time {
