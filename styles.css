@@ -46,7 +46,7 @@ textarea {
 }
 
 body.statistics-active .app-shell {
-  grid-template-columns: minmax(720px, 1fr);
+  grid-template-columns: minmax(920px, 1fr);
 }
 
 body.left-panel-active .app-shell {
@@ -592,8 +592,8 @@ p {
 
 body.statistics-active .login-stage {
   place-items: start center;
-  padding-right: clamp(18px, 3vw, 44px);
-  padding-left: clamp(18px, 3vw, 44px);
+  padding-right: clamp(12px, 2vw, 28px);
+  padding-left: clamp(12px, 2vw, 28px);
 }
 
 body.entry-panel-active .login-stage {
@@ -1174,6 +1174,7 @@ body.entry-panel-active :is(.repairs-form, .contacts-form) > textarea {
 
 .statistics-lists {
   display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
   gap: 12px;
 }
 
@@ -1234,8 +1235,8 @@ body.entry-panel-active :is(.repairs-form, .contacts-form) > textarea {
 
 .control-dashboard {
   display: grid;
-  grid-template-columns: minmax(150px, 180px) minmax(0, 1fr);
-  gap: 10px;
+  grid-template-columns: minmax(180px, 230px) minmax(0, 1fr);
+  gap: 14px;
   max-width: 100%;
   min-width: 0;
 }
@@ -1286,8 +1287,8 @@ body.entry-panel-active :is(.repairs-form, .contacts-form) > textarea {
 
 .control-main-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
   min-width: 0;
 }
 
@@ -2236,7 +2237,7 @@ body.users-active .session-panel {
 }
 
 .session-panel.control-panel-wide {
-  width: min(100%, 1040px);
+  width: min(calc(100vw - 56px), 1480px);
   justify-self: center;
 }
 
@@ -2933,6 +2934,10 @@ tbody tr:hover {
 
 @media (max-width: 860px) {
   .app-shell {
+    grid-template-columns: 1fr;
+  }
+
+  body.statistics-active .app-shell {
     grid-template-columns: 1fr;
   }
 
