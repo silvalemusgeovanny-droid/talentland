@@ -869,6 +869,10 @@ input[readonly] {
   text-decoration: none;
 }
 
+.module-link[hidden] {
+  display: none;
+}
+
 .module-nav-bar {
   display: grid;
   grid-template-columns: 42px minmax(0, 1fr) 42px;
