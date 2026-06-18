@@ -540,7 +540,27 @@ function validateLocalPasswordPolicy(password) {
   if (!/[a-z]/.test(value)) return "La contrasena debe incluir una minuscula.";
   if (!/[A-Z]/.test(value)) return "La contrasena debe incluir una mayuscula.";
   if (!/[0-9]/.test(value)) return "La contrasena debe incluir un numero.";
+  if (!/[^A-Za-z0-9]/.test(value)) return "La contrasena debe incluir un simbolo.";
   return "";
+}
+
+async function endSessionForPasswordChange(message) {
+  const sessionToken = getSavedSessionToken();
+  stopPresenceUpdates();
+  if (sessionToken && window.repairCloud?.isConfigured()) {
+    try {
+      await window.repairCloud.logout(sessionToken);
+    } catch {}
+  }
+  clearSessionToken();
+  clearCurrentUser();
+  currentUser = null;
+  sessionPanel.hidden = true;
+  loginForm.hidden = false;
+  closeNotesPanel();
+  renderNotes();
+  setLeftPanelForModule("permissions");
+  credentialHint.textContent = message;
 }
 
 async function requestPasswordChangeIfNeeded(user) {
@@ -550,18 +570,27 @@ async function requestPasswordChangeIfNeeded(user) {
 
   credentialHint.textContent = "Debes cambiar la contrasena temporal para continuar.";
   const currentPassword = prompt("Escribe tu contrasena temporal actual:");
-  if (currentPassword === null) return;
-  const newPassword = prompt("Escribe una nueva contrasena empresarial (minimo 8, mayuscula, minuscula y numero):");
-  if (newPassword === null) return;
+  if (currentPassword === null) {
+    await endSessionForPasswordChange("Debes cambiar la contrasena temporal antes de trabajar.");
+    return;
+  }
+  const newPassword = prompt("Escribe una nueva contrasena empresarial (minimo 8, mayuscula, minuscula, numero y simbolo):");
+  if (newPassword === null) {
+    await endSessionForPasswordChange("Debes cambiar la contrasena temporal antes de trabajar.");
+    return;
+  }
   const policyError = validateLocalPasswordPolicy(newPassword);
   if (policyError) {
-    credentialHint.textContent = policyError;
+    await endSessionForPasswordChange(policyError);
     return;
   }
   const repeatedPassword = prompt("Confirma la nueva contrasena:");
-  if (repeatedPassword === null) return;
+  if (repeatedPassword === null) {
+    await endSessionForPasswordChange("Debes confirmar la nueva contrasena antes de trabajar.");
+    return;
+  }
   if (newPassword !== repeatedPassword) {
-    credentialHint.textContent = "Las contrasenas no coinciden.";
+    await endSessionForPasswordChange("Las contrasenas no coinciden. Inicia sesion e intenta de nuevo.");
     return;
   }
 
@@ -571,7 +600,7 @@ async function requestPasswordChangeIfNeeded(user) {
     saveCurrentUser(currentUser);
     credentialHint.textContent = "Contrasena actualizada correctamente.";
   } catch (error) {
-    credentialHint.textContent = getFriendlyErrorMessage(error);
+    await endSessionForPasswordChange(getFriendlyErrorMessage(error));
   }
 }
 
@@ -2831,6 +2860,37 @@ function renderBackupHistory(logs) {
   `;
 }
 
+function renderUserSecurityHistory(logs) {
+  const rows = logs.slice(0, 10);
+  return `
+    <section class="statistics-list-group">
+      <h3>Seguridad de usuarios</h3>
+      <div class="compact-list statistics-list">
+        ${rows.length ? rows.map((log) => {
+          const data = parseAuditData(log);
+          const labels = {
+            LOGIN_EXITOSO: "Login exitoso",
+            LOGIN_FALLIDO: "Login fallido",
+            LOGOUT: "Cierre de sesion",
+            USUARIO_BLOQUEADO: "Usuario bloqueado",
+            USUARIO_DESBLOQUEADO: "Usuario autorizado",
+            USUARIO_INHABILITADO: "Usuario inhabilitado",
+            CONTRASENA_CAMBIADA: "Contrasena cambiada",
+          };
+          const username = data.username || log.usuario || "usuario";
+          return `
+            <article class="compact-part-item">
+              <strong>${escapeHtml(labels[log.tipo] || log.tipo)} - ${escapeHtml(username)}</strong>
+              <span>${escapeHtml(formatRepairDateTimeInput(log.fecha))} | ${escapeHtml(log.usuario || "sistema")}</span>
+              <span>${escapeHtml(log.descripcion || "")}${data.failedLoginCount ? ` | Intentos ${Number(data.failedLoginCount)}` : ""}</span>
+            </article>
+          `;
+        }).join("") : `<p class="hint">Todavia no hay eventos de seguridad de usuarios.</p>`}
+      </div>
+    </section>
+  `;
+}
+
 function renderEditApprovalHistory(logs) {
   const rows = logs.slice(0, 10);
   return `
@@ -2904,6 +2964,11 @@ async function renderStatistics() {
     const periodBackupLogs = filterRecordsByPeriod(backupLogs, periodConfig, "fecha");
     const createdBackupLogs = backupLogs.filter((log) => log.tipo === "BACKUP_DRIVE_CREADO");
     const periodCreatedBackupLogs = filterRecordsByPeriod(createdBackupLogs, periodConfig, "fecha");
+    const userSecurityTypes = ["LOGIN_EXITOSO", "LOGIN_FALLIDO", "LOGOUT", "USUARIO_BLOQUEADO", "USUARIO_DESBLOQUEADO", "USUARIO_INHABILITADO", "CONTRASENA_CAMBIADA"];
+    const userSecurityLogs = auditLogs.filter((log) => userSecurityTypes.includes(log.tipo));
+    const periodUserSecurityLogs = filterRecordsByPeriod(userSecurityLogs, periodConfig, "fecha");
+    const blockedUserLogs = userSecurityLogs.filter((log) => log.tipo === "USUARIO_BLOQUEADO");
+    const periodBlockedUserLogs = filterRecordsByPeriod(blockedUserLogs, periodConfig, "fecha");
     const totalStock = periodParts.reduce((sum, part) => sum + getPartStock(part), 0);
     const inventoryCostCents = periodParts.reduce((sum, part) => sum + getMoneyCents(part, "price", "priceCents") * getPartStock(part), 0);
     const inventorySaleCents = periodParts.reduce((sum, part) => sum + getMoneyCents(part, "customerPrice", "customerPriceCents") * getPartStock(part), 0);
@@ -2938,6 +3003,7 @@ async function renderStatistics() {
       { label: "Emisiones venta", value: String(periodSaleInvoiceLogs.length), detail: `${saleInvoiceLogs.length} en auditoria` },
       { label: "Ediciones aprobadas", value: String(periodEditApprovalLogs.length), detail: `${editApprovalLogs.length} en auditoria` },
       { label: "Copias seguridad", value: String(periodCreatedBackupLogs.length), detail: `${backupLogs.length} eventos en auditoria` },
+      { label: "Usuarios bloqueados", value: String(periodBlockedUserLogs.length), detail: `${blockedUserLogs.length} eventos historicos` },
       { label: "Alertas", value: String(lowStockParts.length + zeroStockParts.length + priceIssues.length), detail: "Stock y precios por revisar" },
     ]);
 
@@ -2973,6 +3039,7 @@ async function renderStatistics() {
             { label: "Emisiones venta", value: String(periodSaleInvoiceLogs.length), icon: "EV" },
             { label: "Ediciones aprobadas", value: String(periodEditApprovalLogs.length), icon: "EA" },
             { label: "Copias seguridad", value: String(periodCreatedBackupLogs.length), icon: "CS" },
+            { label: "Usuarios bloqueados", value: String(periodBlockedUserLogs.length), icon: "UB" },
             { label: "Alertas", value: String(lowStockParts.length + zeroStockParts.length + priceIssues.length), icon: "AL" },
           ])}
         </aside>
@@ -2987,6 +3054,7 @@ async function renderStatistics() {
       </div>
     `;
     statisticsLists.innerHTML = [
+      renderUserSecurityHistory(periodUserSecurityLogs.length ? periodUserSecurityLogs : userSecurityLogs),
       renderBackupHistory(periodBackupLogs.length ? periodBackupLogs : backupLogs),
       renderSaleInvoiceHistory(saleInvoiceLogs),
       renderEditApprovalHistory(editApprovalLogs),

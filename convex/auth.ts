@@ -58,6 +58,7 @@ function validatePasswordStrength(password: string) {
   if (!/[a-z]/.test(value)) throw new Error("La contrasena debe incluir una minuscula.");
   if (!/[A-Z]/.test(value)) throw new Error("La contrasena debe incluir una mayuscula.");
   if (!/[0-9]/.test(value)) throw new Error("La contrasena debe incluir un numero.");
+  if (!/[^A-Za-z0-9]/.test(value)) throw new Error("La contrasena debe incluir un simbolo.");
 }
 
 async function registerAudit(ctx: any, tipo: string, descripcion: string, usuario = "sistema", datos: Record<string, unknown> = {}) {
@@ -167,13 +168,33 @@ export const login = mutation({
       .unique();
 
     if (!user) {
+      await registerAudit(ctx, "LOGIN_FALLIDO", `Intento fallido para ${username}`, "sistema", {
+        username,
+        reason: "usuario_no_encontrado",
+      });
       throw new Error("Usuario y contrasena incorrectos.");
     }
 
     const status = getAccountStatus(user);
-    if (status === "disabled") throw new Error("Cuenta inhabilitada. Contacta a root.");
-    if (status === "pending_root") throw new Error("Cuenta bloqueada. Root debe autorizar el acceso.");
+    if (status === "disabled") {
+      await registerAudit(ctx, "LOGIN_FALLIDO", `Intento contra cuenta inhabilitada ${user.username}`, "sistema", {
+        username: user.username,
+        reason: "cuenta_inhabilitada",
+      });
+      throw new Error("Cuenta inhabilitada. Contacta a root.");
+    }
+    if (status === "pending_root") {
+      await registerAudit(ctx, "LOGIN_FALLIDO", `Intento contra cuenta pendiente de root ${user.username}`, "sistema", {
+        username: user.username,
+        reason: "pendiente_root",
+      });
+      throw new Error("Cuenta bloqueada. Root debe autorizar el acceso.");
+    }
     if (status === "locked" && Number(user.lockedUntil || 0) > Date.now()) {
+      await registerAudit(ctx, "LOGIN_FALLIDO", `Intento contra cuenta bloqueada ${user.username}`, "sistema", {
+        username: user.username,
+        reason: "cuenta_bloqueada",
+      });
       throw new Error("Cuenta bloqueada temporalmente. Root puede desbloquearla o restablecer contrasena.");
     }
 
@@ -186,6 +207,11 @@ export const login = mutation({
         lastFailedLoginAt: now.toISOString(),
         updatedAt: now.toISOString(),
       };
+
+      await registerAudit(ctx, "LOGIN_FALLIDO", `Intento fallido para ${user.username}`, "sistema", {
+        username: user.username,
+        failedLoginCount,
+      });
 
       if (failedLoginCount >= maxFailedLoginAttempts) {
         patch.accountStatus = "pending_root";
@@ -215,6 +241,11 @@ export const login = mutation({
       expiresAt: now.getTime() + sessionDurationMs,
       createdAt: now.toISOString(),
       lastSeenAt: now.toISOString(),
+    });
+    await registerAudit(ctx, "LOGIN_EXITOSO", `Usuario ${user.username} inicio sesion`, user.username, {
+      username: user.username,
+      userId: String(user._id),
+      mustChangePassword: Boolean(user.mustChangePassword),
     });
 
     return publicUser(user);
@@ -296,7 +327,13 @@ export const logout = mutation({
       .withIndex("by_token_hash", (q) => q.eq("tokenHash", tokenHash))
       .unique();
 
-    if (session) await ctx.db.delete(session._id);
+    if (session) {
+      await registerAudit(ctx, "LOGOUT", `Usuario ${session.username} cerro sesion`, session.username, {
+        username: session.username,
+        userId: String(session.userId),
+      });
+      await ctx.db.delete(session._id);
+    }
 
     const presence = await ctx.db
       .query("presencias")
