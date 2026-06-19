@@ -299,7 +299,7 @@ function normalizePartForCloud(part) {
   const priceCents = getMoneyCents(part, "price", "priceCents");
   const customerPriceCents = getMoneyCents(part, "customerPrice", "customerPriceCents");
   return {
-    sourceId: part.sourceId || part.id || crypto.randomUUID(),
+    sourceId: part.sourceId || part.id || part._id || crypto.randomUUID(),
     name: normalizePartType(part.name),
     brand: normalizePartType(part.brand),
     model: normalizePartType(part.model),
@@ -314,6 +314,10 @@ function normalizePartForCloud(part) {
     publishedAt: part.publishedAt || now,
     updatedAt: part.updatedAt || "",
   };
+}
+
+function getPartRecordId(part) {
+  return String(part?.id || part?._id || part?.sourceId || "");
 }
 
 async function migrateLocalPartsToCloud() {
@@ -708,8 +712,8 @@ function renderParts() {
       <td>${formatPartDate(part.updatedAt)}</td>
       ${isReadOnly ? "" : `<td>
         <div class="table-action-icons">
-          <button class="edit-button icon-action-button icon-edit-button" type="button" data-id="${part.id}" aria-label="Editar ${escapeHtml(part.name)}" title="Editar">Editar</button>
-          <button class="delete-button icon-action-button icon-delete-button" type="button" data-id="${part.id}" aria-label="Eliminar ${escapeHtml(part.name)}" title="Eliminar">Eliminar</button>
+          <button class="edit-button icon-action-button icon-edit-button" type="button" data-id="${escapeHtml(getPartRecordId(part))}" aria-label="Editar ${escapeHtml(part.name)}" title="Editar">Editar</button>
+          <button class="delete-button icon-action-button icon-delete-button" type="button" data-id="${escapeHtml(getPartRecordId(part))}" aria-label="Eliminar ${escapeHtml(part.name)}" title="Eliminar">Eliminar</button>
         </div>
       </td>`}
     </tr>
@@ -958,7 +962,7 @@ partsForm.addEventListener("submit", async (event) => {
   }
 
   if (editingId) {
-    const index = parts.findIndex((p) => p.id === editingId);
+    const index = parts.findIndex((p) => getPartRecordId(p) === editingId);
     if (index !== -1) {
       const now = new Date().toISOString();
       const previousPart = { ...parts[index] };
@@ -1029,8 +1033,12 @@ partsTable.addEventListener("click", async (event) => {
   const editButton = event.target.closest(".edit-button");
   if (editButton) {
     const parts = loadParts();
-    const part = parts.find((p) => p.id === editButton.dataset.id);
-    if (!part) return;
+    const part = parts.find((p) => getPartRecordId(p) === editButton.dataset.id);
+    if (!part) {
+      partsHint.textContent = "No se encontro el repuesto para editar. Actualiza el listado e intenta de nuevo.";
+      await refreshPartsView();
+      return;
+    }
     setSelectValueForEditingWithSuggestions(partNameSelect, partNameInput, part.name, "name", "partNameEditOptions");
     setSelectValueForEditingWithSuggestions(brandSelect, brandInput, part.brand || "", "brand", "brandEditOptions");
     setSelectValueForEditingWithSuggestions(modelSelect, modelInput, part.model || "", "model", "modelEditOptions");
@@ -1042,7 +1050,7 @@ partsTable.addEventListener("click", async (event) => {
     setSelectValueForEditingWithSuggestions(supplierSelect, supplierInput, part.supplier, "supplier", "supplierEditOptions");
     publishedAtInput.value = formatPartDate(part.publishedAt);
     updatedAtInput.value = formatPartDate(part.updatedAt);
-    partsForm.dataset.editingId = part.id;
+    partsForm.dataset.editingId = getPartRecordId(part);
     partsHint.textContent = "Editando repuesto — haz clic en Guardar para confirmar los cambios.";
     document.querySelector("#submitParts").textContent = "Guardar cambios";
     partsForm.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -1053,9 +1061,13 @@ partsTable.addEventListener("click", async (event) => {
   if (!deleteButton) return;
 
   const parts = loadParts();
-  const partIndex = parts.findIndex((part) => part.id === deleteButton.dataset.id);
+  const partIndex = parts.findIndex((part) => getPartRecordId(part) === deleteButton.dataset.id);
   const partToDelete = parts[partIndex];
-  if (!partToDelete) return;
+  if (!partToDelete) {
+    partsHint.textContent = "No se encontro el repuesto para eliminar. Actualiza el listado e intenta de nuevo.";
+    await refreshPartsView();
+    return;
+  }
 
   if (!confirm(`¿Seguro que quieres eliminar "${partToDelete.name}"?`)) return;
 
