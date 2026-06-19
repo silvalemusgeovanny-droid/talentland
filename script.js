@@ -522,13 +522,13 @@ function getRoleProfile(role) {
 
 function getUserModules(user) {
   const roleModules = getRoleProfile(user?.role).modules;
+  // Root always keeps the complete role profile, even if an older account
+  // record contains a stale or incomplete custom modules array.
+  if (user?.role === "root") return [...roleProfiles.root.modules];
   if (user?.role === "activador") return ["parts"];
   if (!Array.isArray(user?.modules)) return roleModules;
   const allowedModules = new Set(["permissions", ...manageableModules]);
   const customModules = user.modules.filter((moduleName) => allowedModules.has(moduleName));
-  if (user.role === "root" && !customModules.includes("products")) {
-    customModules.push("products");
-  }
   return [...new Set(["permissions", ...customModules])];
 }
 
@@ -538,6 +538,7 @@ function canAccessModule(moduleName) {
 }
 
 function canManageParts() {
+  if (currentUser?.role === "root") return true;
   return canAccessModule("parts") && currentUser?.role !== "activador";
 }
 
@@ -3499,7 +3500,12 @@ function setModule(moduleName) {
   if (moduleName === "statistics") renderStatistics();
   if (moduleName === "contacts") renderContacts();
   if (moduleName === "users") renderUsers();
-  if (moduleName === "repairs") {
+  if (moduleName === "parts") refreshQuickPartsView();
+  if (moduleName === "parts") {
+    moduleLink.href = "repuestos.html";
+    moduleLink.textContent = "Ver listado completo de repuestos";
+    moduleLink.hidden = false;
+  } else if (moduleName === "repairs") {
     moduleLink.href = "reparaciones.html";
     moduleLink.textContent = "Ver registros de reparaciones";
     moduleLink.hidden = false;
