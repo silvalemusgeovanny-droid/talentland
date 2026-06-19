@@ -2,6 +2,8 @@ const storageKey = "inventoryParts";
 const deletedOptionsStorageKey = "inventoryDeletedPartOptions";
 const usersStorageKey = "systemUsers";
 const currentUserStorageKey = "repairCurrentUser";
+const sessionTokenStorageKey = "repairSessionToken";
+const authModeStorageKey = "repairAuthMode";
 
 const starterParts = [
   {
@@ -94,7 +96,9 @@ function getStoredCurrentUser() {
 }
 
 function isPartsReadOnlyMode() {
-  return getStoredCurrentUser()?.role === "activador";
+  const storedUser = getStoredCurrentUser();
+  if (storedUser?.role !== "activador") return false;
+  return Boolean(localStorage.getItem(sessionTokenStorageKey) || localStorage.getItem(authModeStorageKey) === "local");
 }
 
 function applyPartsAccessMode() {

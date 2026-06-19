@@ -474,6 +474,18 @@ function resetLoginLayout() {
   sessionPanel.classList.remove("control-panel-wide");
 }
 
+function showLoggedOutView(message) {
+  clearSessionToken();
+  clearCurrentUser();
+  currentUser = null;
+  stopPresenceUpdates();
+  sessionPanel.hidden = true;
+  loginForm.hidden = false;
+  if (logoutButton) logoutButton.hidden = true;
+  resetLoginLayout();
+  credentialHint.textContent = message;
+}
+
 function getStoredCurrentUser() {
   const savedUser = localStorage.getItem(currentUserStorageKey);
   if (!savedUser) return null;
@@ -674,7 +686,7 @@ function applyAuthenticatedUser(user, message = "Sesion iniciada correctamente."
   const localUser = loadUsers().find((item) =>
     item.id === user.id || item.username?.toLowerCase() === user.username?.toLowerCase()
   );
-  currentUser = { ...user, ...(localUser || {}) };
+  currentUser = { ...(localUser || {}), ...user };
   saveCurrentUser(currentUser);
   migrateLegacyNoteAuthors(currentUser);
   const roleProfile = getRoleProfile(currentUser.role);
@@ -757,25 +769,25 @@ async function signIn(username, password) {
 
 async function restoreSession() {
   const storedUser = getStoredCurrentUser();
-  if (storedUser) {
-    applyAuthenticatedUser(storedUser, "Restaurando sesion...");
-  }
 
   if (!window.repairCloud?.isConfigured()) {
+    if (storedUser) {
+      applyAuthenticatedUser(storedUser, "Restaurando sesion...");
+    }
     saveAuthMode("local");
     finishSessionRestore();
     return;
   }
 
   if (getSavedAuthMode() === "local") {
-    credentialHint.textContent = "Ahora hay conexion con Convex. Tu sesion anterior fue local; vuelve a iniciar sesion para validarla en Convex.";
+    showLoggedOutView("Ahora hay conexion con Convex. Tu sesion anterior fue local; vuelve a iniciar sesion para validarla en Convex.");
     finishSessionRestore();
     return;
   }
 
   const sessionToken = getSavedSessionToken();
   if (!sessionToken) {
-    credentialHint.textContent = "Modo Convex | Inicia sesion con tu usuario.";
+    showLoggedOutView("Modo Convex | Inicia sesion con tu usuario.");
     finishSessionRestore();
     return;
   }
@@ -783,19 +795,13 @@ async function restoreSession() {
   try {
     const user = await window.repairCloud.currentSession(sessionToken);
     if (!user) {
-      clearSessionToken();
-      clearCurrentUser();
-      currentUser = null;
-      sessionPanel.hidden = true;
-      loginForm.hidden = false;
-      resetLoginLayout();
-      credentialHint.textContent = "Tu sesion expiro. Inicia sesion nuevamente.";
+      showLoggedOutView("Tu sesion expiro. Inicia sesion nuevamente.");
       finishSessionRestore();
       return;
     }
     applyAuthenticatedUser(user, "Sesion recuperada desde internet.");
   } catch (error) {
-    credentialHint.textContent = error.message;
+    showLoggedOutView(getFriendlyErrorMessage(error));
   } finally {
     finishSessionRestore();
   }
