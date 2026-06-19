@@ -9,7 +9,7 @@
         if (localStorage.getItem("loginColorMode") === "dark") document.documentElement.classList.add("login-dark");
       } catch {}
     </script>
-    <link rel="stylesheet" href="styles.css?v=session-restore-4" />
+    <link rel="stylesheet" href="styles.css?v=parts-modal-1" />
   </head>
   <body class="parts-page">
     <main class="parts-shell">
@@ -42,10 +42,12 @@
       </section>
 
       <section class="parts-layout">
-        <form class="parts-form" id="partsForm">
+        <div class="parts-form-overlay" id="partsFormOverlay" hidden>
+        <form class="parts-form" id="partsForm" role="dialog" aria-modal="true" aria-labelledby="partsFormTitle">
+          <button class="parts-form-close" type="button" id="closePartsForm" aria-label="Cerrar formulario" title="Cerrar">×</button>
           <div class="form-heading">
-            <span>Alta de repuesto</span>
-            <h2>Datos del repuesto</h2>
+            <span id="partsFormKicker">Alta de repuesto</span>
+            <h2 id="partsFormTitle">Datos del repuesto</h2>
             <p>Captura la informacion base para compras, ventas y reparaciones.</p>
           </div>
 
@@ -129,9 +131,13 @@
             </div>
           </div>
 
-          <button class="primary-button" type="submit" id="submitParts">Guardar repuesto</button>
+          <div class="parts-form-actions">
+            <button class="secondary-button" type="button" id="cancelPartsForm">Cancelar</button>
+            <button class="primary-button" type="submit" id="submitParts">Guardar repuesto</button>
+          </div>
           <p class="hint" id="partsHint">Los datos se guardan en este navegador como demo.</p>
         </form>
+        </div>
 
         <section class="parts-table-card">
           <div class="table-toolbar">
@@ -139,7 +145,10 @@
               <span class="panel-kicker">Consulta</span>
               <h2>Listado de repuestos</h2>
             </div>
-            <input id="partSearch" type="search" placeholder="Buscar repuesto o proveedor" />
+            <div class="parts-table-tools">
+              <input id="partSearch" type="search" placeholder="Buscar repuesto o proveedor" />
+              <button class="primary-button" type="button" id="openPartsForm">Nuevo repuesto</button>
+            </div>
           </div>
 
           <div class="table-wrap">
@@ -206,6 +215,6 @@
     <script src="convex-client.js?v=session-restore-4"></script>
     <script src="pending-notes.js?v=notes-convex-1"></script>
     <script src="page-nav.js?v=activator-role-1"></script>
-    <script src="repuestos.js?v=session-restore-4"></script>
+    <script src="repuestos.js?v=parts-modal-1"></script>
   </body>
 </html>
