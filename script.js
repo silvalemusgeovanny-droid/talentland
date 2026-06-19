@@ -466,6 +466,14 @@ function clearCurrentUser() {
   localStorage.removeItem(currentUserStorageKey);
 }
 
+function resetLoginLayout() {
+  document.body.classList.remove("left-panel-active", "statistics-active", "users-active", "entry-panel-active");
+  if (accessCard) accessCard.hidden = false;
+  if (sideRepairsPanel) sideRepairsPanel.hidden = true;
+  if (sideUsersPanel) sideUsersPanel.hidden = true;
+  sessionPanel.classList.remove("control-panel-wide");
+}
+
 function getStoredCurrentUser() {
   const savedUser = localStorage.getItem(currentUserStorageKey);
   if (!savedUser) return null;
@@ -566,7 +574,7 @@ async function endSessionForPasswordChange(message) {
   closeLogoutConfirmation();
   closeNotesPanel();
   renderNotes();
-  setLeftPanelForModule("permissions");
+  resetLoginLayout();
   credentialHint.textContent = message;
 }
 
@@ -724,7 +732,7 @@ async function performLogout() {
   closeLogoutConfirmation();
   closeNotesPanel();
   renderNotes();
-  setLeftPanelForModule("permissions");
+  resetLoginLayout();
 }
 
 async function signIn(username, password) {
@@ -780,11 +788,12 @@ async function restoreSession() {
       currentUser = null;
       sessionPanel.hidden = true;
       loginForm.hidden = false;
+      resetLoginLayout();
       credentialHint.textContent = "Tu sesion expiro. Inicia sesion nuevamente.";
       finishSessionRestore();
       return;
     }
-    applyAuthenticatedUser(user, "Sesion recuperada desde Convex.");
+    applyAuthenticatedUser(user, "Sesion recuperada desde internet.");
   } catch (error) {
     credentialHint.textContent = error.message;
   } finally {
