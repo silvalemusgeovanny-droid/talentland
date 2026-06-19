@@ -2460,7 +2460,7 @@ body.users-active .session-panel {
 
 .parts-layout {
   display: grid;
-  grid-template-columns: minmax(300px, 390px) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr);
   gap: 18px;
   max-width: 1180px;
   margin: 0 auto;
@@ -2486,8 +2486,55 @@ body.users-active .session-panel {
 }
 
 .parts-form {
+  position: relative;
+  width: min(720px, calc(100vw - 32px));
+  max-height: calc(100vh - 40px);
+  overflow-y: auto;
   padding: clamp(20px, 3vw, 28px);
   border-top: 5px solid var(--accent);
+}
+
+.parts-form-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 120;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgb(4 12 18 / 72%);
+  backdrop-filter: blur(7px);
+}
+
+.parts-form-overlay[hidden] {
+  display: none;
+}
+
+body.parts-form-modal-open {
+  overflow: hidden;
+}
+
+.parts-form-close {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  width: 40px;
+  min-height: 40px;
+  padding: 0;
+  border-radius: 999px;
+  font-size: 1.55rem;
+  line-height: 1;
+}
+
+.parts-form-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+  margin-top: 8px;
+}
+
+.parts-form-actions button {
+  width: auto;
+  min-width: 150px;
 }
 
 .parts-form .form-heading {
@@ -2671,6 +2718,23 @@ body.users-active .session-panel {
 
 .table-toolbar input {
   max-width: 330px;
+}
+
+.parts-table-tools {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.parts-table-tools input {
+  width: min(330px, 34vw);
+}
+
+.parts-table-tools .primary-button {
+  width: auto;
+  min-width: 150px;
+  margin: 0;
+  white-space: nowrap;
 }
 
 .table-wrap {
@@ -3021,6 +3085,17 @@ tbody tr:hover {
     max-width: none;
   }
 
+  .parts-table-tools {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .parts-table-tools input,
+  .parts-table-tools .primary-button {
+    width: 100%;
+    max-width: none;
+  }
+
   .users-panel-layout,
   .permission-grid {
     grid-template-columns: 1fr;
@@ -3125,6 +3200,23 @@ tbody tr:hover {
 
   .field-grid {
     grid-template-columns: 1fr;
+  }
+
+  .parts-form-overlay {
+    padding: 8px;
+  }
+
+  .parts-form {
+    width: calc(100vw - 16px);
+    max-height: calc(100vh - 16px);
+  }
+
+  .parts-form-actions {
+    flex-direction: column-reverse;
+  }
+
+  .parts-form-actions button {
+    width: 100%;
   }
 
   .parts-shell {

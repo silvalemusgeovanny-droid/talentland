@@ -51,6 +51,13 @@ const starterParts = [
 ];
 
 const partsForm = document.querySelector("#partsForm");
+const partsFormOverlay = document.querySelector("#partsFormOverlay");
+const openPartsFormButton = document.querySelector("#openPartsForm");
+const closePartsFormButton = document.querySelector("#closePartsForm");
+const cancelPartsFormButton = document.querySelector("#cancelPartsForm");
+const partsFormKicker = document.querySelector("#partsFormKicker");
+const partsFormTitle = document.querySelector("#partsFormTitle");
+const submitPartsButton = document.querySelector("#submitParts");
 const partsTable = document.querySelector("#partsTable");
 const partNameSelect = document.querySelector("#partNameSelect");
 const partNameInput = document.querySelector("#partName");
@@ -105,9 +112,42 @@ function applyPartsAccessMode() {
   const isReadOnly = isPartsReadOnlyMode();
   document.body.classList.toggle("parts-readonly-mode", isReadOnly);
   partsForm.hidden = isReadOnly;
+  openPartsFormButton.hidden = isReadOnly;
+  if (isReadOnly) closePartsForm();
   if (isReadOnly) {
     partsHint.textContent = "Modo consulta: tu rol puede ver repuestos, pero no agregar, editar ni eliminar.";
   }
+}
+
+function setPartsFormMode(mode) {
+  const isEditing = mode === "edit";
+  partsFormKicker.textContent = isEditing ? "Edicion de repuesto" : "Alta de repuesto";
+  partsFormTitle.textContent = isEditing ? "Actualizar repuesto" : "Datos del repuesto";
+  submitPartsButton.textContent = isEditing ? "Guardar cambios" : "Guardar repuesto";
+}
+
+function openPartsForm(mode = "create") {
+  if (isPartsReadOnlyMode()) return;
+  setPartsFormMode(mode);
+  partsFormOverlay.hidden = false;
+  document.body.classList.add("parts-form-modal-open");
+  setTimeout(() => partNameSelect.focus(), 0);
+}
+
+function closePartsForm({ reset = true } = {}) {
+  partsFormOverlay.hidden = true;
+  document.body.classList.remove("parts-form-modal-open");
+  if (!reset) return;
+  delete partsForm.dataset.editingId;
+  partsForm.reset();
+  resetPartDates();
+  setPartsFormMode("create");
+}
+
+function startNewPart() {
+  closePartsForm();
+  partsHint.textContent = "Captura los datos del nuevo repuesto.";
+  openPartsForm("create");
 }
 
 function getUndoBar() {
@@ -995,7 +1035,7 @@ partsForm.addEventListener("submit", async (event) => {
       }
     }
     delete partsForm.dataset.editingId;
-    document.querySelector("#submitParts").textContent = "Guardar repuesto";
+    submitPartsButton.textContent = "Guardar repuesto";
     partsHint.textContent = "Repuesto actualizado correctamente.";
   } else {
     const now = new Date().toISOString();
@@ -1027,6 +1067,7 @@ partsForm.addEventListener("submit", async (event) => {
   partsForm.reset();
   resetPartDates();
   await refreshPartsView();
+  closePartsForm();
 });
 
 partsTable.addEventListener("click", async (event) => {
@@ -1055,9 +1096,8 @@ partsTable.addEventListener("click", async (event) => {
     publishedAtInput.value = formatPartDate(part.publishedAt);
     updatedAtInput.value = formatPartDate(part.updatedAt);
     partsForm.dataset.editingId = getPartRecordId(part);
-    partsHint.textContent = "Editando repuesto — haz clic en Guardar para confirmar los cambios.";
-    document.querySelector("#submitParts").textContent = "Guardar cambios";
-    partsForm.scrollIntoView({ behavior: "smooth", block: "start" });
+    partsHint.textContent = "Editando repuesto: guarda para confirmar los cambios.";
+    openPartsForm("edit");
     return;
   }
 
@@ -1130,6 +1170,15 @@ partsForm.addEventListener("click", async (event) => {
 });
 
 partSearch.addEventListener("input", renderParts);
+openPartsFormButton.addEventListener("click", startNewPart);
+closePartsFormButton.addEventListener("click", () => closePartsForm());
+cancelPartsFormButton.addEventListener("click", () => closePartsForm());
+partsFormOverlay.addEventListener("click", (event) => {
+  if (event.target === partsFormOverlay) closePartsForm();
+});
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape" && !partsFormOverlay.hidden) closePartsForm();
+});
 partNameSelect.addEventListener("change", () => syncManualField(partNameSelect, partNameInput));
 partNameInput.addEventListener("blur", syncPartTypeText);
 partNameInput.addEventListener("change", syncPartTypeText);
