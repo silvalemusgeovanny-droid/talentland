@@ -216,12 +216,40 @@
           />
         </svg>
       </button>
+
+      <button
+        class="logout-toggle"
+        type="button"
+        id="partsLogoutButton"
+        aria-label="Cerrar sesion"
+        title="Cerrar sesion"
+        hidden
+      >
+        <svg aria-hidden="true" viewBox="0 0 24 24">
+          <path d="M10 4H6.5A2.5 2.5 0 0 0 4 6.5v11A2.5 2.5 0 0 0 6.5 20H10" fill="none" stroke="currentColor" stroke-linecap="round" stroke-width="2.2" />
+          <path d="M14 8l4 4-4 4M18 12H9" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" />
+        </svg>
+      </button>
+
+      <div class="sale-confirm-overlay" id="partsLogoutConfirmOverlay" hidden>
+        <section class="sale-confirm-card logout-confirm-card" role="dialog" aria-modal="true" aria-labelledby="partsLogoutConfirmTitle">
+          <div>
+            <span class="panel-kicker">Cerrar sesion</span>
+            <h2 id="partsLogoutConfirmTitle">Confirmar salida</h2>
+            <p class="hint">Volveras a la pantalla de inicio de sesion.</p>
+          </div>
+          <div class="sale-confirm-actions">
+            <button class="secondary-button" type="button" id="cancelPartsLogout">Cancelar</button>
+            <button class="primary-button danger-action" type="button" id="confirmPartsLogout">Cerrar sesion</button>
+          </div>
+        </section>
+      </div>
     </main>
 
     <script src="convex-config.js?v=session-restore-4"></script>
     <script src="convex-client.js?v=session-restore-4"></script>
     <script src="pending-notes.js?v=notes-permissions-1"></script>
     <script src="page-nav.js?v=activator-role-1"></script>
-    <script src="repuestos.js?v=parts-table-compact-1"></script>
+    <script src="repuestos.js?v=parts-logout-1"></script>
   </body>
 </html>

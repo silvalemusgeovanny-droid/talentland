@@ -81,6 +81,10 @@ const partsHint = document.querySelector("#partsHint");
 const currentDate = document.querySelector("#currentDate");
 const currentTime = document.querySelector("#currentTime");
 const colorModeToggle = document.querySelector("#colorModeToggle");
+const partsLogoutButton = document.querySelector("#partsLogoutButton");
+const partsLogoutConfirmOverlay = document.querySelector("#partsLogoutConfirmOverlay");
+const cancelPartsLogoutButton = document.querySelector("#cancelPartsLogout");
+const confirmPartsLogoutButton = document.querySelector("#confirmPartsLogout");
 const colorModeStorageKey = "loginColorMode";
 let lastDeletedPart = null;
 let undoTimerId = null;
@@ -104,6 +108,36 @@ function getStoredCurrentUser() {
     return JSON.parse(savedUser);
   } catch {
     return null;
+  }
+}
+
+function updatePartsLogoutVisibility() {
+  partsLogoutButton.hidden = !getStoredCurrentUser() && !localStorage.getItem(sessionTokenStorageKey);
+}
+
+function openPartsLogoutConfirmation() {
+  partsLogoutConfirmOverlay.hidden = false;
+  confirmPartsLogoutButton.focus();
+}
+
+function closePartsLogoutConfirmation() {
+  partsLogoutConfirmOverlay.hidden = true;
+}
+
+async function performPartsLogout() {
+  const sessionToken = localStorage.getItem(sessionTokenStorageKey);
+  confirmPartsLogoutButton.disabled = true;
+  try {
+    if (sessionToken && window.repairCloud?.isConfigured()) {
+      await window.repairCloud.logout(sessionToken);
+    }
+  } catch {
+    // The local session must still close if the network is unavailable.
+  } finally {
+    localStorage.removeItem(sessionTokenStorageKey);
+    localStorage.removeItem(currentUserStorageKey);
+    localStorage.removeItem(authModeStorageKey);
+    window.location.replace("index.html");
   }
 }
 
@@ -1227,10 +1261,17 @@ colorModeToggle.addEventListener("click", () => {
   const nextMode = document.body.classList.contains("login-dark") ? "light" : "dark";
   setColorMode(nextMode);
 });
+partsLogoutButton.addEventListener("click", openPartsLogoutConfirmation);
+cancelPartsLogoutButton.addEventListener("click", closePartsLogoutConfirmation);
+confirmPartsLogoutButton.addEventListener("click", performPartsLogout);
+partsLogoutConfirmOverlay.addEventListener("click", (event) => {
+  if (event.target === partsLogoutConfirmOverlay) closePartsLogoutConfirmation();
+});
 
 setColorMode(localStorage.getItem(colorModeStorageKey) || "light");
 updateDateTime();
 setInterval(updateDateTime, 1000);
 resetPartDates();
 applyPartsAccessMode();
+updatePartsLogoutVisibility();
 refreshPartsView();
