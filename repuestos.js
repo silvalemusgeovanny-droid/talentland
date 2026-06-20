@@ -71,6 +71,9 @@ const categorySelect = document.querySelector("#category");
 const publishedAtInput = document.querySelector("#publishedAt");
 const updatedAtInput = document.querySelector("#updatedAt");
 const partSearch = document.querySelector("#partSearch");
+const partsPageSummary = document.querySelector("#partsPageSummary");
+const previousPartsPageButton = document.querySelector("#previousPartsPage");
+const nextPartsPageButton = document.querySelector("#nextPartsPage");
 const totalParts = document.querySelector("#totalParts");
 const totalValue = document.querySelector("#totalValue");
 const totalProviders = document.querySelector("#totalProviders");
@@ -82,6 +85,8 @@ const colorModeStorageKey = "loginColorMode";
 let lastDeletedPart = null;
 let undoTimerId = null;
 let partsCloudMigrationDone = false;
+let currentPartsPage = 1;
+const partsPerPage = 20;
 const newOptionValue = "__new__";
 const categoryOptions = ["Telefono", "Tablet", "Computadora", "Bocina"];
 const optionFieldLabels = {
@@ -738,10 +743,23 @@ function renderParts() {
 
   if (!filteredParts.length) {
     partsTable.innerHTML = `<tr><td class="empty-table" colspan="${isReadOnly ? 11 : 12}">No hay repuestos con esa busqueda.</td></tr>`;
+    partsPageSummary.textContent = "0 repuestos";
+    previousPartsPageButton.disabled = true;
+    nextPartsPageButton.disabled = true;
     return;
   }
 
-  partsTable.innerHTML = filteredParts.map((part) => `
+  const totalPages = Math.max(1, Math.ceil(filteredParts.length / partsPerPage));
+  currentPartsPage = Math.min(Math.max(currentPartsPage, 1), totalPages);
+  const startIndex = (currentPartsPage - 1) * partsPerPage;
+  const visibleParts = filteredParts.slice(startIndex, startIndex + partsPerPage);
+  const endIndex = startIndex + visibleParts.length;
+
+  partsPageSummary.textContent = `${startIndex + 1}-${endIndex} de ${filteredParts.length} repuestos`;
+  previousPartsPageButton.disabled = currentPartsPage === 1;
+  nextPartsPageButton.disabled = currentPartsPage === totalPages;
+
+  partsTable.innerHTML = visibleParts.map((part) => `
     <tr>
       <td><strong>${part.name}</strong></td>
       <td>${part.brand || "Sin marca"}</td>
@@ -1169,7 +1187,21 @@ partsForm.addEventListener("click", async (event) => {
   }
 });
 
-partSearch.addEventListener("input", renderParts);
+partSearch.addEventListener("input", () => {
+  currentPartsPage = 1;
+  renderParts();
+});
+previousPartsPageButton.addEventListener("click", () => {
+  if (currentPartsPage <= 1) return;
+  currentPartsPage -= 1;
+  renderParts();
+  document.querySelector(".parts-table-card").scrollIntoView({ behavior: "smooth", block: "start" });
+});
+nextPartsPageButton.addEventListener("click", () => {
+  currentPartsPage += 1;
+  renderParts();
+  document.querySelector(".parts-table-card").scrollIntoView({ behavior: "smooth", block: "start" });
+});
 openPartsFormButton.addEventListener("click", startNewPart);
 closePartsFormButton.addEventListener("click", () => closePartsForm());
 cancelPartsFormButton.addEventListener("click", () => closePartsForm());

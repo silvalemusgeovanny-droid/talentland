@@ -57,7 +57,7 @@ const roleProfiles = {
   root: {
     label: "Root",
     access: "Control total del sistema",
-    modules: ["permissions", "sales", "products", "parts", "repairs", "contacts", "statistics", "database", "users"],
+    modules: ["permissions", "sales", "products", "parts", "repairs", "contacts", "notes", "statistics", "database", "users"],
     permissions: [
       "Modificar usuarios, roles y accesos",
       "Ver base de datos local completa",
@@ -68,7 +68,7 @@ const roleProfiles = {
   admin: {
     label: "Admin",
     access: "Administracion con restricciones",
-    modules: ["permissions", "sales", "products", "parts", "repairs", "contacts", "statistics", "database"],
+    modules: ["permissions", "sales", "products", "parts", "repairs", "contacts", "notes", "statistics", "database"],
     permissions: [
       "Registrar ventas, repuestos y reparaciones",
       "Ver base de datos local",
@@ -79,7 +79,7 @@ const roleProfiles = {
   user: {
     label: "Usuario",
     access: "Operacion basica sin base de datos",
-    modules: ["permissions", "sales", "parts", "repairs"],
+    modules: ["permissions", "sales", "parts", "repairs", "notes"],
     permissions: [
       "Registrar operaciones del dia",
       "Consultar modulos operativos permitidos",
@@ -100,7 +100,7 @@ const roleProfiles = {
   },
 };
 
-const manageableModules = ["sales", "products", "parts", "repairs", "contacts", "statistics", "database", "users"];
+const manageableModules = ["sales", "products", "parts", "repairs", "contacts", "notes", "statistics", "database", "users"];
 const moduleLabels = {
   permissions: "Inicio",
   sales: "Ventas",
@@ -108,6 +108,7 @@ const moduleLabels = {
   parts: "Repuestos",
   repairs: "Reparaciones",
   contacts: "Contactos",
+  notes: "Notas",
   statistics: "Resumen",
   database: "Datos",
   users: "Usuarios",
@@ -147,7 +148,7 @@ const moduleBackButton = document.querySelector("#moduleBackButton");
 const moduleNextButton = document.querySelector("#moduleNextButton");
 const moduleNavLabel = document.querySelector("#moduleNavLabel");
 const quickPartsForm = document.querySelector("#quickPartsForm");
-const quickPartsList = document.querySelector("#quickPartsList");
+const quickPartsSubmit = document.querySelector("#quickPartsSubmit");
 const quickPartsHint = document.querySelector("#quickPartsHint");
 const quickPartNameSelect = document.querySelector("#quickPartNameSelect");
 const quickPartNameInput = document.querySelector("#quickPartName");
@@ -525,7 +526,10 @@ function getUserModules(user) {
   // Root always keeps the complete role profile, even if an older account
   // record contains a stale or incomplete custom modules array.
   if (user?.role === "root") return [...roleProfiles.root.modules];
-  if (user?.role === "activador") return ["parts"];
+  if (user?.role === "activador") {
+    const activatorModules = Array.isArray(user.modules) ? user.modules : roleModules;
+    return activatorModules.includes("notes") ? ["permissions", "parts", "notes"] : ["permissions", "parts"];
+  }
   if (!Array.isArray(user?.modules)) return roleModules;
   const allowedModules = new Set(["permissions", ...manageableModules]);
   const customModules = user.modules.filter((moduleName) => allowedModules.has(moduleName));
@@ -627,6 +631,9 @@ async function requestPasswordChangeIfNeeded(user) {
     currentUser.mustChangePassword = false;
     saveCurrentUser(currentUser);
     credentialHint.textContent = "Contrasena actualizada correctamente.";
+    if (currentUser.role === "activador") {
+      window.location.replace("repuestos.html");
+    }
   } catch (error) {
     await endSessionForPasswordChange(getFriendlyErrorMessage(error));
   }
@@ -689,6 +696,10 @@ function applyAuthenticatedUser(user, message = "Sesion iniciada correctamente."
   );
   currentUser = { ...(localUser || {}), ...user };
   saveCurrentUser(currentUser);
+  if (currentUser.role === "activador" && !currentUser.mustChangePassword) {
+    window.location.replace("repuestos.html");
+    return;
+  }
   migrateLegacyNoteAuthors(currentUser);
   const roleProfile = getRoleProfile(currentUser.role);
   welcomeTitle.textContent = `Bienvenido, ${currentUser.name}`;
@@ -1275,15 +1286,12 @@ async function loadPartsFromSource() {
 }
 
 async function refreshQuickPartsView() {
-  const hasRenderedParts = quickPartsList.children.length > 0;
-  if (!hasRenderedParts) {
-    renderQuickPartTypeOptions();
-    renderQuickBrandOptions();
-    renderQuickModelOptions();
-    renderQuickSupplierOptions();
-    renderQuickCategoryOptions();
-    renderQuickParts();
-  }
+  renderQuickPartTypeOptions();
+  renderQuickBrandOptions();
+  renderQuickModelOptions();
+  renderQuickSupplierOptions();
+  renderQuickCategoryOptions();
+  renderQuickParts();
 
   try {
     await loadPartsFromSource();
@@ -2101,22 +2109,9 @@ function isToday(value) {
 }
 
 function renderQuickParts() {
-  const parts = loadParts().slice(0, 4);
   const canEditParts = canManageParts();
-  const readonlyNotice = canEditParts ? "" : `
-    <article class="compact-part-item readonly-notice">
-      <strong>Modo consulta</strong>
-      <span>Este rol puede revisar repuestos, existencias y precios. No puede agregar, editar ni eliminar.</span>
-    </article>
-  `;
-  quickPartsList.innerHTML = readonlyNotice + parts.map((part) => `
-    <article class="compact-part-item">
-      <strong>${part.name}</strong>
-      <span>${part.brand || "Sin marca"} ${part.model || ""} | Costo ${formatCurrencyCents(getMoneyCents(part, "price", "priceCents"))} | Cliente ${formatCurrencyCents(getMoneyCents(part, "customerPrice", "customerPriceCents"))} | <span class="quality-pill ${getQualityClass(part.quality)}">${normalizeQuality(part.quality)}</span> | ${part.supplier}</span>
-    </article>
-  `).join("");
   quickPartsForm.hidden = !canEditParts;
-  quickPartsList.classList.toggle("readonly-list", !canEditParts);
+  quickPartsSubmit.hidden = !canEditParts;
 }
 
 function formatNoteDate(value) {
@@ -2131,6 +2126,15 @@ function formatNoteDate(value) {
 }
 
 async function renderNotes() {
+  const canUseNotes = Boolean(currentUser) && canAccessModule("notes");
+  if (!canUseNotes) {
+    notesToggle.hidden = true;
+    notesBadge.hidden = true;
+    pendingAlert.hidden = true;
+    notesOverlay.hidden = true;
+    return;
+  }
+
   let notes = [];
   try {
     notes = await loadNotesFromSource();
@@ -2171,7 +2175,7 @@ async function renderNotes() {
 }
 
 function openNotesPanel() {
-  if (!currentUser) return;
+  if (!currentUser || !canAccessModule("notes")) return;
   notesOverlay.hidden = false;
   renderNotes();
   noteTextInput.focus();
@@ -3200,7 +3204,7 @@ function renderPermissionEditor(selectedModules = null) {
     const checked = enabledModules.has(moduleName) ? "checked" : "";
     const required =
       (moduleName === "users" && role !== "root") ||
-      (role === "activador" && moduleName !== "parts")
+      (role === "activador" && !["parts", "notes"].includes(moduleName))
         ? "disabled"
         : "";
     return `
@@ -3438,7 +3442,8 @@ function setColorMode(mode) {
 
 function getAllowedModules() {
   if (!currentUser) return [];
-  return getUserModules(currentUser);
+  const navigableModules = new Set([...moduleTabs].map((button) => button.dataset.module));
+  return getUserModules(currentUser).filter((moduleName) => navigableModules.has(moduleName));
 }
 
 function updateModuleNavigation(moduleName) {
@@ -3501,11 +3506,7 @@ function setModule(moduleName) {
   if (moduleName === "contacts") renderContacts();
   if (moduleName === "users") renderUsers();
   if (moduleName === "parts") refreshQuickPartsView();
-  if (moduleName === "parts") {
-    moduleLink.href = "repuestos.html";
-    moduleLink.textContent = "Ver listado completo de repuestos";
-    moduleLink.hidden = false;
-  } else if (moduleName === "repairs") {
+  if (moduleName === "repairs") {
     moduleLink.href = "reparaciones.html";
     moduleLink.textContent = "Ver registros de reparaciones";
     moduleLink.hidden = false;
@@ -3583,6 +3584,7 @@ snoozePendingAlert.addEventListener("click", snoozeNotesAlert);
 
 notesForm.addEventListener("submit", async (event) => {
   event.preventDefault();
+  if (!canAccessModule("notes")) return;
   const noteText = sanitizeNoteText(noteTextInput.value);
   if (!noteText) return;
 
@@ -3622,6 +3624,7 @@ noteTextInput.addEventListener("input", () => {
 });
 
 notesList.addEventListener("click", async (event) => {
+  if (!canAccessModule("notes")) return;
   const button = event.target.closest("[data-note-action]");
   if (!button) return;
 
