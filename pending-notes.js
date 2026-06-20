@@ -46,6 +46,13 @@ function getCurrentUser() {
   }
 }
 
+function canCurrentUserUseNotes(user = getCurrentUser()) {
+  if (!user) return false;
+  if (user.role === "root") return true;
+  if (Array.isArray(user.modules)) return user.modules.includes("notes");
+  return ["admin", "user"].includes(user.role);
+}
+
 function migrateLegacyNoteAuthors(user) {
   if (!user) return;
   const authorName = user.name || user.username || "Usuario";
@@ -189,6 +196,13 @@ function setupPendingNotes() {
 
   async function renderNotes() {
     const currentUser = getCurrentUser();
+    if (!canCurrentUserUseNotes(currentUser)) {
+      notesToggle.hidden = true;
+      notesBadge.hidden = true;
+      pendingAlert.hidden = true;
+      notesOverlay.hidden = true;
+      return;
+    }
     migrateLegacyNoteAuthors(currentUser);
     let notes = [];
     try {
@@ -230,7 +244,8 @@ function setupPendingNotes() {
   }
 
   function openNotesPanel() {
-    if (!localStorage.getItem(sessionTokenStorageKey) && !getCurrentUser()) return;
+    const currentUser = getCurrentUser();
+    if ((!localStorage.getItem(sessionTokenStorageKey) && !currentUser) || !canCurrentUserUseNotes(currentUser)) return;
     notesOverlay.hidden = false;
     renderNotes();
     noteTextInput.focus();
@@ -251,6 +266,7 @@ function setupPendingNotes() {
 
   notesForm.addEventListener("submit", async (event) => {
     event.preventDefault();
+    if (!canCurrentUserUseNotes()) return;
     const noteText = sanitizeNoteText(noteTextInput.value);
     if (!noteText) return;
 
@@ -291,6 +307,7 @@ function setupPendingNotes() {
   });
 
   notesList.addEventListener("click", async (event) => {
+    if (!canCurrentUserUseNotes()) return;
     const button = event.target.closest("[data-note-action]");
     if (!button) return;
 

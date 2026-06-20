@@ -15,7 +15,7 @@
         }
       } catch {}
     </script>
-    <link rel="stylesheet" href="styles.css?v=logout-catalog-1" />
+    <link rel="stylesheet" href="styles.css?v=parts-actions-row-1" />
   </head>
   <body>
     <main class="app-shell">
@@ -299,11 +299,13 @@
                 </div>
               </div>
 
-              <button class="primary-button" type="submit">Guardar repuesto</button>
               <p class="hint" id="quickPartsHint">Registro rapido de repuestos.</p>
             </form>
 
-            <div class="compact-list" id="quickPartsList"></div>
+            <div class="quick-parts-actions">
+              <button class="primary-button" type="submit" form="quickPartsForm" id="quickPartsSubmit">Guardar repuesto</button>
+              <a class="module-link" href="repuestos.html" id="quickPartsLink">Ver listado completo de repuestos</a>
+            </div>
           </section>
 
           <section class="module-panel repairs-module" id="repairsModule">

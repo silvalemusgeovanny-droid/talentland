@@ -9,7 +9,7 @@
         if (localStorage.getItem("loginColorMode") === "dark") document.documentElement.classList.add("login-dark");
       } catch {}
     </script>
-    <link rel="stylesheet" href="styles.css?v=parts-modal-1" />
+    <link rel="stylesheet" href="styles.css?v=parts-table-compact-1" />
   </head>
   <body class="parts-page">
     <main class="parts-shell">
@@ -172,6 +172,13 @@
               <tbody id="partsTable"></tbody>
             </table>
           </div>
+          <div class="parts-pagination" id="partsPagination">
+            <span id="partsPageSummary">0 repuestos</span>
+            <div>
+              <button class="secondary-button" type="button" id="previousPartsPage">Anterior</button>
+              <button class="secondary-button" type="button" id="nextPartsPage">Siguiente</button>
+            </div>
+          </div>
         </section>
       </section>
 
@@ -213,8 +220,8 @@
 
     <script src="convex-config.js?v=session-restore-4"></script>
     <script src="convex-client.js?v=session-restore-4"></script>
-    <script src="pending-notes.js?v=notes-convex-1"></script>
+    <script src="pending-notes.js?v=notes-permissions-1"></script>
     <script src="page-nav.js?v=activator-role-1"></script>
-    <script src="repuestos.js?v=parts-modal-1"></script>
+    <script src="repuestos.js?v=parts-table-compact-1"></script>
   </body>
 </html>
