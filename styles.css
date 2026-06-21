@@ -277,7 +277,15 @@ body.users-active .side-repairs-panel {
 }
 
 :is(body.login-dark, html.login-dark body) .module-tab {
+  border-color: rgb(255 255 255 / 11%);
+  background: #17242e;
   color: #a9b8c2;
+}
+
+:is(body.login-dark, html.login-dark body) .module-tab-icon {
+  border-color: #3c5261;
+  background: rgb(255 255 255 / 2%);
+  color: #91a9ba;
 }
 
 :is(body.login-dark, html.login-dark body) .module-nav-bar span {
@@ -291,6 +299,12 @@ body.users-active .side-repairs-panel {
 
 :is(body.login-dark, html.login-dark body) .module-tab.active {
   background: #263844;
+  color: #ffffff;
+}
+
+:is(body.login-dark, html.login-dark body) .module-tab.active .module-tab-icon {
+  border-color: #536b7b;
+  background: rgb(255 255 255 / 5%);
   color: #ffffff;
 }
 
@@ -943,33 +957,87 @@ input[readonly] {
 }
 
 .module-tabs {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(92px, 1fr));
-  gap: 6px;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 12px;
   min-width: 0;
-  padding: 5px;
+  padding: 12px;
   border: 1px solid rgb(23 32 38 / 10%);
   border-radius: 8px;
   background: rgb(237 243 245 / 82%);
 }
 
 .module-tab {
-  min-width: 0;
-  min-height: 38px;
-  border: 0;
-  border-radius: 6px;
-  background: transparent;
+  display: flex;
+  flex: 1 1 calc(20% - 12px);
+  gap: 10px;
+  align-items: center;
+  justify-content: flex-start;
+  min-width: 145px;
+  max-width: calc(20% - 10px);
+  min-height: 72px;
+  padding: 10px 13px;
+  border: 1px solid rgb(23 32 38 / 12%);
+  border-radius: 8px;
+  background: rgb(255 255 255 / 48%);
   color: #53616b;
   cursor: pointer;
   font-size: 0.82rem;
-  font-weight: 800;
-  overflow-wrap: anywhere;
+  font-weight: 900;
+  white-space: nowrap;
+  box-shadow: 0 7px 18px rgb(17 24 32 / 7%);
+  transition: transform 150ms ease, border-color 150ms ease, box-shadow 150ms ease;
+}
+
+.module-tab:hover {
+  transform: translateY(-1px);
+  border-color: rgb(23 107 135 / 28%);
+  box-shadow: 0 10px 22px rgb(17 24 32 / 11%);
+}
+
+.module-tab:focus-visible {
+  outline: 3px solid rgb(23 107 135 / 24%);
+  outline-offset: 2px;
+}
+
+.module-tab[hidden] {
+  display: none;
+}
+
+.module-tab-icon {
+  display: grid;
+  width: 38px;
+  min-width: 38px;
+  height: 38px;
+  place-items: center;
+  border: 1px solid rgb(23 107 135 / 24%);
+  border-radius: 50%;
+  background: rgb(23 107 135 / 7%);
+  color: #5d7b8d;
+}
+
+.module-tab-icon svg {
+  width: 23px;
+  height: 23px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.8;
 }
 
 .module-tab.active {
   background: white;
   color: var(--ink);
-  box-shadow: 0 4px 14px rgb(17 24 32 / 9%);
+  border-color: rgb(23 107 135 / 18%);
+  box-shadow: 0 9px 24px rgb(17 24 32 / 12%);
+}
+
+.module-tab.active .module-tab-icon {
+  border-color: rgb(23 107 135 / 30%);
+  background: rgb(23 107 135 / 11%);
+  color: var(--accent);
 }
 
 .technical .module-tabs,
@@ -986,6 +1054,15 @@ input[readonly] {
 
 .technical .module-tab,
 .visual .module-tab {
+  border-color: rgb(255 255 255 / 14%);
+  background: rgb(255 255 255 / 7%);
+  color: rgb(255 255 255 / 72%);
+}
+
+.technical .module-tab-icon,
+.visual .module-tab-icon {
+  border-color: rgb(255 255 255 / 18%);
+  background: rgb(255 255 255 / 7%);
   color: rgb(255 255 255 / 72%);
 }
 
@@ -997,6 +1074,13 @@ input[readonly] {
 .technical .module-tab.active,
 .visual .module-tab.active {
   background: rgb(255 255 255 / 20%);
+  color: white;
+}
+
+.technical .module-tab.active .module-tab-icon,
+.visual .module-tab.active .module-tab-icon {
+  border-color: rgb(255 255 255 / 28%);
+  background: rgb(255 255 255 / 12%);
   color: white;
 }
 
@@ -3156,6 +3240,11 @@ tbody tr:hover {
 }
 
 @media (max-width: 860px) {
+  .module-tab {
+    flex-basis: calc(33.333% - 12px);
+    max-width: calc(33.333% - 10px);
+  }
+
   .parts-table th:nth-child(10),
   .parts-table td:nth-child(10),
   .parts-table th:nth-child(11),
@@ -3284,7 +3373,28 @@ tbody tr:hover {
   }
 
   .module-tabs {
-    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    padding: 8px;
+  }
+
+  .module-tab {
+    flex-basis: calc(50% - 8px);
+    max-width: calc(50% - 6px);
+    min-width: 0;
+    min-height: 64px;
+    padding: 8px 10px;
+    font-size: 0.76rem;
+  }
+
+  .module-tab-icon {
+    width: 34px;
+    min-width: 34px;
+    height: 34px;
+  }
+
+  .module-tab-icon svg {
+    width: 20px;
+    height: 20px;
   }
 
   .module-nav-bar {
