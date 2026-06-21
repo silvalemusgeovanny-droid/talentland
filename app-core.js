@@ -157,6 +157,164 @@
     },
   };
 
+  const parts = {
+    parseMoneyCents(value) {
+      const normalizedValue = String(value ?? "").trim().replace(",", ".");
+      const match = normalizedValue.match(/^(\d+)(?:\.(\d+))?$/);
+      if (!match) return 0;
+
+      const pesos = Number(match[1]);
+      const decimalDigits = `${match[2] || ""}000`;
+      const cents = Number(decimalDigits.slice(0, 2)) + (Number(decimalDigits[2]) >= 5 ? 1 : 0);
+      return pesos * 100 + cents;
+    },
+    centsToMoney(cents) {
+      return (Number(cents) || 0) / 100;
+    },
+    parseMoney(value) {
+      return this.centsToMoney(this.parseMoneyCents(value));
+    },
+    getMoneyCents(part, moneyField, centsField) {
+      const cents = Number(part?.[centsField]);
+      if (Number.isInteger(cents)) return cents;
+      return this.parseMoneyCents(part?.[moneyField]);
+    },
+    normalizeStockQuantity(value) {
+      const stock = Number(value);
+      if (!Number.isFinite(stock)) return 0;
+      return Math.max(0, Math.trunc(stock));
+    },
+    normalizeType(value) {
+      const cleanedValue = String(value || "").trim().replace(/\s+/g, " ").toLowerCase();
+      if (!cleanedValue) return "";
+      return cleanedValue.charAt(0).toUpperCase() + cleanedValue.slice(1);
+    },
+    normalizeCategory(value) {
+      const categoryMap = {
+        Celular: "Telefono",
+        Telefono: "Telefono",
+        Tablet: "Tablet",
+        Computadora: "Computadora",
+        Electrodomestico: "Bocina",
+        Bocina: "Bocina",
+      };
+      return categoryMap[value] || this.normalizeType(value) || "Telefono";
+    },
+    normalizeSearch(value = "") {
+      return String(value ?? "")
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/[^a-zA-Z0-9]+/g, " ")
+        .trim()
+        .toLowerCase();
+    },
+    getCanonicalValue(values, value) {
+      const normalizedValue = this.normalizeSearch(value);
+      if (!normalizedValue) return "";
+      return values.find((option) => this.normalizeSearch(option) === normalizedValue) || "";
+    },
+    getUniqueNormalizedValues(values) {
+      const normalizedMap = new Map();
+      values.forEach((value) => {
+        const displayValue = this.normalizeType(value);
+        const key = this.normalizeSearch(displayValue);
+        if (key && !normalizedMap.has(key)) normalizedMap.set(key, displayValue);
+      });
+      return [...normalizedMap.values()].sort((a, b) => a.localeCompare(b, "es", { sensitivity: "base" }));
+    },
+    normalizeQuality(value = "") {
+      const quality = String(value || "").trim();
+      const normalized = this.normalizeSearch(quality);
+      if (["premium", "premiun", "gx"].includes(normalized)) return "GX";
+      if (["originall", "original"].includes(normalized)) return "Original";
+      if (["amoled", "am oled"].includes(normalized)) return "Amoled";
+      if (normalized === "oled") return "OLED";
+      if (normalized === "tft") return "TFT";
+      if (normalized === "ips") return "IPS";
+      if (["generico", "generica"].includes(normalized)) return "Generica";
+      return quality || "Original";
+    },
+    getQualityClass(value = "") {
+      return `quality-${this.normalizeSearch(this.normalizeQuality(value)).replace(/\s+/g, "-") || "sin-calidad"}`;
+    },
+    getRecordId(part) {
+      return String(part?.id || part?._id || part?.sourceId || "");
+    },
+    getDuplicateKey(part) {
+      return [part.name, part.brand, part.model, this.normalizeCategory(part.category), this.normalizeQuality(part.quality)]
+        .map((value) => this.normalizeSearch(value))
+        .join("|");
+    },
+    findDuplicate(items, part, currentId = "") {
+      const duplicateKey = this.getDuplicateKey(part);
+      return items.find((existingPart) => {
+        const normalizedCurrentId = String(currentId || "");
+        const existingIds = [existingPart.id, existingPart._id, existingPart.sourceId]
+          .filter(Boolean)
+          .map(String);
+        if (normalizedCurrentId && existingIds.includes(normalizedCurrentId)) return false;
+        return this.getDuplicateKey(existingPart) === duplicateKey;
+      });
+    },
+    getDuplicateMessage(part) {
+      return `Duplicado: ya existe ${part.name} ${part.brand} ${part.model}.`;
+    },
+    hasModelSupplierConflict(part) {
+      return Boolean(this.normalizeSearch(part.model)) && this.normalizeSearch(part.model) === this.normalizeSearch(part.supplier);
+    },
+    getModelSupplierConflictMessage() {
+      return "Revisa el modelo y proveedor: no pueden ser iguales.";
+    },
+    isDuplicateError(error) {
+      return String(error?.message || "").toLowerCase().includes("duplicado");
+    },
+    isSameOptionValue(field, currentValue, selectedValue) {
+      const current = field === "category" ? this.normalizeCategory(currentValue) : currentValue;
+      const selected = field === "category" ? this.normalizeCategory(selectedValue) : selectedValue;
+      return this.normalizeSearch(current) === this.normalizeSearch(selected);
+    },
+    normalizeOptionValue(field, value) {
+      if (field === "category") return this.normalizeCategory(value);
+      return this.normalizeType(value);
+    },
+    withUpdatedOptionValue(part, field, value) {
+      return { ...part, [field]: this.normalizeOptionValue(field, value) };
+    },
+    hasDuplicatesAfterOptionChange(items, field, oldValue, newValue) {
+      const projectedParts = items.map((part) =>
+        this.isSameOptionValue(field, part[field], oldValue) ? this.withUpdatedOptionValue(part, field, newValue) : part
+      );
+      const seenKeys = new Set();
+      return projectedParts.some((part) => {
+        const key = this.getDuplicateKey(part);
+        if (seenKeys.has(key)) return true;
+        seenKeys.add(key);
+        return false;
+      });
+    },
+    normalizeForCloud(part) {
+      const now = new Date().toISOString();
+      const priceCents = this.getMoneyCents(part, "price", "priceCents");
+      const customerPriceCents = this.getMoneyCents(part, "customerPrice", "customerPriceCents");
+      return {
+        sourceId: part.sourceId || part.id || part._id || crypto.randomUUID(),
+        name: this.normalizeType(part.name),
+        brand: this.normalizeType(part.brand),
+        model: this.normalizeType(part.model),
+        category: this.normalizeCategory(part.category),
+        price: this.centsToMoney(priceCents),
+        priceCents,
+        customerPrice: this.centsToMoney(customerPriceCents),
+        customerPriceCents,
+        stock: this.normalizeStockQuantity(part.stock),
+        quality: this.normalizeQuality(part.quality || "Original"),
+        supplier: this.normalizeType(part.supplier),
+        publishedAt: part.publishedAt || now,
+        updatedAt: part.updatedAt || "",
+      };
+    },
+  };
+
   const notes = {
     sanitize(value) {
       return String(value || "").replace(/[^\p{L}\p{N}\s.,;:Â¿?Â¡!()\-]/gu, "").replace(/\s+/g, " ").trim().slice(0, 280);
@@ -207,5 +365,9 @@
     clearSnooze: () => localStorage.removeItem(keys.notesSnoozeUntil),
   };
 
-  window.repairApp = Object.freeze({ session, permissions, notes });
+  const partsApi = Object.freeze(Object.fromEntries(
+    Object.entries(parts).map(([name, method]) => [name, method.bind(parts)])
+  ));
+
+  window.repairApp = Object.freeze({ session, permissions, parts: partsApi, notes });
 })();

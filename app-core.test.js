@@ -19,7 +19,7 @@ globalThis.window = {
 
 await import("./app-core.js");
 
-const { session, permissions, notes } = window.repairApp;
+const { session, permissions, parts, notes } = window.repairApp;
 
 beforeEach(() => {
   values.clear();
@@ -86,5 +86,51 @@ describe("shared application core", () => {
     expect(note.text).toBe("Revisar equipo");
     expect(note.authorName).toBe("Ana");
     expect(notes.load()).toHaveLength(1);
+  });
+
+  it("normalizes part values and money from one shared implementation", () => {
+    const normalized = parts.normalizeForCloud({
+      _id: "cloud-part-1",
+      name: "  PANTALLA   IPHONE 11 ",
+      brand: "APPLE",
+      model: "IPHONE 11",
+      category: "Celular",
+      price: "1250.505",
+      customerPrice: "1650",
+      stock: "4.9",
+      quality: "premium",
+      supplier: " TECNO PARTES ",
+    });
+
+    expect(normalized).toMatchObject({
+      sourceId: "cloud-part-1",
+      name: "Pantalla iphone 11",
+      brand: "Apple",
+      category: "Telefono",
+      priceCents: 125051,
+      customerPriceCents: 165000,
+      stock: 4,
+      quality: "GX",
+      supplier: "Tecno partes",
+    });
+  });
+
+  it("uses stable part identities while checking duplicates", () => {
+    const savedPart = { id: "local-1", _id: "cloud-1", name: "Pantalla", brand: "Apple", model: "11", category: "Telefono", quality: "GX" };
+    const samePart = { ...savedPart };
+    const otherPart = { ...savedPart, _id: "cloud-2" };
+
+    expect(parts.findDuplicate([savedPart], samePart, "cloud-1")).toBeUndefined();
+    expect(parts.findDuplicate([savedPart], otherPart, "cloud-2")).toBe(savedPart);
+  });
+
+  it("detects duplicates before applying an option change", () => {
+    const inventory = [
+      { id: "1", name: "Pantalla", brand: "Apple", model: "11", category: "Telefono", quality: "GX" },
+      { id: "2", name: "Pantalla", brand: "Samsung", model: "11", category: "Telefono", quality: "GX" },
+    ];
+
+    expect(parts.hasDuplicatesAfterOptionChange(inventory, "brand", "Samsung", "Apple")).toBe(true);
+    expect(parts.hasDuplicatesAfterOptionChange(inventory, "brand", "Samsung", "Motorola")).toBe(false);
   });
 });

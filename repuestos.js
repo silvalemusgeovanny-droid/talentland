@@ -2,6 +2,33 @@ const storageKey = "inventoryParts";
 const deletedOptionsStorageKey = "inventoryDeletedPartOptions";
 const appSession = window.repairApp.session;
 const appPermissions = window.repairApp.permissions;
+const appParts = window.repairApp.parts;
+const {
+  parseMoneyCents,
+  centsToMoney,
+  parseMoney,
+  getMoneyCents,
+  normalizeStockQuantity,
+  normalizeType: normalizePartType,
+  normalizeCategory,
+  normalizeSearch: normalizePartSearch,
+  getCanonicalValue,
+  getUniqueNormalizedValues,
+  normalizeQuality,
+  getQualityClass,
+  getRecordId: getPartRecordId,
+  getDuplicateKey: getPartDuplicateKey,
+  findDuplicate: findDuplicatePart,
+  getDuplicateMessage,
+  hasModelSupplierConflict,
+  getModelSupplierConflictMessage,
+  isDuplicateError,
+  normalizeForCloud: normalizePartForCloud,
+  isSameOptionValue,
+  normalizeOptionValue: normalizeOptionValueForField,
+  withUpdatedOptionValue,
+  hasDuplicatesAfterOptionChange: hasDuplicatePartsAfterOptionChange,
+} = appParts;
 const usersStorageKey = appSession.keys.users;
 
 const starterParts = [
@@ -305,31 +332,6 @@ async function requireRootForOptionDelete(field) {
   }
 }
 
-function parseMoneyCents(value) {
-  const normalizedValue = String(value ?? "").trim().replace(",", ".");
-  const match = normalizedValue.match(/^(\d+)(?:\.(\d+))?$/);
-  if (!match) return 0;
-
-  const pesos = Number(match[1]);
-  const decimalDigits = `${match[2] || ""}000`;
-  const cents = Number(decimalDigits.slice(0, 2)) + (Number(decimalDigits[2]) >= 5 ? 1 : 0);
-  return pesos * 100 + cents;
-}
-
-function centsToMoney(cents) {
-  return (Number(cents) || 0) / 100;
-}
-
-function parseMoney(value) {
-  return centsToMoney(parseMoneyCents(value));
-}
-
-function getMoneyCents(part, moneyField, centsField) {
-  const cents = Number(part?.[centsField]);
-  if (Number.isInteger(cents)) return cents;
-  return parseMoneyCents(part?.[moneyField]);
-}
-
 function formatCurrencyCents(cents) {
   return formatCurrency(centsToMoney(cents));
 }
@@ -347,38 +349,6 @@ function parseStockQuantity(value) {
   const normalizedValue = String(value ?? "").trim().replace(",", ".");
   if (!/^\d+$/.test(normalizedValue)) return null;
   return Number(normalizedValue);
-}
-
-function normalizeStockQuantity(value) {
-  const stock = Number(value);
-  if (!Number.isFinite(stock)) return 0;
-  return Math.max(0, Math.trunc(stock));
-}
-
-function normalizePartForCloud(part) {
-  const now = new Date().toISOString();
-  const priceCents = getMoneyCents(part, "price", "priceCents");
-  const customerPriceCents = getMoneyCents(part, "customerPrice", "customerPriceCents");
-  return {
-    sourceId: part.sourceId || part.id || part._id || crypto.randomUUID(),
-    name: normalizePartType(part.name),
-    brand: normalizePartType(part.brand),
-    model: normalizePartType(part.model),
-    category: normalizeCategory(part.category),
-    price: centsToMoney(priceCents),
-    priceCents,
-    customerPrice: centsToMoney(customerPriceCents),
-    customerPriceCents,
-    stock: normalizeStockQuantity(part.stock),
-    quality: normalizeQuality(part.quality || "Original"),
-    supplier: normalizePartType(part.supplier),
-    publishedAt: part.publishedAt || now,
-    updatedAt: part.updatedAt || "",
-  };
-}
-
-function getPartRecordId(part) {
-  return String(part?.id || part?._id || part?.sourceId || "");
 }
 
 async function migrateLocalPartsToCloud() {
@@ -424,24 +394,6 @@ async function refreshPartsView() {
   renderCategoryOptions();
   applyPartsAccessMode();
   renderParts();
-}
-
-function normalizeCategory(value) {
-  const categoryMap = {
-    Celular: "Telefono",
-    Telefono: "Telefono",
-    Tablet: "Tablet",
-    Computadora: "Computadora",
-    Electrodomestico: "Bocina",
-    Bocina: "Bocina",
-  };
-  return categoryMap[value] || normalizePartType(value) || "Telefono";
-}
-
-function normalizePartType(value) {
-  const cleanedValue = String(value || "").trim().replace(/\s+/g, " ").toLowerCase();
-  if (!cleanedValue) return "";
-  return cleanedValue.charAt(0).toUpperCase() + cleanedValue.slice(1);
 }
 
 function escapeHtml(value) {
@@ -628,86 +580,14 @@ function formatPartDate(value) {
   }).format(date);
 }
 
-function normalizePartSearch(value = "") {
-  return String(value ?? "")
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/[^a-zA-Z0-9]+/g, " ")
-    .trim()
-    .toLowerCase();
-}
-
-function getCanonicalValue(values, value) {
-  const normalizedValue = normalizePartSearch(value);
-  if (!normalizedValue) return "";
-  return values.find((option) => normalizePartSearch(option) === normalizedValue) || "";
-}
-
-function getUniqueNormalizedValues(values) {
-  const normalizedMap = new Map();
-  values.forEach((value) => {
-    const displayValue = normalizePartType(value);
-    const key = normalizePartSearch(displayValue);
-    if (key && !normalizedMap.has(key)) normalizedMap.set(key, displayValue);
-  });
-  return [...normalizedMap.values()].sort((a, b) => a.localeCompare(b, "es", { sensitivity: "base" }));
-}
-
 function getPartSearchText(part) {
   return [part.name, part.brand, part.model, part.category, part.quality, part.supplier]
     .map(normalizePartSearch)
     .join(" ");
 }
 
-function normalizeQuality(value = "") {
-  const quality = String(value || "").trim();
-  const normalized = normalizePartSearch(quality);
-  if (["premium", "premiun", "gx"].includes(normalized)) return "GX";
-  if (["originall", "original"].includes(normalized)) return "Original";
-  if (["amoled", "am oled"].includes(normalized)) return "Amoled";
-  if (normalized === "oled") return "OLED";
-  if (normalized === "tft") return "TFT";
-  if (normalized === "ips") return "IPS";
-  if (["generico", "generica"].includes(normalized)) return "Generica";
-  return quality || "Original";
-}
-
-function getQualityClass(value = "") {
-  return `quality-${normalizePartSearch(normalizeQuality(value)).replace(/\s+/g, "-") || "sin-calidad"}`;
-}
-
 function compactPartSearch(value = "") {
   return normalizePartSearch(value).replace(/\s+/g, "");
-}
-
-function getPartDuplicateKey(part) {
-  return [part.name, part.brand, part.model, normalizeCategory(part.category), normalizeQuality(part.quality)]
-    .map(normalizePartSearch)
-    .join("|");
-}
-
-function findDuplicatePart(parts, part, currentId = "") {
-  const duplicateKey = getPartDuplicateKey(part);
-  return parts.find((existingPart) => {
-    if (existingPart.id === currentId || existingPart._id === currentId) return false;
-    return getPartDuplicateKey(existingPart) === duplicateKey;
-  });
-}
-
-function getDuplicateMessage(part) {
-  return `Duplicado: ya existe ${part.name} ${part.brand} ${part.model}.`;
-}
-
-function hasModelSupplierConflict(part) {
-  return Boolean(normalizePartSearch(part.model)) && normalizePartSearch(part.model) === normalizePartSearch(part.supplier);
-}
-
-function getModelSupplierConflictMessage() {
-  return "Revisa el modelo y proveedor: no pueden ser iguales.";
-}
-
-function isDuplicateError(error) {
-  return String(error?.message || "").toLowerCase().includes("duplicado");
 }
 
 function isOptionValueDuplicate(field, value) {
@@ -835,36 +715,8 @@ function getBlankOptionValue(field) {
   return blankValues[field] || "";
 }
 
-function isSameOptionValue(field, currentValue, selectedValue) {
-  const current = field === "category" ? normalizeCategory(currentValue) : currentValue;
-  const selected = field === "category" ? normalizeCategory(selectedValue) : selectedValue;
-  return normalizePartSearch(current) === normalizePartSearch(selected);
-}
-
 function getAffectedPartsByOption(parts, field, value) {
   return parts.filter((part) => isSameOptionValue(field, part[field], value));
-}
-
-function normalizeOptionValueForField(field, value) {
-  if (field === "category") return normalizeCategory(value);
-  return normalizePartType(value);
-}
-
-function withUpdatedOptionValue(part, field, value) {
-  return { ...part, [field]: normalizeOptionValueForField(field, value) };
-}
-
-function hasDuplicatePartsAfterOptionChange(parts, field, oldValue, newValue) {
-  const projectedParts = parts.map((part) =>
-    isSameOptionValue(field, part[field], oldValue) ? withUpdatedOptionValue(part, field, newValue) : part
-  );
-  const seenKeys = new Set();
-  return projectedParts.some((part) => {
-    const key = getPartDuplicateKey(part);
-    if (seenKeys.has(key)) return true;
-    seenKeys.add(key);
-    return false;
-  });
 }
 
 function getCloudPatchForPart(part) {
