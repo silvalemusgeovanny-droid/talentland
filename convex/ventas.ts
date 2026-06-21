@@ -1,5 +1,6 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
+import { requireModuleWrite } from "./authorization";
 
 const saleFields = {
   sourceId: v.optional(v.string()),
@@ -26,24 +27,28 @@ export const list = query({
 });
 
 export const create = mutation({
-  args: saleFields,
+  args: { sessionToken: v.string(), ...saleFields },
   handler: async (ctx, args) => {
-    const existing = args.sourceId
+    await requireModuleWrite(ctx, args.sessionToken, "sales");
+    const { sessionToken: _sessionToken, ...sale } = args;
+    const existing = sale.sourceId
       ? await ctx.db
           .query("ventas")
-          .withIndex("by_source_id", (q) => q.eq("sourceId", args.sourceId))
+          .withIndex("by_source_id", (q) => q.eq("sourceId", sale.sourceId))
           .unique()
       : null;
     if (existing) return existing._id;
-    return await ctx.db.insert("ventas", args);
+    return await ctx.db.insert("ventas", sale);
   },
 });
 
 export const remove = mutation({
   args: {
+    sessionToken: v.string(),
     id: v.id("ventas"),
   },
   handler: async (ctx, args) => {
+    await requireModuleWrite(ctx, args.sessionToken, "sales");
     await ctx.db.delete(args.id);
     return args.id;
   },

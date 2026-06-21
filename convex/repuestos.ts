@@ -1,5 +1,6 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
+import { requireModuleWrite } from "./authorization";
 
 const partFields = {
   sourceId: v.optional(v.string()),
@@ -133,24 +134,26 @@ export const list = query({
 });
 
 export const create = mutation({
-  args: partFields,
+  args: { sessionToken: v.string(), ...partFields },
   handler: async (ctx, args) => {
+    await requireModuleWrite(ctx, args.sessionToken, "parts");
+    const { sessionToken: _sessionToken, ...partArgs } = args;
     const part = {
-      ...args,
-      ...normalizeMoneyFields(args),
-      stock: normalizeStockQuantity(args.stock),
-      quality: normalizeQuality(args.quality),
-      category: normalizeCategory(args.category),
+      ...partArgs,
+      ...normalizeMoneyFields(partArgs),
+      stock: normalizeStockQuantity(partArgs.stock),
+      quality: normalizeQuality(partArgs.quality),
+      category: normalizeCategory(partArgs.category),
     };
     if (hasModelSupplierConflict(part)) throw modelSupplierConflictError();
 
     const duplicate = await findDuplicatePart(ctx, part);
     if (duplicate) throw duplicateError(duplicate);
 
-    if (args.sourceId) {
+    if (partArgs.sourceId) {
       const existing = await ctx.db
         .query("repuestos")
-        .withIndex("by_source_id", (q) => q.eq("sourceId", args.sourceId))
+        .withIndex("by_source_id", (q) => q.eq("sourceId", partArgs.sourceId))
         .unique();
 
       if (existing) return existing._id;
@@ -162,6 +165,7 @@ export const create = mutation({
 
 export const update = mutation({
   args: {
+    sessionToken: v.string(),
     id: v.id("repuestos"),
     patch: v.object({
       name: v.string(),
@@ -180,6 +184,7 @@ export const update = mutation({
     }),
   },
   handler: async (ctx, args) => {
+    await requireModuleWrite(ctx, args.sessionToken, "parts");
     const patch = {
       ...args.patch,
       ...normalizeMoneyFields(args.patch),
@@ -198,18 +203,22 @@ export const update = mutation({
 
 export const remove = mutation({
   args: {
+    sessionToken: v.string(),
     id: v.id("repuestos"),
   },
   handler: async (ctx, args) => {
+    await requireModuleWrite(ctx, args.sessionToken, "parts");
     await ctx.db.delete(args.id);
   },
 });
 
 export const importBatch = mutation({
   args: {
+    sessionToken: v.string(),
     parts: v.array(v.object(partFields)),
   },
   handler: async (ctx, args) => {
+    await requireModuleWrite(ctx, args.sessionToken, "parts");
     let inserted = 0;
     let skipped = 0;
 

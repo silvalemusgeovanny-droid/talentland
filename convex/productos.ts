@@ -1,5 +1,6 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
+import { requireModuleWrite } from "./authorization";
 
 const productFields = {
   sourceId: v.optional(v.string()),
@@ -47,36 +48,40 @@ export const list = query({
 });
 
 export const create = mutation({
-  args: productFields,
+  args: { sessionToken: v.string(), ...productFields },
   handler: async (ctx, args) => {
+    await requireModuleWrite(ctx, args.sessionToken, "products");
+    const { sessionToken: _sessionToken, ...productArgs } = args;
     const products = await ctx.db.query("productos").take(1000);
     const duplicate = products.find((product) =>
       product.active !== false &&
-      normalizeSearch(product.name) === normalizeSearch(args.name) &&
-      normalizeSearch(product.exactModel || "") === normalizeSearch(args.exactModel || ""),
+      normalizeSearch(product.name) === normalizeSearch(productArgs.name) &&
+      normalizeSearch(product.exactModel || "") === normalizeSearch(productArgs.exactModel || ""),
     );
     if (duplicate) {
       throw new Error("Ese producto ya existe.");
     }
-    const productNumber = args.productNumber && args.productNumber > 0
-      ? args.productNumber
+    const productNumber = productArgs.productNumber && productArgs.productNumber > 0
+      ? productArgs.productNumber
       : products.reduce((max, product) => Math.max(max, Number(product.productNumber) || 0), 0) + 1;
     return await ctx.db.insert("productos", {
-      ...args,
+      ...productArgs,
       productNumber,
-      exactModel: args.exactModel || "",
-      providerPrice: Math.max(0, Number(args.providerPrice) || 0),
-      quantity: Math.max(0, Number(args.quantity) || 0),
+      exactModel: productArgs.exactModel || "",
+      providerPrice: Math.max(0, Number(productArgs.providerPrice) || 0),
+      quantity: Math.max(0, Number(productArgs.quantity) || 0),
     });
   },
 });
 
 export const update = mutation({
   args: {
+    sessionToken: v.string(),
     id: v.id("productos"),
     patch: v.object(productPatchFields),
   },
   handler: async (ctx, args) => {
+    await requireModuleWrite(ctx, args.sessionToken, "products");
     const current = await ctx.db.get(args.id);
     if (!current) throw new Error("Producto no encontrado.");
     const nextProduct = { ...current, ...args.patch };

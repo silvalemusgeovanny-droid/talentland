@@ -1,5 +1,6 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
+import { requireModuleWrite } from "./authorization";
 
 const repairFields = {
   sourceId: v.optional(v.string()),
@@ -76,18 +77,22 @@ export const list = query({
 });
 
 export const create = mutation({
-  args: repairFields,
+  args: { sessionToken: v.string(), ...repairFields },
   handler: async (ctx, args) => {
-    return await ctx.db.insert("reparaciones", args);
+    await requireModuleWrite(ctx, args.sessionToken, "repairs");
+    const { sessionToken: _sessionToken, ...repair } = args;
+    return await ctx.db.insert("reparaciones", repair);
   },
 });
 
 export const update = mutation({
   args: {
+    sessionToken: v.string(),
     id: v.id("reparaciones"),
     patch: v.object(repairPatchFields),
   },
   handler: async (ctx, args) => {
+    await requireModuleWrite(ctx, args.sessionToken, "repairs");
     await ctx.db.patch(args.id, args.patch);
     return args.id;
   },
@@ -95,9 +100,11 @@ export const update = mutation({
 
 export const remove = mutation({
   args: {
+    sessionToken: v.string(),
     id: v.id("reparaciones"),
   },
   handler: async (ctx, args) => {
+    await requireModuleWrite(ctx, args.sessionToken, "repairs");
     await ctx.db.delete(args.id);
     return args.id;
   },
@@ -105,9 +112,11 @@ export const remove = mutation({
 
 export const importBatch = mutation({
   args: {
+    sessionToken: v.string(),
     repairs: v.array(v.object(repairFields)),
   },
   handler: async (ctx, args) => {
+    await requireModuleWrite(ctx, args.sessionToken, "repairs");
     let inserted = 0;
     let skipped = 0;
 

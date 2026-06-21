@@ -1,5 +1,6 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
+import { requireModuleWrite } from "./authorization";
 
 const contactArgs = {
   sourceId: v.optional(v.string()),
@@ -63,9 +64,11 @@ export const list = query({
 });
 
 export const create = mutation({
-  args: contactArgs,
+  args: { sessionToken: v.string(), ...contactArgs },
   handler: async (ctx, args) => {
-    const contact = normalizeContact(args);
+    await requireModuleWrite(ctx, args.sessionToken, "contacts");
+    const { sessionToken: _sessionToken, ...contactArgsValue } = args;
+    const contact = normalizeContact(contactArgsValue);
     if (!contact.name || !contact.phone) throw new Error("Nombre y telefono son obligatorios.");
 
     const existing = await findExistingContact(ctx, contact);
@@ -80,6 +83,7 @@ export const create = mutation({
 
 export const update = mutation({
   args: {
+    sessionToken: v.string(),
     id: v.id("contactos"),
     patch: v.object({
       googleResourceName: v.optional(v.string()),
@@ -91,6 +95,7 @@ export const update = mutation({
     }),
   },
   handler: async (ctx, args) => {
+    await requireModuleWrite(ctx, args.sessionToken, "contacts");
     const existing = await ctx.db.get(args.id);
     if (!existing) throw new Error("Contacto no encontrado.");
     await ctx.db.patch(args.id, {
@@ -102,18 +107,22 @@ export const update = mutation({
 
 export const remove = mutation({
   args: {
+    sessionToken: v.string(),
     id: v.id("contactos"),
   },
   handler: async (ctx, args) => {
+    await requireModuleWrite(ctx, args.sessionToken, "contacts");
     await ctx.db.delete(args.id);
   },
 });
 
 export const importBatch = mutation({
   args: {
+    sessionToken: v.string(),
     contacts: v.array(v.object(contactArgs)),
   },
   handler: async (ctx, args) => {
+    await requireModuleWrite(ctx, args.sessionToken, "contacts");
     let inserted = 0;
     let updated = 0;
     let skipped = 0;

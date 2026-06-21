@@ -16,6 +16,8 @@ const REQUIRE_AUTH = process.env.TELEGRAM_REQUIRE_AUTH !== "false";
 const SILENT_UNAUTHORIZED = process.env.TELEGRAM_SILENT_UNAUTHORIZED !== "false";
 const CONVERSATION_MEMORY_LIMIT = Number(process.env.CONVERSATION_MEMORY_LIMIT || 8);
 const ONLY_PARTS_MODE = process.env.TELEGRAM_ONLY_PARTS !== "false";
+const TELEGRAM_APP_USERNAME = process.env.TELEGRAM_APP_USERNAME;
+const TELEGRAM_APP_PASSWORD = process.env.TELEGRAM_APP_PASSWORD;
 
 if (!TELEGRAM_BOT_TOKEN) {
   throw new Error("Falta TELEGRAM_BOT_TOKEN en el entorno o en .env.local.");
@@ -31,6 +33,8 @@ const telegramApi = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}`;
 let offset = 0;
 const conversationHistoryByChat = new Map();
 const pendingIntentByChat = new Map();
+const convexSessionToken = crypto.randomUUID();
+let convexSessionReady = false;
 const PART_GENERIC_WORDS = new Set([
   "hay",
   "tienes",
@@ -344,7 +348,20 @@ async function createNote(chatId, from, text) {
   const authorUsername = from?.username ? `@${from.username}` : String(from?.id || "telegram");
   const now = new Date().toISOString();
 
+  if (!TELEGRAM_APP_USERNAME || !TELEGRAM_APP_PASSWORD) {
+    throw new Error("Faltan TELEGRAM_APP_USERNAME y TELEGRAM_APP_PASSWORD para guardar notas.");
+  }
+  if (!convexSessionReady) {
+    await convex.mutation(api.auth.login, {
+      username: TELEGRAM_APP_USERNAME,
+      password: TELEGRAM_APP_PASSWORD,
+      sessionToken: convexSessionToken,
+    });
+    convexSessionReady = true;
+  }
+
   await convex.mutation(api.notas.create, {
+    sessionToken: convexSessionToken,
     sourceId: `telegram:${from?.id || "unknown"}:${now}`,
     text,
     authorName,
