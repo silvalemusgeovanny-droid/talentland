@@ -1,8 +1,11 @@
 (() => {
-const notesStorageKey = "pendingNotes";
-const notesSnoozeStorageKey = "pendingNotesSnoozeUntil";
-const sessionTokenStorageKey = "repairSessionToken";
-const currentUserStorageKey = "repairCurrentUser";
+const appSession = window.repairApp.session;
+const appPermissions = window.repairApp.permissions;
+const appNotes = window.repairApp.notes;
+const notesStorageKey = appSession.keys.notes;
+const notesSnoozeStorageKey = appSession.keys.notesSnoozeUntil;
+const sessionTokenStorageKey = appSession.keys.sessionToken;
+const currentUserStorageKey = appSession.keys.currentUser;
 
 function escapeHtml(value) {
   return String(value)
@@ -13,75 +16,32 @@ function escapeHtml(value) {
     .replaceAll("'", "&#039;");
 }
 
-function sanitizeNoteText(value) {
-  return String(value || "")
-    .replace(/[^\p{L}\p{N}\s.,;:¿?¡!()\-]/gu, "")
-    .replace(/\s+/g, " ")
-    .trim()
-    .slice(0, 280);
-}
-
-function cleanNoteTextInput(value) {
-  return String(value || "")
-    .replace(/[^\p{L}\p{N}\s.,;:¿?¡!()\-]/gu, "")
-    .slice(0, 280);
-}
-
 function loadNotes() {
-  const savedNotes = localStorage.getItem(notesStorageKey);
-  return savedNotes ? JSON.parse(savedNotes) : [];
+  return appNotes.load();
 }
 
 function saveNotes(notes) {
-  localStorage.setItem(notesStorageKey, JSON.stringify(notes));
+  appNotes.save(notes);
 }
 
 function getCurrentUser() {
-  const savedUser = localStorage.getItem(currentUserStorageKey);
-  if (!savedUser) return null;
-  try {
-    return JSON.parse(savedUser);
-  } catch {
-    return null;
-  }
+  return appSession.getUser();
 }
 
 function canCurrentUserUseNotes(user = getCurrentUser()) {
-  if (!user) return false;
-  if (user.role === "root") return true;
-  if (Array.isArray(user.modules)) return user.modules.includes("notes");
-  return ["admin", "user"].includes(user.role);
+  return appPermissions.canUseNotes(user);
 }
 
 function migrateLegacyNoteAuthors(user) {
-  if (!user) return;
-  const authorName = user.name || user.username || "Usuario";
-  const authorUsername = user.username || "";
-  const notes = loadNotes();
-  let changed = false;
-  const migratedNotes = notes.map((note) => {
-    if (note.authorName) return note;
-    changed = true;
-    return { ...note, authorName, authorUsername };
-  });
-  if (changed) saveNotes(migratedNotes);
+  appNotes.migrateAuthors(user);
 }
 
 function normalizeNoteForCloud(note, user = getCurrentUser()) {
-  const now = new Date().toISOString();
-  return {
-    sourceId: note.sourceId || note.id || crypto.randomUUID(),
-    text: sanitizeNoteText(note.text),
-    authorName: note.authorName || user?.name || user?.username || "Usuario",
-    authorUsername: note.authorUsername || user?.username || "",
-    done: Boolean(note.done),
-    createdAt: note.createdAt || now,
-    updatedAt: note.updatedAt || now,
-  };
+  return appNotes.normalizeForCloud(note, user);
 }
 
 function isPendingAlertSnoozed() {
-  return Number(localStorage.getItem(notesSnoozeStorageKey) || 0) > Date.now();
+  return appNotes.isSnoozed();
 }
 
 function formatNoteDate(value) {
@@ -156,7 +116,6 @@ function createPendingNotesUi() {
 
 function setupPendingNotes() {
   createPendingNotesUi();
-  let notesCloudMigrationDone = false;
 
   const notesToggle = document.querySelector("#notesToggle");
   const notesBadge = document.querySelector("#notesBadge");
@@ -171,27 +130,8 @@ function setupPendingNotes() {
   const openNotesFromAlert = document.querySelector("#openNotesFromAlert");
   const snoozePendingAlert = document.querySelector("#snoozePendingAlert");
 
-  async function migrateLocalNotesToCloud(user) {
-    if (notesCloudMigrationDone || !window.repairCloud?.isConfigured() || !user) return;
-    migrateLegacyNoteAuthors(user);
-    const notes = loadNotes()
-      .filter((note) => !note._id)
-      .map((note) => normalizeNoteForCloud(note, user))
-      .filter((note) => note.text);
-    if (notes.length) await window.repairCloud.importNotes(notes);
-    notesCloudMigrationDone = true;
-  }
-
   async function loadNotesFromSource(currentUser) {
-    if (window.repairCloud?.isConfigured() && currentUser) {
-      await migrateLocalNotesToCloud(currentUser);
-      const cloudNotes = await window.repairCloud.listNotes();
-      const notes = cloudNotes.map((note) => ({ ...note, id: note._id || note.id }));
-      saveNotes(notes);
-      return notes;
-    }
-
-    return loadNotes();
+    return await appNotes.loadFromSource(currentUser);
   }
 
   async function renderNotes() {
@@ -212,7 +152,7 @@ function setupPendingNotes() {
       notesList.innerHTML = `<p class="hint">${escapeHtml(error.message)}</p>`;
     }
     const pendingNotes = notes.filter((note) => !note.done);
-    const hasSession = Boolean(localStorage.getItem(sessionTokenStorageKey) || currentUser);
+    const hasSession = appSession.hasSession();
 
     notesToggle.hidden = !hasSession;
     notesBadge.hidden = !hasSession || pendingNotes.length === 0;
@@ -245,7 +185,7 @@ function setupPendingNotes() {
 
   function openNotesPanel() {
     const currentUser = getCurrentUser();
-    if ((!localStorage.getItem(sessionTokenStorageKey) && !currentUser) || !canCurrentUserUseNotes(currentUser)) return;
+    if (!appSession.hasSession() || !canCurrentUserUseNotes(currentUser)) return;
     notesOverlay.hidden = false;
     renderNotes();
     noteTextInput.focus();
@@ -260,14 +200,14 @@ function setupPendingNotes() {
   openNotesFromAlert.addEventListener("click", openNotesPanel);
   closeNotesButton.addEventListener("click", closeNotesPanel);
   snoozePendingAlert.addEventListener("click", () => {
-    localStorage.setItem(notesSnoozeStorageKey, String(Date.now() + 60 * 60 * 1000));
+    appNotes.snooze();
     renderNotes();
   });
 
   notesForm.addEventListener("submit", async (event) => {
     event.preventDefault();
     if (!canCurrentUserUseNotes()) return;
-    const noteText = sanitizeNoteText(noteTextInput.value);
+    const noteText = appNotes.sanitize(noteTextInput.value);
     if (!noteText) return;
 
     const notes = loadNotes();
@@ -295,14 +235,14 @@ function setupPendingNotes() {
       saveNotes(notes);
     }
 
-    localStorage.removeItem(notesSnoozeStorageKey);
+    appNotes.clearSnooze();
     notesForm.reset();
     renderNotes();
     closeNotesPanel();
   });
 
   noteTextInput.addEventListener("input", () => {
-    const safeText = cleanNoteTextInput(noteTextInput.value);
+    const safeText = appNotes.cleanInput(noteTextInput.value);
     if (noteTextInput.value !== safeText) noteTextInput.value = safeText;
   });
 
@@ -344,6 +284,7 @@ function setupPendingNotes() {
   window.addEventListener("storage", (event) => {
     if ([notesStorageKey, notesSnoozeStorageKey, sessionTokenStorageKey, currentUserStorageKey].includes(event.key)) renderNotes();
   });
+  window.addEventListener("repair-session-changed", renderNotes);
 
   renderNotes();
 }

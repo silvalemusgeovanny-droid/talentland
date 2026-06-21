@@ -26,7 +26,8 @@
   }
 
   function withSession(args = {}) {
-    return { ...args, sessionToken: localStorage.getItem("repairSessionToken") || "" };
+    const sessionToken = window.repairApp.session.getToken() || "";
+    return { ...args, sessionToken };
   }
 
   window.repairCloud = {
