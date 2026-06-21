@@ -1,9 +1,8 @@
 const storageKey = "inventoryParts";
 const deletedOptionsStorageKey = "inventoryDeletedPartOptions";
-const usersStorageKey = "systemUsers";
-const currentUserStorageKey = "repairCurrentUser";
-const sessionTokenStorageKey = "repairSessionToken";
-const authModeStorageKey = "repairAuthMode";
+const appSession = window.repairApp.session;
+const appPermissions = window.repairApp.permissions;
+const usersStorageKey = appSession.keys.users;
 
 const starterParts = [
   {
@@ -102,17 +101,11 @@ const optionFieldLabels = {
 };
 
 function getStoredCurrentUser() {
-  const savedUser = localStorage.getItem(currentUserStorageKey);
-  if (!savedUser) return null;
-  try {
-    return JSON.parse(savedUser);
-  } catch {
-    return null;
-  }
+  return appSession.getUser();
 }
 
 function updatePartsLogoutVisibility() {
-  partsLogoutButton.hidden = !getStoredCurrentUser() && !localStorage.getItem(sessionTokenStorageKey);
+  partsLogoutButton.hidden = !appSession.hasSession();
 }
 
 function openPartsLogoutConfirmation() {
@@ -125,26 +118,19 @@ function closePartsLogoutConfirmation() {
 }
 
 async function performPartsLogout() {
-  const sessionToken = localStorage.getItem(sessionTokenStorageKey);
   confirmPartsLogoutButton.disabled = true;
   try {
-    if (sessionToken && window.repairCloud?.isConfigured()) {
-      await window.repairCloud.logout(sessionToken);
-    }
+    await appSession.logout();
   } catch {
     // The local session must still close if the network is unavailable.
   } finally {
-    localStorage.removeItem(sessionTokenStorageKey);
-    localStorage.removeItem(currentUserStorageKey);
-    localStorage.removeItem(authModeStorageKey);
     window.location.replace("index.html");
   }
 }
 
 function isPartsReadOnlyMode() {
   const storedUser = getStoredCurrentUser();
-  if (storedUser?.role !== "activador") return false;
-  return Boolean(localStorage.getItem(sessionTokenStorageKey) || localStorage.getItem(authModeStorageKey) === "local");
+  return storedUser?.role === "activador" && appSession.hasSession() && !appPermissions.canManageParts(storedUser);
 }
 
 function applyPartsAccessMode() {
@@ -268,14 +254,6 @@ function unmarkOptionDeleted(field, value) {
   saveDeletedOptions(options);
 }
 
-function getCurrentStoredUser() {
-  try {
-    return JSON.parse(localStorage.getItem(currentUserStorageKey) || "null");
-  } catch {
-    return null;
-  }
-}
-
 function loadSystemUsers() {
   const defaultUsers = [
     { username: "root", password: "root123", role: "root", active: true },
@@ -306,7 +284,7 @@ async function verifyRootCredentials(username, password) {
 async function requireRootForOptionDelete(field) {
   if (!["brand", "supplier"].includes(field)) return true;
 
-  const currentUser = getCurrentStoredUser();
+  const currentUser = getStoredCurrentUser();
   if (currentUser?.role === "root") return true;
 
   const username = prompt("Solo root puede borrar marca o proveedor. Usuario root:");

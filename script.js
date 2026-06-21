@@ -16,11 +16,11 @@ const themes = {
   },
 };
 
-const usersStorageKey = "systemUsers";
-const sessionTokenStorageKey = "repairSessionToken";
-const currentUserStorageKey = "repairCurrentUser";
-const authModeStorageKey = "repairAuthMode";
-const activeModuleStorageKey = "repairActiveModule";
+const appSession = window.repairApp.session;
+const appPermissions = window.repairApp.permissions;
+const appNotes = window.repairApp.notes;
+const usersStorageKey = appSession.keys.users;
+const activeModuleStorageKey = appSession.keys.activeModule;
 const repairInvoicePhone = "69966950";
 const defaultUsers = [
   {
@@ -53,54 +53,8 @@ const defaultUsers = [
   },
 ];
 
-const roleProfiles = {
-  root: {
-    label: "Root",
-    access: "Control total del sistema",
-    modules: ["permissions", "sales", "products", "parts", "repairs", "contacts", "notes", "statistics", "database", "users"],
-    permissions: [
-      "Modificar usuarios, roles y accesos",
-      "Ver base de datos local completa",
-      "Registrar ventas, repuestos y reparaciones",
-      "Editar cualquier dato del sistema",
-    ],
-  },
-  admin: {
-    label: "Admin",
-    access: "Administracion con restricciones",
-    modules: ["permissions", "sales", "products", "parts", "repairs", "contacts", "notes", "statistics", "database"],
-    permissions: [
-      "Registrar ventas, repuestos y reparaciones",
-      "Ver base de datos local",
-      "No puede borrar ni reemplazar al root",
-      "No puede gestionar usuarios desde este panel",
-    ],
-  },
-  user: {
-    label: "Usuario",
-    access: "Operacion basica sin base de datos",
-    modules: ["permissions", "sales", "parts", "repairs", "notes"],
-    permissions: [
-      "Registrar operaciones del dia",
-      "Consultar modulos operativos permitidos",
-      "No puede ver la base de datos",
-      "No puede gestionar usuarios ni roles",
-    ],
-  },
-  activador: {
-    label: "Activador",
-    access: "Consulta de repuestos sin modificaciones",
-    modules: ["parts"],
-    permissions: [
-      "Ver el modulo de repuestos",
-      "Consultar existencias y precios",
-      "No puede agregar repuestos",
-      "No puede editar ni eliminar informacion",
-    ],
-  },
-};
-
-const manageableModules = ["sales", "products", "parts", "repairs", "contacts", "notes", "statistics", "database", "users"];
+const roleProfiles = appPermissions.roleProfiles;
+const manageableModules = appPermissions.manageableModules;
 const moduleLabels = {
   permissions: "Inicio",
   sales: "Ventas",
@@ -163,8 +117,8 @@ const partsStorageKey = "inventoryParts";
 const newOptionValue = "__new__";
 const colorModeToggle = document.querySelector("#colorModeToggle");
 const colorModeStorageKey = "loginColorMode";
-const notesStorageKey = "pendingNotes";
-const notesSnoozeStorageKey = "pendingNotesSnoozeUntil";
+const notesStorageKey = appSession.keys.notes;
+const notesSnoozeStorageKey = appSession.keys.notesSnoozeUntil;
 const notesToggle = document.querySelector("#notesToggle");
 const notesBadge = document.querySelector("#notesBadge");
 const notesOverlay = document.querySelector("#notesOverlay");
@@ -299,7 +253,6 @@ let salesCloudMigrationDone = false;
 let currentUser = null;
 let managedUsersCache = [];
 let googleContactsAccessToken = "";
-let notesCloudMigrationDone = false;
 let partsCloudMigrationDone = false;
 let presenceTimer = null;
 let activeStatisticsPeriod = "month";
@@ -434,37 +387,12 @@ function createApprovalRecord(type, approver, target = {}) {
   };
 }
 
-function generateSessionToken() {
-  const bytes = new Uint8Array(32);
-  crypto.getRandomValues(bytes);
-  return Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("");
-}
-
 function getSavedSessionToken() {
-  return localStorage.getItem(sessionTokenStorageKey);
-}
-
-function saveSessionToken(token) {
-  localStorage.setItem(sessionTokenStorageKey, token);
-}
-
-function clearSessionToken() {
-  localStorage.removeItem(sessionTokenStorageKey);
+  return appSession.getToken();
 }
 
 function saveCurrentUser(user) {
-  localStorage.setItem(currentUserStorageKey, JSON.stringify({
-    id: user.id || user._id || "",
-    username: user.username || "",
-    name: user.name || user.username || "Usuario",
-    role: user.role || "user",
-    modules: Array.isArray(user.modules) ? user.modules : undefined,
-    mustChangePassword: Boolean(user.mustChangePassword),
-  }));
-}
-
-function clearCurrentUser() {
-  localStorage.removeItem(currentUserStorageKey);
+  appSession.saveUser(user);
 }
 
 function resetLoginLayout() {
@@ -476,8 +404,7 @@ function resetLoginLayout() {
 }
 
 function showLoggedOutView(message) {
-  clearSessionToken();
-  clearCurrentUser();
+  appSession.clear();
   currentUser = null;
   stopPresenceUpdates();
   sessionPanel.hidden = true;
@@ -487,26 +414,12 @@ function showLoggedOutView(message) {
   credentialHint.textContent = message;
 }
 
-function getStoredCurrentUser() {
-  const savedUser = localStorage.getItem(currentUserStorageKey);
-  if (!savedUser) return null;
-  try {
-    return JSON.parse(savedUser);
-  } catch {
-    return null;
-  }
-}
-
 function finishSessionRestore() {
   document.documentElement.classList.remove("session-restoring");
 }
 
-function saveAuthMode(mode) {
-  localStorage.setItem(authModeStorageKey, mode);
-}
-
 function getSavedAuthMode() {
-  return localStorage.getItem(authModeStorageKey);
+  return appSession.getAuthMode();
 }
 
 function getSavedActiveModule() {
@@ -518,32 +431,19 @@ function saveActiveModule(moduleName) {
 }
 
 function getRoleProfile(role) {
-  return roleProfiles[role] || roleProfiles.user;
+  return appPermissions.getRoleProfile(role);
 }
 
 function getUserModules(user) {
-  const roleModules = getRoleProfile(user?.role).modules;
-  // Root always keeps the complete role profile, even if an older account
-  // record contains a stale or incomplete custom modules array.
-  if (user?.role === "root") return [...roleProfiles.root.modules];
-  if (user?.role === "activador") {
-    const activatorModules = Array.isArray(user.modules) ? user.modules : roleModules;
-    return activatorModules.includes("notes") ? ["permissions", "parts", "notes"] : ["permissions", "parts"];
-  }
-  if (!Array.isArray(user?.modules)) return roleModules;
-  const allowedModules = new Set(["permissions", ...manageableModules]);
-  const customModules = user.modules.filter((moduleName) => allowedModules.has(moduleName));
-  return [...new Set(["permissions", ...customModules])];
+  return appPermissions.getUserModules(user);
 }
 
 function canAccessModule(moduleName) {
-  if (!currentUser) return false;
-  return getUserModules(currentUser).includes(moduleName);
+  return appPermissions.canAccess(currentUser, moduleName);
 }
 
 function canManageParts() {
-  if (currentUser?.role === "root") return true;
-  return canAccessModule("parts") && currentUser?.role !== "activador";
+  return appPermissions.canManageParts(currentUser);
 }
 
 function canManageProducts() {
@@ -575,15 +475,8 @@ function validateLocalPasswordPolicy(password) {
 }
 
 async function endSessionForPasswordChange(message) {
-  const sessionToken = getSavedSessionToken();
   stopPresenceUpdates();
-  if (sessionToken && window.repairCloud?.isConfigured()) {
-    try {
-      await window.repairCloud.logout(sessionToken);
-    } catch {}
-  }
-  clearSessionToken();
-  clearCurrentUser();
+  await appSession.logout();
   currentUser = null;
   sessionPanel.hidden = true;
   loginForm.hidden = false;
@@ -737,18 +630,9 @@ function closeLogoutConfirmation() {
 }
 
 async function performLogout() {
-  const sessionToken = getSavedSessionToken();
   stopPresenceUpdates();
-  if (sessionToken && window.repairCloud?.isConfigured()) {
-    try {
-      await window.repairCloud.logout(sessionToken);
-    } catch (error) {
-      credentialHint.textContent = error.message;
-    }
-  }
-  clearSessionToken();
-  clearCurrentUser();
-  saveAuthMode("");
+  const { remoteError } = await appSession.logout();
+  if (remoteError) credentialHint.textContent = remoteError.message;
   currentUser = null;
   sessionPanel.hidden = true;
   loginForm.hidden = false;
@@ -760,58 +644,21 @@ async function performLogout() {
 }
 
 async function signIn(username, password) {
-  if (window.repairCloud?.isConfigured()) {
-    await window.repairCloud.seedUsers();
-    const sessionToken = generateSessionToken();
-    const user = await window.repairCloud.login(username, password, sessionToken);
-    saveSessionToken(sessionToken);
-    saveAuthMode("convex");
-    return user;
-  }
-
-  const selectedUser = loadUsers().find((user) =>
-    user.username.toLowerCase() === username.trim().toLowerCase() &&
-    user.password === password
-  );
-
-  if (!selectedUser || selectedUser.active === false) throw new Error("Usuario o contrasena incorrectos.");
-  saveAuthMode("local");
-  return selectedUser;
+  return await appSession.signIn(username, password, loadUsers());
 }
 
 async function restoreSession() {
-  const storedUser = getStoredCurrentUser();
-
-  if (!window.repairCloud?.isConfigured()) {
-    if (storedUser) {
-      applyAuthenticatedUser(storedUser, "Restaurando sesion...");
-    }
-    saveAuthMode("local");
-    finishSessionRestore();
-    return;
-  }
-
-  if (getSavedAuthMode() === "local") {
-    showLoggedOutView("Ahora hay conexion con Convex. Tu sesion anterior fue local; vuelve a iniciar sesion para validarla en Convex.");
-    finishSessionRestore();
-    return;
-  }
-
-  const sessionToken = getSavedSessionToken();
-  if (!sessionToken) {
-    showLoggedOutView("Modo Convex | Inicia sesion con tu usuario.");
-    finishSessionRestore();
-    return;
-  }
-
   try {
-    const user = await window.repairCloud.currentSession(sessionToken);
-    if (!user) {
+    const restored = await appSession.restore();
+    if (restored.status === "authenticated") {
+      applyAuthenticatedUser(restored.user, restored.source === "convex" ? "Sesion recuperada desde internet." : "Restaurando sesion...");
+    } else if (restored.status === "reauth-required") {
+      showLoggedOutView("Ahora hay conexion con Convex. Tu sesion anterior fue local; vuelve a iniciar sesion para validarla en Convex.");
+    } else if (restored.status === "expired") {
       showLoggedOutView("Tu sesion expiro. Inicia sesion nuevamente.");
-      finishSessionRestore();
-      return;
+    } else {
+      showLoggedOutView(restored.source === "local" ? "Modo local | Inicia sesion con tu usuario." : "Modo Convex | Inicia sesion con tu usuario.");
     }
-    applyAuthenticatedUser(user, "Sesion recuperada desde internet.");
   } catch (error) {
     showLoggedOutView(getFriendlyErrorMessage(error));
   } finally {
@@ -1385,70 +1232,31 @@ function syncQuickPartSelectFields() {
 }
 
 function loadNotes() {
-  const savedNotes = localStorage.getItem(notesStorageKey);
-  return savedNotes ? JSON.parse(savedNotes) : [];
+  return appNotes.load();
 }
 
 function saveNotes(notes) {
-  localStorage.setItem(notesStorageKey, JSON.stringify(notes));
+  appNotes.save(notes);
 }
 
 function migrateLegacyNoteAuthors(user) {
-  if (!user) return;
-  const authorName = user.name || user.username || "Usuario";
-  const authorUsername = user.username || "";
-  const notes = loadNotes();
-  let changed = false;
-  const migratedNotes = notes.map((note) => {
-    if (note.authorName) return note;
-    changed = true;
-    return { ...note, authorName, authorUsername };
-  });
-  if (changed) saveNotes(migratedNotes);
+  appNotes.migrateAuthors(user);
 }
 
 function normalizeNoteForCloud(note, user = currentUser) {
-  const now = new Date().toISOString();
-  return {
-    sourceId: note.sourceId || note.id || crypto.randomUUID(),
-    text: sanitizeNoteText(note.text),
-    authorName: note.authorName || user?.name || user?.username || "Usuario",
-    authorUsername: note.authorUsername || user?.username || "",
-    done: Boolean(note.done),
-    createdAt: note.createdAt || now,
-    updatedAt: note.updatedAt || now,
-  };
-}
-
-async function migrateLocalNotesToCloud(user = currentUser) {
-  if (notesCloudMigrationDone || !window.repairCloud?.isConfigured() || !user) return;
-  migrateLegacyNoteAuthors(user);
-  const notes = loadNotes()
-    .filter((note) => !note._id)
-    .map((note) => normalizeNoteForCloud(note, user))
-    .filter((note) => note.text);
-  if (notes.length) await window.repairCloud.importNotes(notes);
-  notesCloudMigrationDone = true;
+  return appNotes.normalizeForCloud(note, user);
 }
 
 async function loadNotesFromSource() {
-  if (window.repairCloud?.isConfigured() && currentUser) {
-    await migrateLocalNotesToCloud(currentUser);
-    const cloudNotes = await window.repairCloud.listNotes();
-    const notes = cloudNotes.map((note) => ({ ...note, id: note._id || note.id }));
-    saveNotes(notes);
-    return notes;
-  }
-
-  return loadNotes();
+  return await appNotes.loadFromSource(currentUser);
 }
 
 function isPendingAlertSnoozed() {
-  return Number(localStorage.getItem(notesSnoozeStorageKey) || 0) > Date.now();
+  return appNotes.isSnoozed();
 }
 
 function snoozeNotesAlert() {
-  localStorage.setItem(notesSnoozeStorageKey, String(Date.now() + 60 * 60 * 1000));
+  appNotes.snooze();
   renderNotes();
 }
 
@@ -1820,20 +1628,6 @@ function escapeHtml(value) {
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#039;");
-}
-
-function sanitizeNoteText(value) {
-  return String(value || "")
-    .replace(/[^\p{L}\p{N}\s.,;:¿?¡!()\-]/gu, "")
-    .replace(/\s+/g, " ")
-    .trim()
-    .slice(0, 280);
-}
-
-function cleanNoteTextInput(value) {
-  return String(value || "")
-    .replace(/[^\p{L}\p{N}\s.,;:¿?¡!()\-]/gu, "")
-    .slice(0, 280);
 }
 
 function formatCurrency(value) {
@@ -3585,7 +3379,7 @@ snoozePendingAlert.addEventListener("click", snoozeNotesAlert);
 notesForm.addEventListener("submit", async (event) => {
   event.preventDefault();
   if (!canAccessModule("notes")) return;
-  const noteText = sanitizeNoteText(noteTextInput.value);
+  const noteText = appNotes.sanitize(noteTextInput.value);
   if (!noteText) return;
 
   const notes = loadNotes();
@@ -3612,14 +3406,14 @@ notesForm.addEventListener("submit", async (event) => {
     credentialHint.textContent = `Nota guardada localmente: ${error.message}`;
   }
 
-  localStorage.removeItem(notesSnoozeStorageKey);
+  appNotes.clearSnooze();
   notesForm.reset();
   renderNotes();
   closeNotesPanel();
 });
 
 noteTextInput.addEventListener("input", () => {
-  const safeText = cleanNoteTextInput(noteTextInput.value);
+  const safeText = appNotes.cleanInput(noteTextInput.value);
   if (noteTextInput.value !== safeText) noteTextInput.value = safeText;
 });
 
