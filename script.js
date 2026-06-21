@@ -266,6 +266,7 @@ const permissionRoleSummary = document.querySelector("#permissionRoleSummary");
 const resetRolePermissionsButton = document.querySelector("#resetRolePermissions");
 let repairExcelDatabasePromise = null;
 let pendingSale = null;
+let pendingSaleIsSaved = false;
 let pendingVoidSaleId = null;
 let pendingAdminAction = null;
 let pendingEditApproval = null;
@@ -1997,7 +1998,7 @@ async function renderSales() {
           <strong>Venta #${sale.saleNumber} - ${escapeHtml(sale.product)} ${sale.productModel ? escapeHtml(sale.productModel) : ""}</strong>
           <div class="table-action-icons sale-action-icons">
             <button class="edit-button icon-action-button icon-edit-button" type="button" data-edit-sale-id="${escapeHtml(saleId)}" aria-label="Editar venta #${escapeHtml(sale.saleNumber || "")}" title="Editar">Editar</button>
-            <button class="edit-button icon-action-button icon-invoice-button" type="button" data-print-sale-id="${escapeHtml(saleId)}" aria-label="Imprimir venta #${escapeHtml(sale.saleNumber || "")}" title="Imprimir">Imprimir</button>
+            <button class="secondary-button sale-invoice-button" type="button" data-print-sale-id="${escapeHtml(saleId)}" aria-label="Imprimir factura de venta #${escapeHtml(sale.saleNumber || "")}" title="Factura">Factura</button>
             <button class="delete-button icon-action-button icon-delete-button void-sale-button" type="button" data-id="${escapeHtml(saleId)}" aria-label="Borrar venta #${escapeHtml(sale.saleNumber || "")}" title="Borrar">Borrar</button>
           </div>
         </div>
@@ -2884,11 +2885,15 @@ function renderSaleConfirmation(sale) {
   `;
 }
 
-function openSaleConfirmation(sale) {
+function openSaleConfirmation(sale, options = {}) {
   pendingSale = sale;
+  pendingSaleIsSaved = options.saved === true;
   renderSaleConfirmation(sale);
+  editSaleButton.hidden = pendingSaleIsSaved;
+  printSaleInvoiceButton.textContent = pendingSaleIsSaved ? "Imprimir" : "Factura";
+  confirmSaleButton.textContent = pendingSaleIsSaved ? "Cerrar" : "Guardar";
   saleConfirmOverlay.hidden = false;
-  confirmSaleButton.focus();
+  (pendingSaleIsSaved ? printSaleInvoiceButton : confirmSaleButton).focus();
 }
 
 function closeSaleConfirmation() { saleConfirmOverlay.hidden = true; }
@@ -2990,8 +2995,7 @@ function buildSaleInvoiceHtml(sale) {
 </html>`;
 }
 
-function openSaleInvoice(sale) {
-  const invoiceWindow = window.open("", "_blank");
+function openSaleInvoice(sale, invoiceWindow = window.open("", "_blank")) {
   if (!invoiceWindow) {
     salesHint.textContent = "Permite ventanas emergentes para generar la factura.";
     return;
@@ -3569,11 +3573,13 @@ salesForm.addEventListener("submit", async (event) => {
 editSaleButton.addEventListener("click", () => {
   closeSaleConfirmation();
   pendingSale = null;
+  pendingSaleIsSaved = false;
   salesHint.textContent = "Puedes corregir la venta antes de guardarla.";
 });
 
-async function savePendingSale() {
+async function savePendingSale(options = {}) {
   if (!pendingSale) return;
+  if (pendingSaleIsSaved) return pendingSale;
   const saleToSave = pendingSale;
   const products = await loadProductsFromSource();
   const product = products.find((item) => getProductRecordId(item) === saleToSave.productId);
@@ -3582,6 +3588,7 @@ async function savePendingSale() {
     salesHint.textContent = "La existencia cambio. Revisa el producto antes de guardar la venta.";
     closeSaleConfirmation();
     pendingSale = null;
+    pendingSaleIsSaved = false;
     await renderProducts();
     return null;
   }
@@ -3618,9 +3625,14 @@ async function savePendingSale() {
   resetSaleDefaults();
   setNextSaleNumber();
   await renderProducts();
-  renderSales();
-  closeSaleConfirmation();
-  pendingSale = null;
+  await renderSales();
+  if (options.keepConfirmationOpen) {
+    openSaleConfirmation(savedSale, { saved: true });
+  } else {
+    closeSaleConfirmation();
+    pendingSale = null;
+    pendingSaleIsSaved = false;
+  }
   return savedSale;
 }
 
@@ -3672,6 +3684,12 @@ async function beginEditSale(sale, approval) {
 
 confirmSaleButton.addEventListener("click", async () => {
   if (!pendingSale) return;
+  if (pendingSaleIsSaved) {
+    closeSaleConfirmation();
+    pendingSale = null;
+    pendingSaleIsSaved = false;
+    return;
+  }
   try {
     const savedSale = await savePendingSale();
     if (savedSale) salesHint.textContent = "Se guardo registro.";
@@ -3682,12 +3700,23 @@ confirmSaleButton.addEventListener("click", async () => {
 
 printSaleInvoiceButton?.addEventListener("click", async () => {
   if (!pendingSale) return;
+  const invoiceWindow = window.open("", "_blank");
+  if (!invoiceWindow) {
+    salesHint.textContent = "Permite ventanas emergentes para generar la factura.";
+    return;
+  }
   try {
-    const savedSale = await savePendingSale();
-    if (!savedSale) return;
-    openSaleInvoice(savedSale);
-    salesHint.textContent = "Venta guardada y factura lista.";
+    const savedSale = pendingSaleIsSaved
+      ? pendingSale
+      : await savePendingSale({ keepConfirmationOpen: true });
+    if (!savedSale) {
+      invoiceWindow.close();
+      return;
+    }
+    openSaleInvoice(savedSale, invoiceWindow);
+    salesHint.textContent = "Factura lista. El resumen de la venta sigue abierto.";
   } catch (error) {
+    invoiceWindow.close();
     salesHint.textContent = `No se pudo generar factura: ${error.message}`;
   }
 });
@@ -3695,7 +3724,13 @@ printSaleInvoiceButton?.addEventListener("click", async () => {
 salesList.addEventListener("click", async (event) => {
   const printButton = event.target.closest("[data-print-sale-id]");
   if (printButton) {
-    const sale = loadSales().find((item) => getSaleRecordId(item) === printButton.dataset.printSaleId);
+    let sale = loadSales().find((item) => getSaleRecordId(item) === printButton.dataset.printSaleId);
+    if (!sale) {
+      try {
+        const sales = await loadSalesFromSource(1000);
+        sale = sales.find((item) => getSaleRecordId(item) === printButton.dataset.printSaleId);
+      } catch {}
+    }
     if (!sale) {
       salesHint.textContent = "No se encontro la venta para imprimir.";
       return;
