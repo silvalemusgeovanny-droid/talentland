@@ -15,7 +15,7 @@
         }
       } catch {}
     </script>
-    <link rel="stylesheet" href="styles.css?v=sales-invoice-summary-1" />
+    <link rel="stylesheet" href="styles.css?v=module-card-navigation-1" />
   </head>
   <body>
     <main class="app-shell">
@@ -92,15 +92,42 @@
           </div>
 
           <div class="module-tabs" role="tablist" aria-label="Modulos del sistema">
-            <button class="module-tab active" type="button" data-module="permissions">Inicio</button>
-            <button class="module-tab" type="button" data-module="sales">Ventas</button>
-            <button class="module-tab" type="button" data-module="products">Catalogo</button>
-            <button class="module-tab" type="button" data-module="parts">Repuestos</button>
-            <button class="module-tab" type="button" data-module="repairs">Reparaciones</button>
-            <button class="module-tab" type="button" data-module="contacts">Contactos</button>
-            <button class="module-tab" type="button" data-module="statistics">Resumen</button>
-            <button class="module-tab" type="button" data-module="database">Datos</button>
-            <button class="module-tab" type="button" data-module="users">Usuarios</button>
+            <button class="module-tab active" type="button" data-module="permissions">
+              <span class="module-tab-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="m3.5 11 8.5-7 8.5 7"/><path d="M5.5 9.5V21h13V9.5M9.5 21v-6h5v6"/></svg></span>
+              <span>Inicio</span>
+            </button>
+            <button class="module-tab" type="button" data-module="sales">
+              <span class="module-tab-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3 4h2l2 11h10l2-7H6"/><circle cx="9" cy="19" r="1.3"/><circle cx="17" cy="19" r="1.3"/></svg></span>
+              <span>Ventas</span>
+            </button>
+            <button class="module-tab" type="button" data-module="products">
+              <span class="module-tab-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="m4 7 8-4 8 4-8 4z"/><path d="M4 7v10l8 4 8-4V7M12 11v10M8 5l8 4"/></svg></span>
+              <span>Catalogo</span>
+            </button>
+            <button class="module-tab" type="button" data-module="parts">
+              <span class="module-tab-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19 13.5v-3l-2.1-.5a7 7 0 0 0-.8-1.9l1.1-1.8-2.1-2.1-1.8 1.1a7 7 0 0 0-1.9-.8L10.5 2h-3L7 4.1a7 7 0 0 0-1.9.8L3.3 3.8 1.2 5.9l1.1 1.8a7 7 0 0 0-.8 1.9L0 10.5v3l2.1.5a7 7 0 0 0 .8 1.9l-1.1 1.8 2.1 2.1 1.8-1.1a7 7 0 0 0 1.9.8l.9 2.5h3l.5-2.1a7 7 0 0 0 1.9-.8l1.8 1.1 2.1-2.1-1.1-1.8a7 7 0 0 0 .8-1.9z" transform="translate(2) scale(.91)"/></svg></span>
+              <span>Repuestos</span>
+            </button>
+            <button class="module-tab" type="button" data-module="repairs">
+              <span class="module-tab-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M8 3H5a2 2 0 0 0-2 2c0 8.8 7.2 16 16 16a2 2 0 0 0 2-2v-3l-4-1-1.5 2.3a13 13 0 0 1-8.8-8.8L9 7z"/><path d="m14.5 4.5 5 5M17.8 3.2l-4.6 4.6"/></svg></span>
+              <span>Reparaciones</span>
+            </button>
+            <button class="module-tab" type="button" data-module="contacts">
+              <span class="module-tab-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="5" y="3" width="15" height="18" rx="2"/><path d="M5 7H3M5 12H3M5 17H3"/><circle cx="12.5" cy="9" r="2.2"/><path d="M8.5 16c.8-2 2.1-3 4-3s3.2 1 4 3"/></svg></span>
+              <span>Contactos</span>
+            </button>
+            <button class="module-tab" type="button" data-module="statistics">
+              <span class="module-tab-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 20V10h4v10M10 20V4h4v16M16 20v-7h4v7M2 20h20"/></svg></span>
+              <span>Resumen</span>
+            </button>
+            <button class="module-tab" type="button" data-module="database">
+              <span class="module-tab-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v7c0 1.7 3.6 3 8 3s8-1.3 8-3V5M4 12v7c0 1.7 3.6 3 8 3s8-1.3 8-3v-7"/></svg></span>
+              <span>Datos</span>
+            </button>
+            <button class="module-tab" type="button" data-module="users">
+              <span class="module-tab-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3"/><circle cx="17" cy="9" r="2.5"/><path d="M3 20v-2c0-3 2.4-5 6-5s6 2 6 5v2M15 14c3.4 0 6 1.8 6 4.5V20"/></svg></span>
+              <span>Usuarios</span>
+            </button>
           </div>
 
           <section class="module-panel active" id="permissionsModule">
@@ -720,7 +747,7 @@
     <script src="https://unpkg.com/convex/dist/browser.js"></script>
     <script>
       const appScript = document.createElement("script");
-      appScript.src = `script.js?v=sales-invoice-summary-1-${Date.now()}`;
+      appScript.src = `script.js?v=module-card-navigation-1-${Date.now()}`;
       document.body.append(appScript);
     </script>
   </body>

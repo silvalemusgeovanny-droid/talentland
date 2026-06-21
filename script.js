@@ -1925,8 +1925,8 @@ function renderProductCatalog(products) {
       <strong>#${escapeHtml(product.productNumber || "")} ${escapeHtml(product.name)}</strong>
       <span>${escapeHtml(product.exactModel || "Sin modelo")} | Proveedor ${formatCurrency(Number(product.providerPrice) || 0)} | Precio ${formatCurrency(Number(product.price) || 0)} | Cant. ${Number(product.quantity) || 0}</span>
       ${canEditProducts ? `<div class="table-action-icons">
-        <button class="edit-button" type="button" data-edit-product-id="${escapeHtml(getProductRecordId(product))}">Editar</button>
-        <button class="delete-button" type="button" data-delete-product-id="${escapeHtml(getProductRecordId(product))}">Eliminar</button>
+        <button class="edit-button icon-action-button icon-edit-button" type="button" data-edit-product-id="${escapeHtml(getProductRecordId(product))}" aria-label="Editar ${escapeHtml(product.name)}" title="Editar">Editar</button>
+        <button class="delete-button icon-action-button icon-delete-button" type="button" data-delete-product-id="${escapeHtml(getProductRecordId(product))}" aria-label="Eliminar ${escapeHtml(product.name)}" title="Eliminar">Eliminar</button>
       </div>` : ""}
     </article>
   `).join("");
@@ -1998,8 +1998,8 @@ async function renderSales() {
           <strong>Venta #${sale.saleNumber} - ${escapeHtml(sale.product)} ${sale.productModel ? escapeHtml(sale.productModel) : ""}</strong>
           <div class="table-action-icons sale-action-icons">
             <button class="edit-button icon-action-button icon-edit-button" type="button" data-edit-sale-id="${escapeHtml(saleId)}" aria-label="Editar venta #${escapeHtml(sale.saleNumber || "")}" title="Editar">Editar</button>
-            <button class="secondary-button sale-invoice-button" type="button" data-print-sale-id="${escapeHtml(saleId)}" aria-label="Imprimir factura de venta #${escapeHtml(sale.saleNumber || "")}" title="Factura">Factura</button>
             <button class="delete-button icon-action-button icon-delete-button void-sale-button" type="button" data-id="${escapeHtml(saleId)}" aria-label="Borrar venta #${escapeHtml(sale.saleNumber || "")}" title="Borrar">Borrar</button>
+            <button class="secondary-button sale-invoice-button" type="button" data-print-sale-id="${escapeHtml(saleId)}" aria-label="Imprimir factura de venta #${escapeHtml(sale.saleNumber || "")}" title="Factura">Factura</button>
           </div>
         </div>
         <span>${date} | ${time}</span>
