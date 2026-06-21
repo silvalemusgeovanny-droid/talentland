@@ -10,6 +10,7 @@
 
 import type * as auditoria from "../auditoria.js";
 import type * as auth from "../auth.js";
+import type * as authorization from "../authorization.js";
 import type * as backups from "../backups.js";
 import type * as contactos from "../contactos.js";
 import type * as crons from "../crons.js";
@@ -28,6 +29,7 @@ import type {
 declare const fullApi: ApiFromModules<{
   auditoria: typeof auditoria;
   auth: typeof auth;
+  authorization: typeof authorization;
   backups: typeof backups;
   contactos: typeof contactos;
   crons: typeof crons;

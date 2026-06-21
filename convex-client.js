@@ -25,13 +25,17 @@
     return result.value;
   }
 
+  function withSession(args = {}) {
+    return { ...args, sessionToken: localStorage.getItem("repairSessionToken") || "" };
+  }
+
   window.repairCloud = {
     isConfigured: () => Boolean(getConvexUrl()),
     listRepairs: (args = {}) => callConvex("query", "reparaciones:list", args),
-    createRepair: (repair) => callConvex("mutation", "reparaciones:create", repair),
-    updateRepair: (id, patch) => callConvex("mutation", "reparaciones:update", { id, patch }),
-    removeRepair: (id) => callConvex("mutation", "reparaciones:remove", { id }),
-    importRepairs: (repairs) => callConvex("mutation", "reparaciones:importBatch", { repairs }),
+    createRepair: (repair) => callConvex("mutation", "reparaciones:create", withSession(repair)),
+    updateRepair: (id, patch) => callConvex("mutation", "reparaciones:update", withSession({ id, patch })),
+    removeRepair: (id) => callConvex("mutation", "reparaciones:remove", withSession({ id })),
+    importRepairs: (repairs) => callConvex("mutation", "reparaciones:importBatch", withSession({ repairs })),
     seedUsers: () => callConvex("mutation", "auth:seedDefaultUsers", {}),
     login: (username, password, sessionToken) =>
       callConvex("mutation", "auth:login", { username, password, sessionToken }),
@@ -48,28 +52,28 @@
     changeOwnPassword: (sessionToken, currentPassword, newPassword) =>
       callConvex("mutation", "auth:changeOwnPassword", { sessionToken, currentPassword, newPassword }),
     registrarAuditoria: (tipo, descripcion, usuario = "sistema", datos = "") =>
-      callConvex("mutation", "auditoria:registrar", { tipo, descripcion, usuario, datos }),
+      callConvex("mutation", "auditoria:registrar", withSession({ tipo, descripcion, usuario, datos })),
     obtenerAuditoria: () => callConvex("query", "auditoria:obtener", {}),
     listNotes: () => callConvex("query", "notas:list", {}),
-    createNote: (note) => callConvex("mutation", "notas:create", note),
-    importNotes: (notes) => callConvex("mutation", "notas:importBatch", { notes }),
-    toggleNote: (id, done) => callConvex("mutation", "notas:toggle", { id, done, updatedAt: new Date().toISOString() }),
-    removeNote: (id) => callConvex("mutation", "notas:remove", { id }),
+    createNote: (note) => callConvex("mutation", "notas:create", withSession(note)),
+    importNotes: (notes) => callConvex("mutation", "notas:importBatch", withSession({ notes })),
+    toggleNote: (id, done) => callConvex("mutation", "notas:toggle", withSession({ id, done, updatedAt: new Date().toISOString() })),
+    removeNote: (id) => callConvex("mutation", "notas:remove", withSession({ id })),
     listParts: () => callConvex("query", "repuestos:list", {}),
-    createPart: (part) => callConvex("mutation", "repuestos:create", part),
-    updatePart: (id, patch) => callConvex("mutation", "repuestos:update", { id, patch }),
-    removePart: (id) => callConvex("mutation", "repuestos:remove", { id }),
-    importParts: (parts) => callConvex("mutation", "repuestos:importBatch", { parts }),
+    createPart: (part) => callConvex("mutation", "repuestos:create", withSession(part)),
+    updatePart: (id, patch) => callConvex("mutation", "repuestos:update", withSession({ id, patch })),
+    removePart: (id) => callConvex("mutation", "repuestos:remove", withSession({ id })),
+    importParts: (parts) => callConvex("mutation", "repuestos:importBatch", withSession({ parts })),
     listContacts: () => callConvex("query", "contactos:list", {}),
-    createContact: (contact) => callConvex("mutation", "contactos:create", contact),
-    updateContact: (id, patch) => callConvex("mutation", "contactos:update", { id, patch }),
-    removeContact: (id) => callConvex("mutation", "contactos:remove", { id }),
-    importContacts: (contacts) => callConvex("mutation", "contactos:importBatch", { contacts }),
+    createContact: (contact) => callConvex("mutation", "contactos:create", withSession(contact)),
+    updateContact: (id, patch) => callConvex("mutation", "contactos:update", withSession({ id, patch })),
+    removeContact: (id) => callConvex("mutation", "contactos:remove", withSession({ id })),
+    importContacts: (contacts) => callConvex("mutation", "contactos:importBatch", withSession({ contacts })),
     listProducts: () => callConvex("query", "productos:list", {}),
-    createProduct: (product) => callConvex("mutation", "productos:create", product),
-    updateProduct: (id, patch) => callConvex("mutation", "productos:update", { id, patch }),
+    createProduct: (product) => callConvex("mutation", "productos:create", withSession(product)),
+    updateProduct: (id, patch) => callConvex("mutation", "productos:update", withSession({ id, patch })),
     listSales: (limit = 500) => callConvex("query", "ventas:list", { limit }),
-    createSale: (sale) => callConvex("mutation", "ventas:create", sale),
-    removeSale: (id) => callConvex("mutation", "ventas:remove", { id }),
+    createSale: (sale) => callConvex("mutation", "ventas:create", withSession(sale)),
+    removeSale: (id) => callConvex("mutation", "ventas:remove", withSession({ id })),
   };
 })();
