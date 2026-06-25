@@ -1356,6 +1356,51 @@ body.entry-panel-active :is(.repairs-form, .contacts-form) > textarea {
   box-shadow: 0 4px 14px rgb(17 24 32 / 9%);
 }
 
+.statistics-actions {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(132px, 1fr));
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.statistics-actions button {
+  min-height: 44px;
+  border: 1px solid rgb(15 79 106 / 18%);
+  border-radius: 8px;
+  background: #ffffff;
+  color: var(--accent);
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.statistics-actions button.active {
+  border-color: var(--accent-2);
+  background: var(--accent-2);
+  color: #ffffff;
+}
+
+.statistics-empty-state {
+  display: grid;
+  gap: 8px;
+  align-items: center;
+  justify-items: start;
+  min-height: 170px;
+  padding: 22px;
+  border: 1px dashed rgb(15 79 106 / 22%);
+  border-radius: 8px;
+  background: rgb(255 255 255 / 70%);
+}
+
+.statistics-empty-state strong {
+  color: var(--ink);
+  font-size: 1rem;
+}
+
+.statistics-empty-state span {
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
 .control-dashboard {
   display: grid;
   grid-template-columns: minmax(180px, 230px) minmax(0, 1fr);
@@ -2283,6 +2328,30 @@ body.users-active .users-panel-header {
 }
 
 :is(body.login-dark, html.login-dark body) .statistics-periods button {
+  color: #a9b8c2;
+}
+
+:is(body.login-dark, html.login-dark body) .statistics-actions button,
+:is(body.login-dark, html.login-dark body) .statistics-empty-state {
+  border-color: rgb(255 255 255 / 12%);
+  background: rgb(255 255 255 / 8%);
+}
+
+:is(body.login-dark, html.login-dark body) .statistics-actions button {
+  color: #d7e7ef;
+}
+
+:is(body.login-dark, html.login-dark body) .statistics-actions button.active {
+  border-color: var(--accent-2);
+  background: var(--accent-2);
+  color: #ffffff;
+}
+
+:is(body.login-dark, html.login-dark body) .statistics-empty-state strong {
+  color: #f4f8fa;
+}
+
+:is(body.login-dark, html.login-dark body) .statistics-empty-state span {
   color: #a9b8c2;
 }
 
