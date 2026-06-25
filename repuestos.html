@@ -9,7 +9,7 @@
         if (localStorage.getItem("loginColorMode") === "dark") document.documentElement.classList.add("login-dark");
       } catch {}
     </script>
-    <link rel="stylesheet" href="styles.css?v=parts-table-compact-1" />
+    <link rel="stylesheet" href="styles.css?v=parts-price-permissions-1" />
   </head>
   <body class="parts-page">
     <main class="parts-shell">
@@ -147,6 +147,9 @@
             </div>
             <div class="parts-table-tools">
               <input id="partSearch" type="search" placeholder="Buscar repuesto o proveedor" />
+              <button class="secondary-button icon-toggle-button" type="button" id="togglePartCost" aria-label="Mostrar costo interno" aria-pressed="false" title="Mostrar costo interno">
+                <span aria-hidden="true">Ver costo</span>
+              </button>
               <button class="primary-button" type="button" id="openPartsForm">Nuevo repuesto</button>
             </div>
           </div>
@@ -161,8 +164,8 @@
                   <th>Categoria</th>
                   <th>Calidad</th>
                   <th>Proveedor</th>
-                  <th>Valor</th>
-                  <th>Cliente final</th>
+                  <th>Costo interno</th>
+                  <th>Precio venta</th>
                   <th>Existencia</th>
                   <th>Publicacion</th>
                   <th>Modificacion</th>

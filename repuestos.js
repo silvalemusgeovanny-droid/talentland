@@ -100,6 +100,7 @@ const partSearch = document.querySelector("#partSearch");
 const partsPageSummary = document.querySelector("#partsPageSummary");
 const previousPartsPageButton = document.querySelector("#previousPartsPage");
 const nextPartsPageButton = document.querySelector("#nextPartsPage");
+const togglePartCostButton = document.querySelector("#togglePartCost");
 const totalParts = document.querySelector("#totalParts");
 const totalValue = document.querySelector("#totalValue");
 const totalProviders = document.querySelector("#totalProviders");
@@ -116,6 +117,7 @@ let lastDeletedPart = null;
 let undoTimerId = null;
 let partsCloudMigrationDone = false;
 let currentPartsPage = 1;
+let isPartCostVisible = false;
 const partsPerPage = 20;
 const newOptionValue = "__new__";
 const categoryOptions = ["Telefono", "Tablet", "Computadora", "Bocina"];
@@ -160,14 +162,48 @@ function isPartsReadOnlyMode() {
   return storedUser?.role === "activador" && appSession.hasSession() && !appPermissions.canManageParts(storedUser);
 }
 
+function canViewPartCost() {
+  return appPermissions.canViewPartCost(getStoredCurrentUser());
+}
+
+function canViewPartCustomerPrice() {
+  return appPermissions.canViewPartCustomerPrice(getStoredCurrentUser());
+}
+
+function canEditPartPrices() {
+  return appPermissions.canManageParts(getStoredCurrentUser()) && canViewPartCost() && canViewPartCustomerPrice();
+}
+
+function getHiddenPriceLabel() {
+  return `<span class="masked-price" aria-label="Precio oculto">••••</span>`;
+}
+
+function updatePartCostToggle() {
+  if (!togglePartCostButton) return;
+  const allowed = canViewPartCost();
+  if (!allowed) isPartCostVisible = false;
+  togglePartCostButton.hidden = !allowed;
+  togglePartCostButton.disabled = !allowed;
+  togglePartCostButton.setAttribute("aria-pressed", String(isPartCostVisible));
+  const label = isPartCostVisible ? "Ocultar costo" : "Ver costo";
+  togglePartCostButton.setAttribute("aria-label", label);
+  togglePartCostButton.setAttribute("title", label);
+  togglePartCostButton.querySelector("span").textContent = label;
+}
+
 function applyPartsAccessMode() {
   const isReadOnly = isPartsReadOnlyMode();
+  const canEditPrices = canEditPartPrices();
   document.body.classList.toggle("parts-readonly-mode", isReadOnly);
-  partsForm.hidden = isReadOnly;
-  openPartsFormButton.hidden = isReadOnly;
-  if (isReadOnly) closePartsForm();
+  document.body.classList.toggle("parts-no-price-edit-mode", !isReadOnly && !canEditPrices);
+  partsForm.hidden = isReadOnly || !canEditPrices;
+  openPartsFormButton.hidden = isReadOnly || !canEditPrices;
+  if (isReadOnly || !canEditPrices) closePartsForm();
+  updatePartCostToggle();
   if (isReadOnly) {
     partsHint.textContent = "Modo consulta: tu rol puede ver repuestos, pero no agregar, editar ni eliminar.";
+  } else if (!canEditPrices && appPermissions.canManageParts(getStoredCurrentUser())) {
+    partsHint.textContent = "Este usuario no tiene permiso para capturar precios de repuestos.";
   }
 }
 
@@ -179,7 +215,7 @@ function setPartsFormMode(mode) {
 }
 
 function openPartsForm(mode = "create") {
-  if (isPartsReadOnlyMode()) return;
+  if (isPartsReadOnlyMode() || !canEditPartPrices()) return;
   setPartsFormMode(mode);
   partsFormOverlay.hidden = false;
   document.body.classList.add("parts-form-modal-open");
@@ -626,15 +662,16 @@ function renderParts() {
   const parts = loadParts();
   const filteredParts = getFilteredParts(parts);
   const isReadOnly = isPartsReadOnlyMode();
+  const canEditRows = !isReadOnly && canEditPartPrices();
   const inventoryValueCents = parts.reduce((sum, part) => sum + getMoneyCents(part, "price", "priceCents") * normalizeStockQuantity(part.stock), 0);
   const providers = new Set(parts.map((part) => part.supplier.trim().toLowerCase()));
 
   totalParts.textContent = parts.length;
-  totalValue.textContent = formatCurrencyCents(inventoryValueCents);
+  totalValue.textContent = canViewPartCost() && isPartCostVisible ? formatCurrencyCents(inventoryValueCents) : "••••";
   totalProviders.textContent = providers.size;
 
   if (!filteredParts.length) {
-    partsTable.innerHTML = `<tr><td class="empty-table" colspan="${isReadOnly ? 11 : 12}">No hay repuestos con esa busqueda.</td></tr>`;
+    partsTable.innerHTML = `<tr><td class="empty-table" colspan="${canEditRows ? 12 : 11}">No hay repuestos con esa busqueda.</td></tr>`;
     partsPageSummary.textContent = "0 repuestos";
     previousPartsPageButton.disabled = true;
     nextPartsPageButton.disabled = true;
@@ -659,17 +696,17 @@ function renderParts() {
       <td>${normalizeCategory(part.category)}</td>
       <td><span class="quality-pill ${getQualityClass(part.quality)}">${normalizeQuality(part.quality)}</span></td>
       <td>${part.supplier}</td>
-      <td>${formatCurrencyCents(getMoneyCents(part, "price", "priceCents"))}</td>
-      <td>${formatCurrencyCents(getMoneyCents(part, "customerPrice", "customerPriceCents"))}</td>
+      <td>${canViewPartCost() && isPartCostVisible ? formatCurrencyCents(getMoneyCents(part, "price", "priceCents")) : getHiddenPriceLabel()}</td>
+      <td>${canViewPartCustomerPrice() ? formatCurrencyCents(getMoneyCents(part, "customerPrice", "customerPriceCents")) : getHiddenPriceLabel()}</td>
       <td>${normalizeStockQuantity(part.stock)}</td>
       <td>${formatPartDate(part.publishedAt)}</td>
       <td>${formatPartDate(part.updatedAt)}</td>
-      ${isReadOnly ? "" : `<td>
+      ${canEditRows ? `<td>
         <div class="table-action-icons">
           <button class="edit-button icon-action-button icon-edit-button" type="button" data-id="${escapeHtml(getPartRecordId(part))}" aria-label="Editar ${escapeHtml(part.name)}" title="Editar">Editar</button>
           <button class="delete-button icon-action-button icon-delete-button" type="button" data-id="${escapeHtml(getPartRecordId(part))}" aria-label="Eliminar ${escapeHtml(part.name)}" title="Eliminar">Eliminar</button>
         </div>
-      </td>`}
+      </td>` : ""}
     </tr>
   `).join("");
 }
@@ -860,6 +897,10 @@ partsForm.addEventListener("submit", async (event) => {
     partsHint.textContent = "Tu rol solo permite consultar repuestos.";
     return;
   }
+  if (!canEditPartPrices()) {
+    partsHint.textContent = "Este usuario no tiene permiso para capturar precios de repuestos.";
+    return;
+  }
   let formValues;
   try {
     formValues = getPartFormValues();
@@ -953,11 +994,18 @@ partsForm.addEventListener("submit", async (event) => {
 });
 
 partsTable.addEventListener("click", async (event) => {
+  const editButton = event.target.closest(".edit-button");
+  const deleteButton = event.target.closest(".delete-button");
+  if (!editButton && !deleteButton) return;
+
   if (isPartsReadOnlyMode()) {
     partsHint.textContent = "Tu rol solo permite consultar repuestos.";
     return;
   }
-  const editButton = event.target.closest(".edit-button");
+  if (!canEditPartPrices()) {
+    partsHint.textContent = "Este usuario no tiene permiso para editar precios de repuestos.";
+    return;
+  }
   if (editButton) {
     const parts = loadParts();
     const part = parts.find((p) => getPartRecordId(p) === editButton.dataset.id);
@@ -982,9 +1030,6 @@ partsTable.addEventListener("click", async (event) => {
     openPartsForm("edit");
     return;
   }
-
-  const deleteButton = event.target.closest(".delete-button");
-  if (!deleteButton) return;
 
   const parts = loadParts();
   const partIndex = parts.findIndex((part) => getPartRecordId(part) === deleteButton.dataset.id);
@@ -1035,6 +1080,11 @@ partsForm.addEventListener("click", async (event) => {
     partsHint.textContent = "Tu rol solo permite consultar repuestos.";
     return;
   }
+  if (!canEditPartPrices()) {
+    event.preventDefault();
+    partsHint.textContent = "Este usuario no tiene permiso para modificar precios de repuestos.";
+    return;
+  }
   const optionButton = event.target.closest("[data-option-action]");
   if (!optionButton) return;
 
@@ -1053,6 +1103,12 @@ partsForm.addEventListener("click", async (event) => {
 
 partSearch.addEventListener("input", () => {
   currentPartsPage = 1;
+  renderParts();
+});
+togglePartCostButton?.addEventListener("click", () => {
+  if (!canViewPartCost()) return;
+  isPartCostVisible = !isPartCostVisible;
+  updatePartCostToggle();
   renderParts();
 });
 previousPartsPageButton.addEventListener("click", () => {

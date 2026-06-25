@@ -1825,8 +1825,19 @@ body.users-active .users-panel-header {
   font-weight: 900;
 }
 
+.permission-switch-detail {
+  margin-left: 18px;
+  background: rgb(255 255 255 / 54%);
+}
+
+.permission-switch-detail b {
+  font-size: 0.84rem;
+}
+
 .parts-readonly-mode .parts-table th:last-child,
-.parts-readonly-mode .parts-table td:last-child {
+.parts-readonly-mode .parts-table td:last-child,
+.parts-no-price-edit-mode .parts-table th:last-child,
+.parts-no-price-edit-mode .parts-table td:last-child {
   display: none;
 }
 
@@ -2856,6 +2867,31 @@ body.parts-form-modal-open {
   min-width: 150px;
   margin: 0;
   white-space: nowrap;
+}
+
+.parts-table-tools .icon-toggle-button {
+  width: auto;
+  min-width: 108px;
+  margin: 0;
+  padding-inline: 12px;
+  white-space: nowrap;
+}
+
+.parts-table-tools .icon-toggle-button::before {
+  content: "";
+  display: inline-block;
+  width: 16px;
+  height: 11px;
+  margin-right: 7px;
+  border: 2px solid currentColor;
+  border-radius: 50%;
+  vertical-align: -1px;
+}
+
+.masked-price {
+  color: var(--muted);
+  font-weight: 900;
+  letter-spacing: 0;
 }
 
 .table-wrap {

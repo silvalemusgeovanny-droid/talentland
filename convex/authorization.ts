@@ -4,10 +4,10 @@ const permissionDeniedMessage = "No tienes permiso para realizar esta operacion.
 const expiredSessionMessage = "Sesion expirada. Inicia sesion nuevamente.";
 
 const defaultModulesByRole: Record<string, string[]> = {
-  root: ["permissions", "sales", "products", "parts", "repairs", "contacts", "notes", "statistics", "database", "users"],
-  admin: ["permissions", "sales", "products", "parts", "repairs", "contacts", "notes", "statistics", "database"],
-  user: ["permissions", "sales", "parts", "repairs", "notes", "statistics"],
-  activador: ["parts"],
+  root: ["permissions", "sales", "products", "parts", "partsCost", "partsCustomerPrice", "repairs", "contacts", "notes", "statistics", "database", "users"],
+  admin: ["permissions", "sales", "products", "parts", "partsCost", "partsCustomerPrice", "repairs", "contacts", "notes", "statistics", "database"],
+  user: ["permissions", "sales", "parts", "partsCustomerPrice", "repairs", "notes", "statistics"],
+  activador: ["parts", "partsCustomerPrice"],
 };
 
 async function sha256(value: string) {
