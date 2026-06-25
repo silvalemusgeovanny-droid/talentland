@@ -118,10 +118,10 @@ export const seedDefaultUsers = mutation({
   handler: async (ctx) => {
     const now = new Date().toISOString();
     const defaults = [
-      { username: "root", password: "root123", name: "Root", role: "root", modules: ["permissions", "sales", "products", "parts", "repairs", "contacts", "notes", "statistics", "database", "users"] },
-      { username: "admin", password: "admin123", name: "Administrador", role: "admin", modules: ["permissions", "sales", "products", "parts", "repairs", "contacts", "notes", "statistics", "database"] },
-      { username: "usuario", password: "user123", name: "Usuario", role: "user", modules: ["permissions", "sales", "parts", "repairs", "notes", "statistics"] },
-      { username: "activador", password: "activador123", name: "Activador", role: "activador", modules: ["parts"] },
+      { username: "root", password: "root123", name: "Root", role: "root", modules: ["permissions", "sales", "products", "parts", "partsCost", "partsCustomerPrice", "repairs", "contacts", "notes", "statistics", "database", "users"] },
+      { username: "admin", password: "admin123", name: "Administrador", role: "admin", modules: ["permissions", "sales", "products", "parts", "partsCost", "partsCustomerPrice", "repairs", "contacts", "notes", "statistics", "database"] },
+      { username: "usuario", password: "user123", name: "Usuario", role: "user", modules: ["permissions", "sales", "parts", "partsCustomerPrice", "repairs", "notes", "statistics"] },
+      { username: "activador", password: "activador123", name: "Activador", role: "activador", modules: ["parts", "partsCustomerPrice"] },
     ];
     let inserted = 0;
 

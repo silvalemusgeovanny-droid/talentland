@@ -101,6 +101,14 @@ function centsToMoney(cents: number) {
   return cents / 100;
 }
 
+async function sha256(value: string) {
+  const bytes = new TextEncoder().encode(value);
+  const digest = await crypto.subtle.digest("SHA-256", bytes);
+  return Array.from(new Uint8Array(digest))
+    .map((byte) => byte.toString(16).padStart(2, "0"))
+    .join("");
+}
+
 function getMoneyCents(part: any, moneyField: string, centsField: string) {
   const cents = Number(part?.[centsField]);
   if (Number.isInteger(cents)) return cents;
@@ -126,17 +134,61 @@ function normalizeStockQuantity(value: unknown) {
   return stock;
 }
 
+async function getSessionUser(ctx: any, sessionToken = "") {
+  if (!sessionToken) return null;
+  const tokenHash = await sha256(sessionToken);
+  const session = await ctx.db
+    .query("sesiones")
+    .withIndex("by_token_hash", (q: any) => q.eq("tokenHash", tokenHash))
+    .unique();
+  if (!session || session.expiresAt < Date.now()) return null;
+  const user = await ctx.db.get(session.userId);
+  if (!user || !user.active || (user.accountStatus && user.accountStatus !== "active")) return null;
+  return user;
+}
+
+function userCanViewPartCost(user: any) {
+  return user?.role === "root" || (Array.isArray(user?.modules) && user.modules.includes("partsCost"));
+}
+
+function userCanViewPartCustomerPrice(user: any) {
+  return user?.role === "root" || (Array.isArray(user?.modules) && user.modules.includes("partsCustomerPrice"));
+}
+
+function sanitizePartForUser(part: any, user: any) {
+  const canViewCost = userCanViewPartCost(user);
+  const canViewCustomerPrice = userCanViewPartCustomerPrice(user);
+  return {
+    ...part,
+    price: canViewCost ? part.price : 0,
+    priceCents: canViewCost ? part.priceCents : 0,
+    customerPrice: canViewCustomerPrice ? part.customerPrice : 0,
+    customerPriceCents: canViewCustomerPrice ? part.customerPriceCents : 0,
+  };
+}
+
+function requirePartPriceWrite(user: any) {
+  if (user?.role === "root") return;
+  const modules = Array.isArray(user?.modules) ? user.modules : [];
+  if (!modules.includes("partsCost") || !modules.includes("partsCustomerPrice")) {
+    throw new Error("No tienes permiso para modificar precios de repuestos.");
+  }
+}
+
 export const list = query({
-  args: {},
-  handler: async (ctx) => {
-    return await ctx.db.query("repuestos").order("desc").take(2000);
+  args: { sessionToken: v.optional(v.string()) },
+  handler: async (ctx, args) => {
+    const user = await getSessionUser(ctx, args.sessionToken || "");
+    const parts = await ctx.db.query("repuestos").order("desc").take(2000);
+    return parts.map((part: any) => sanitizePartForUser(part, user));
   },
 });
 
 export const create = mutation({
   args: { sessionToken: v.string(), ...partFields },
   handler: async (ctx, args) => {
-    await requireModuleWrite(ctx, args.sessionToken, "parts");
+    const user = await requireModuleWrite(ctx, args.sessionToken, "parts");
+    requirePartPriceWrite(user);
     const { sessionToken: _sessionToken, ...partArgs } = args;
     const part = {
       ...partArgs,
@@ -184,7 +236,8 @@ export const update = mutation({
     }),
   },
   handler: async (ctx, args) => {
-    await requireModuleWrite(ctx, args.sessionToken, "parts");
+    const user = await requireModuleWrite(ctx, args.sessionToken, "parts");
+    requirePartPriceWrite(user);
     const patch = {
       ...args.patch,
       ...normalizeMoneyFields(args.patch),
@@ -207,7 +260,8 @@ export const remove = mutation({
     id: v.id("repuestos"),
   },
   handler: async (ctx, args) => {
-    await requireModuleWrite(ctx, args.sessionToken, "parts");
+    const user = await requireModuleWrite(ctx, args.sessionToken, "parts");
+    requirePartPriceWrite(user);
     await ctx.db.delete(args.id);
   },
 });
@@ -218,7 +272,8 @@ export const importBatch = mutation({
     parts: v.array(v.object(partFields)),
   },
   handler: async (ctx, args) => {
-    await requireModuleWrite(ctx, args.sessionToken, "parts");
+    const user = await requireModuleWrite(ctx, args.sessionToken, "parts");
+    requirePartPriceWrite(user);
     let inserted = 0;
     let skipped = 0;
 

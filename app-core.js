@@ -9,7 +9,7 @@
     notesSnoozeUntil: "pendingNotesSnoozeUntil",
   });
 
-  const manageableModules = ["sales", "products", "parts", "repairs", "contacts", "notes", "statistics", "database", "users"];
+  const manageableModules = ["sales", "products", "parts", "partsCost", "partsCustomerPrice", "repairs", "contacts", "notes", "statistics", "database", "users"];
   const roleProfiles = Object.freeze({
     root: {
       label: "Root",
@@ -20,20 +20,20 @@
     admin: {
       label: "Admin",
       access: "Administracion con restricciones",
-      modules: ["permissions", "sales", "products", "parts", "repairs", "contacts", "notes", "statistics", "database"],
+      modules: ["permissions", "sales", "products", "parts", "partsCost", "partsCustomerPrice", "repairs", "contacts", "notes", "statistics", "database"],
       permissions: ["Registrar ventas, repuestos y reparaciones", "Ver base de datos local", "No puede borrar ni reemplazar al root", "No puede gestionar usuarios desde este panel"],
     },
     user: {
       label: "Usuario",
       access: "Operacion basica sin base de datos",
-      modules: ["permissions", "sales", "parts", "repairs", "notes"],
+      modules: ["permissions", "sales", "parts", "partsCustomerPrice", "repairs", "notes"],
       permissions: ["Registrar operaciones del dia", "Consultar modulos operativos permitidos", "No puede ver la base de datos", "No puede gestionar usuarios ni roles"],
     },
     activador: {
       label: "Activador",
       access: "Consulta de repuestos sin modificaciones",
-      modules: ["parts"],
-      permissions: ["Ver el modulo de repuestos", "Consultar existencias y precios", "No puede agregar repuestos", "No puede editar ni eliminar informacion"],
+      modules: ["parts", "partsCustomerPrice"],
+      permissions: ["Ver el modulo de repuestos", "Consultar precio cliente final", "No puede ver costo interno", "No puede agregar repuestos", "No puede editar ni eliminar informacion"],
     },
   });
 
@@ -140,7 +140,7 @@
       if (user?.role === "root") return [...roleProfiles.root.modules];
       if (user?.role === "activador") {
         const assigned = Array.isArray(user.modules) ? user.modules : roleModules;
-        return assigned.includes("notes") ? ["permissions", "parts", "notes"] : ["permissions", "parts"];
+        return assigned.includes("notes") ? ["permissions", "parts", "partsCustomerPrice", "notes"] : ["permissions", "parts", "partsCustomerPrice"];
       }
       if (!Array.isArray(user?.modules)) return [...roleModules];
       const allowed = new Set(["permissions", ...manageableModules]);
@@ -151,6 +151,12 @@
     },
     canManageParts(user) {
       return user?.role === "root" || (this.canAccess(user, "parts") && user?.role !== "activador");
+    },
+    canViewPartCost(user) {
+      return user?.role === "root" || this.canAccess(user, "partsCost");
+    },
+    canViewPartCustomerPrice(user) {
+      return user?.role === "root" || this.canAccess(user, "partsCustomerPrice");
     },
     canUseNotes(user) {
       return this.canAccess(user, "notes");

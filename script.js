@@ -86,6 +86,8 @@ const moduleLabels = {
   sales: "Ventas",
   products: "Catalogo productos",
   parts: "Repuestos",
+  partsCost: "Ver costo interno",
+  partsCustomerPrice: "Ver precio cliente final",
   repairs: "Reparaciones",
   contacts: "Contactos",
   notes: "Notas",
@@ -473,8 +475,20 @@ function canManageParts() {
   return appPermissions.canManageParts(currentUser);
 }
 
+function canViewPartCost() {
+  return appPermissions.canViewPartCost(currentUser);
+}
+
+function canViewPartCustomerPrice() {
+  return appPermissions.canViewPartCustomerPrice(currentUser);
+}
+
 function canManageProducts() {
   return canAccessModule("sales") && canAccessModule("products") && ["root", "admin"].includes(currentUser?.role);
+}
+
+function canEditProductCatalog() {
+  return canManageProducts() && canViewPartCost();
 }
 
 function getUserAccountStatus(user = {}) {
@@ -1761,9 +1775,14 @@ function isToday(value) {
 }
 
 function renderQuickParts() {
-  const canEditParts = canManageParts();
+  const canEditParts = canManageParts() && canViewPartCost() && canViewPartCustomerPrice();
   quickPartsForm.hidden = !canEditParts;
   quickPartsSubmit.hidden = !canEditParts;
+  if (!canEditParts && canAccessModule("parts")) {
+    quickPartsHint.textContent = canManageParts()
+      ? "Este usuario no tiene permiso para capturar precios de repuestos."
+      : "Tu rol solo permite consultar repuestos.";
+  }
 }
 
 function formatNoteDate(value) {
@@ -1885,6 +1904,10 @@ function resetProductCatalogForm(products = loadProducts()) {
 
 function updateCatalogEstimatedProfit() {
   if (!catalogProductEstimatedProfitInput) return;
+  if (!canViewPartCost()) {
+    catalogProductEstimatedProfitInput.value = "••••";
+    return;
+  }
   const providerPrice = Number(catalogProductProviderPriceInput?.value) || 0;
   const salePrice = Number(catalogProductPriceInput?.value) || 0;
   catalogProductEstimatedProfitInput.value = formatCurrency(salePrice - providerPrice);
@@ -1903,7 +1926,7 @@ function applySelectedSaleProduct(products = loadProducts()) {
 
 function renderProductCatalog(products) {
   const activeProducts = products.filter((product) => product.active !== false);
-  const canEditProducts = canManageProducts();
+  const canEditProducts = canEditProductCatalog();
   productCatalogForm.hidden = !canEditProducts;
   saleProductInput.innerHTML = [
     `<option value="">Selecciona producto</option>`,
@@ -1923,7 +1946,7 @@ function renderProductCatalog(products) {
   productCatalogList.innerHTML = activeProducts.slice(0, 8).map((product) => `
     <article class="compact-part-item product-catalog-item">
       <strong>#${escapeHtml(product.productNumber || "")} ${escapeHtml(product.name)}</strong>
-      <span>${escapeHtml(product.exactModel || "Sin modelo")} | Proveedor ${formatCurrency(Number(product.providerPrice) || 0)} | Precio ${formatCurrency(Number(product.price) || 0)} | Cant. ${Number(product.quantity) || 0}</span>
+      <span>${escapeHtml(product.exactModel || "Sin modelo")} | ${canViewPartCost() ? `Proveedor ${formatCurrency(Number(product.providerPrice) || 0)} | ` : ""}Precio ${formatCurrency(Number(product.price) || 0)} | Cant. ${Number(product.quantity) || 0}</span>
       ${canEditProducts ? `<div class="table-action-icons">
         <button class="edit-button icon-action-button icon-edit-button" type="button" data-edit-product-id="${escapeHtml(getProductRecordId(product))}" aria-label="Editar ${escapeHtml(product.name)}" title="Editar">Editar</button>
         <button class="delete-button icon-action-button icon-delete-button" type="button" data-delete-product-id="${escapeHtml(getProductRecordId(product))}" aria-label="Eliminar ${escapeHtml(product.name)}" title="Eliminar">Eliminar</button>
@@ -1938,9 +1961,11 @@ async function renderProducts() {
     const products = await loadProductsFromSource();
     renderProductCatalog(products);
     const activeCount = products.filter((product) => product.active !== false).length;
-    productCatalogHint.textContent = canManageProducts()
+    productCatalogHint.textContent = canEditProductCatalog()
       ? `${activeCount} producto${activeCount === 1 ? "" : "s"} disponible${activeCount === 1 ? "" : "s"}.`
-      : "Tu rol puede vender con productos guardados, pero no editar el catalogo.";
+      : canManageProducts()
+        ? "Tu rol puede consultar el catalogo, pero no ver ni editar costos internos."
+        : "Tu rol puede vender con productos guardados, pero no editar el catalogo.";
   } catch (error) {
     renderProductCatalog(loadProducts());
     productCatalogHint.textContent = `No se pudo consultar Convex: ${error.message}`;
@@ -2717,9 +2742,9 @@ async function renderStatistics() {
     statisticsSummary.textContent = `${periodParts.length} repuestos | ${periodRepairs.length} reparaciones | ${periodSales.length} ventas`;
     statisticsHint.textContent = "Datos activos de base de datos";
     renderStatisticCards([
-      { label: "Valor inventario", value: formatCurrencyCents(inventoryCostCents), detail: `${totalStock} piezas en existencia` },
-      { label: "Venta potencial", value: formatCurrencyCents(inventorySaleCents), detail: "Precio cliente final x existencia" },
-      { label: "Utilidad estimada", value: formatCurrencyCents(estimatedProfitCents), detail: "Antes de gastos operativos" },
+      canViewPartCost() ? { label: "Valor inventario", value: formatCurrencyCents(inventoryCostCents), detail: `${totalStock} piezas en existencia` } : null,
+      canViewPartCustomerPrice() ? { label: "Venta potencial", value: formatCurrencyCents(inventorySaleCents), detail: "Precio cliente final x existencia" } : null,
+      canViewPartCost() && canViewPartCustomerPrice() ? { label: "Utilidad estimada", value: formatCurrencyCents(estimatedProfitCents), detail: "Antes de gastos operativos" } : null,
       { label: "Ingresos reparaciones", value: formatCurrency(repairIncome), detail: `${periodRepairs.length} registros` },
       { label: "Ingresos ventas", value: formatCurrency(salesIncome), detail: `${periodSales.length} ventas` },
       { label: periodConfig.label, value: formatCurrency(repairIncome), detail: `${periodRepairs.length} reparaciones` },
@@ -2728,8 +2753,8 @@ async function renderStatistics() {
       { label: "Ediciones aprobadas", value: String(periodEditApprovalLogs.length), detail: `${editApprovalLogs.length} en auditoria` },
       { label: "Copias seguridad", value: String(periodCreatedBackupLogs.length), detail: `${backupLogs.length} eventos en auditoria` },
       { label: "Usuarios bloqueados", value: String(periodBlockedUserLogs.length), detail: `${blockedUserLogs.length} eventos historicos` },
-      { label: "Alertas", value: String(lowStockParts.length + zeroStockParts.length + priceIssues.length), detail: "Stock y precios por revisar" },
-    ]);
+      { label: "Alertas", value: String(lowStockParts.length + zeroStockParts.length + (canViewPartCost() && canViewPartCustomerPrice() ? priceIssues.length : 0)), detail: "Stock y precios por revisar" },
+    ].filter(Boolean));
 
     statisticsLists.innerHTML = [
       renderPartAlertList("Stock bajo", lowStockParts, "Sin repuestos con stock bajo."),
@@ -2753,9 +2778,9 @@ async function renderStatistics() {
       <div class="control-dashboard">
         <aside class="control-kpi-rail">
           ${renderKpiRail([
-            { label: "Valor inventario", value: formatCompactCurrency(centsToMoney(inventoryCostCents)), icon: "VI" },
-            { label: "Venta potencial", value: formatCompactCurrency(centsToMoney(inventorySaleCents)), icon: "VP" },
-            { label: "Utilidad estimada", value: formatCompactCurrency(centsToMoney(estimatedProfitCents)), icon: "UE" },
+            canViewPartCost() ? { label: "Valor inventario", value: formatCompactCurrency(centsToMoney(inventoryCostCents)), icon: "VI" } : null,
+            canViewPartCustomerPrice() ? { label: "Venta potencial", value: formatCompactCurrency(centsToMoney(inventorySaleCents)), icon: "VP" } : null,
+            canViewPartCost() && canViewPartCustomerPrice() ? { label: "Utilidad estimada", value: formatCompactCurrency(centsToMoney(estimatedProfitCents)), icon: "UE" } : null,
             { label: "Ingresos reparacion", value: formatCompactCurrency(repairIncome), icon: "IR" },
             { label: "Ingresos ventas", value: formatCompactCurrency(salesIncome), icon: "IV" },
             { label: `Reparaciones ${periodConfig.label.toLowerCase()}`, value: String(periodRepairs.length), icon: "RP" },
@@ -2764,15 +2789,15 @@ async function renderStatistics() {
             { label: "Ediciones aprobadas", value: String(periodEditApprovalLogs.length), icon: "EA" },
             { label: "Copias seguridad", value: String(periodCreatedBackupLogs.length), icon: "CS" },
             { label: "Usuarios bloqueados", value: String(periodBlockedUserLogs.length), icon: "UB" },
-            { label: "Alertas", value: String(lowStockParts.length + zeroStockParts.length + priceIssues.length), icon: "AL" },
-          ])}
+            { label: "Alertas", value: String(lowStockParts.length + zeroStockParts.length + (canViewPartCost() && canViewPartCustomerPrice() ? priceIssues.length : 0)), icon: "AL" },
+          ].filter(Boolean))}
         </aside>
         <div class="control-main-grid">
           ${renderLineChart("Ingresos de reparaciones", periodRepairSeries, `${periodConfig.label}: ${formatCurrency(repairIncome)}`)}
           ${renderDonutPanel("Repuestos por categoria", categoryTotals, periodParts.length, (value) => `${value}`)}
-          ${renderBarPanel("Valor por proveedor", providerValues, (value) => formatCompactCurrency(centsToMoney(value)))}
+          ${canViewPartCost() ? renderBarPanel("Valor por proveedor", providerValues, (value) => formatCompactCurrency(centsToMoney(value))) : ""}
           ${renderBarPanel("Reparaciones por estado", repairStatusTotals, (value) => `${value}`)}
-          ${renderBarPanel("Mayor utilidad potencial", topProfitParts, (value) => formatCompactCurrency(centsToMoney(value)))}
+          ${canViewPartCost() && canViewPartCustomerPrice() ? renderBarPanel("Mayor utilidad potencial", topProfitParts, (value) => formatCompactCurrency(centsToMoney(value))) : ""}
           ${renderAlertPanel("Stock bajo y agotado", [...zeroStockParts, ...lowStockParts], "Sin alertas de stock.")}
         </div>
       </div>
@@ -2842,8 +2867,12 @@ function getRoleDefaultModules(role) {
 }
 
 function getSelectedPermissionModules() {
-  return [...userPermissionGrid.querySelectorAll("[data-user-permission]:checked")]
+  const modules = [...userPermissionGrid.querySelectorAll("[data-user-permission]:checked")]
     .map((input) => input.value);
+  if (modules.includes("partsCost") || modules.includes("partsCustomerPrice")) {
+    modules.push("parts");
+  }
+  return [...new Set(modules)];
 }
 
 function renderPermissionEditor(selectedModules = null) {
@@ -2856,11 +2885,12 @@ function renderPermissionEditor(selectedModules = null) {
     const checked = enabledModules.has(moduleName) ? "checked" : "";
     const required =
       (moduleName === "users" && role !== "root") ||
-      (role === "activador" && !["parts", "notes"].includes(moduleName))
+      (role === "activador" && !["parts", "partsCustomerPrice", "notes"].includes(moduleName))
         ? "disabled"
         : "";
+    const isFinePermission = ["partsCost", "partsCustomerPrice"].includes(moduleName);
     return `
-      <label class="permission-switch">
+      <label class="permission-switch${isFinePermission ? " permission-switch-detail" : ""}">
         <input type="checkbox" value="${moduleName}" data-user-permission ${checked} ${required} />
         <span></span>
         <b>${moduleLabels[moduleName]}</b>
@@ -3357,8 +3387,10 @@ catalogProductPriceInput?.addEventListener("input", updateCatalogEstimatedProfit
 
 productCatalogForm?.addEventListener("submit", async (event) => {
   event.preventDefault();
-  if (!canManageProducts()) {
-    productCatalogHint.textContent = "Tu rol no puede editar el catalogo de productos.";
+  if (!canEditProductCatalog()) {
+    productCatalogHint.textContent = canManageProducts()
+      ? "Tu rol no puede editar costos internos del catalogo."
+      : "Tu rol no puede editar el catalogo de productos.";
     return;
   }
   const now = new Date().toISOString();
@@ -3377,7 +3409,7 @@ productCatalogForm?.addEventListener("submit", async (event) => {
   };
 
   if (!product.name || !product.exactModel || product.providerPrice <= 0 || product.price <= 0) {
-    productCatalogHint.textContent = "Escribe producto, modelo exacto, precio proveedor y precio mayor a cero.";
+    productCatalogHint.textContent = "Escribe producto, modelo exacto, costo interno y precio mayor a cero.";
     return;
   }
 
@@ -3437,8 +3469,10 @@ productCatalogForm?.addEventListener("submit", async (event) => {
 productCatalogList?.addEventListener("click", async (event) => {
   const editButton = event.target.closest("[data-edit-product-id]");
   if (editButton) {
-    if (!canManageProducts()) {
-      productCatalogHint.textContent = "Tu rol no puede editar el catalogo de productos.";
+    if (!canEditProductCatalog()) {
+      productCatalogHint.textContent = canManageProducts()
+        ? "Tu rol no puede editar costos internos del catalogo."
+        : "Tu rol no puede editar el catalogo de productos.";
       return;
     }
     const productId = editButton.dataset.editProductId;
@@ -3463,8 +3497,10 @@ productCatalogList?.addEventListener("click", async (event) => {
 
   const button = event.target.closest("[data-delete-product-id]");
   if (!button) return;
-  if (!canManageProducts()) {
-    productCatalogHint.textContent = "Tu rol no puede editar el catalogo de productos.";
+  if (!canEditProductCatalog()) {
+    productCatalogHint.textContent = canManageProducts()
+      ? "Tu rol no puede editar costos internos del catalogo."
+      : "Tu rol no puede editar el catalogo de productos.";
     return;
   }
   const productId = button.dataset.deleteProductId;
@@ -4207,8 +4243,11 @@ usersForm.addEventListener("submit", async (event) => {
   if (userData.modules.includes("products") && !userData.modules.includes("sales")) {
     userData.modules.push("sales");
   }
+  if ((userData.modules.includes("partsCost") || userData.modules.includes("partsCustomerPrice")) && !userData.modules.includes("parts")) {
+    userData.modules.push("parts");
+  }
   if (userData.role === "activador") {
-    userData.modules = ["parts"];
+    userData.modules = ["parts", "partsCustomerPrice"];
   }
 
   try {
@@ -4265,6 +4304,23 @@ resetRolePermissionsButton?.addEventListener("click", () => {
 userPermissionGrid?.addEventListener("change", (event) => {
   const input = event.target.closest("[data-user-permission]");
   if (!input) return;
+  if (["partsCost", "partsCustomerPrice"].includes(input.value) && input.checked) {
+    const partsInput = userPermissionGrid.querySelector('[data-user-permission][value="parts"]');
+    if (partsInput) {
+      partsInput.checked = true;
+      const partsStatus = partsInput.closest(".permission-switch")?.querySelector("small");
+      if (partsStatus) partsStatus.textContent = "Permitido";
+    }
+  }
+  if (input.value === "parts" && !input.checked) {
+    ["partsCost", "partsCustomerPrice"].forEach((moduleName) => {
+      const priceInput = userPermissionGrid.querySelector(`[data-user-permission][value="${moduleName}"]`);
+      if (!priceInput) return;
+      priceInput.checked = false;
+      const priceStatus = priceInput.closest(".permission-switch")?.querySelector("small");
+      if (priceStatus) priceStatus.textContent = "Denegado";
+    });
+  }
   const status = input.closest(".permission-switch")?.querySelector("small");
   if (status) status.textContent = input.checked ? "Permitido" : "Denegado";
 });

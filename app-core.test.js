@@ -40,6 +40,16 @@ describe("shared application core", () => {
     expect(permissions.canAccess(user, "parts")).toBe(false);
   });
 
+  it("separates internal cost from customer price permissions", () => {
+    const seller = { role: "user", modules: ["parts", "partsCustomerPrice"] };
+    const root = { role: "root", modules: [] };
+
+    expect(permissions.canViewPartCustomerPrice(seller)).toBe(true);
+    expect(permissions.canViewPartCost(seller)).toBe(false);
+    expect(permissions.canViewPartCustomerPrice(root)).toBe(true);
+    expect(permissions.canViewPartCost(root)).toBe(true);
+  });
+
   it("stores and clears the complete session from one place", () => {
     session.saveToken("token");
     session.saveAuthMode("convex");
