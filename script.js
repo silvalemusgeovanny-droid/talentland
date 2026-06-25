@@ -238,6 +238,7 @@ const statisticsHint = document.querySelector("#statisticsHint");
 const statisticsGrid = document.querySelector("#statisticsGrid");
 const statisticsLists = document.querySelector("#statisticsLists");
 const statisticsPeriodButtons = document.querySelectorAll("[data-statistics-period]");
+const statisticsSectionButtons = document.querySelectorAll("[data-statistics-section]");
 const saleConfirmOverlay = document.querySelector("#saleConfirmOverlay");
 const saleConfirmList = document.querySelector("#saleConfirmList");
 const editSaleButton = document.querySelector("#editSaleButton");
@@ -285,6 +286,7 @@ let googleContactsAccessToken = "";
 let partsCloudMigrationDone = false;
 let presenceTimer = null;
 let activeStatisticsPeriod = "month";
+let activeStatisticsSection = "";
 const presenceHeartbeatMs = 25000;
 
 const starterParts = [
@@ -2499,14 +2501,18 @@ function renderAlertPanel(title, parts, emptyText) {
   `;
 }
 
-function renderStatisticCards(cards) {
-  statisticsGrid.innerHTML = cards.map((card) => `
+function getStatisticCardsHtml(cards) {
+  return cards.map((card) => `
     <article class="stat-card">
       <span>${escapeHtml(card.label)}</span>
       <strong>${escapeHtml(card.value)}</strong>
       <small>${escapeHtml(card.detail || "")}</small>
     </article>
   `).join("");
+}
+
+function renderStatisticCards(cards) {
+  statisticsGrid.innerHTML = getStatisticCardsHtml(cards);
 }
 
 function renderMetricList(title, items, formatValue = (value) => value, emptyText = "Sin datos suficientes.") {
@@ -2669,7 +2675,7 @@ function renderEditApprovalHistory(logs) {
   `;
 }
 
-async function renderStatistics() {
+async function loadStatisticsSection(sectionName = "dashboard") {
   if (!canAccessModule("statistics")) {
     statisticsSummary.textContent = "Sin acceso";
     statisticsHint.textContent = "Tu rol no puede ver estadisticas.";
@@ -2687,16 +2693,21 @@ async function renderStatistics() {
   }
 
   statisticsSummary.textContent = "Cargando...";
-  statisticsHint.textContent = "Consultando base de datos";
+  statisticsHint.textContent = "Consultando seccion";
   statisticsGrid.innerHTML = "";
-  statisticsLists.innerHTML = `<p class="hint">Recopilando repuestos, reparaciones, ventas y auditoria.</p>`;
+  statisticsLists.innerHTML = `<p class="hint">Cargando informacion seleccionada.</p>`;
 
   try {
+    const needsAllStatistics = sectionName === "dashboard";
+    const needsParts = needsAllStatistics || ["inventory", "alerts"].includes(sectionName);
+    const needsRepairs = needsAllStatistics || sectionName === "repairs";
+    const needsSales = needsAllStatistics || sectionName === "sales";
+    const needsAudit = needsAllStatistics || ["repairs", "sales", "users", "audit", "backups"].includes(sectionName);
     const [parts, repairs, sales, auditLogs] = await Promise.all([
-      window.repairCloud.listParts(),
-      window.repairCloud.listRepairs({ limit: 10000 }),
-      window.repairCloud.listSales(10000),
-      window.repairCloud.obtenerAuditoria(),
+      needsParts ? window.repairCloud.listParts() : Promise.resolve([]),
+      needsRepairs ? window.repairCloud.listRepairs({ limit: 10000 }) : Promise.resolve([]),
+      needsSales ? window.repairCloud.listSales(10000) : Promise.resolve([]),
+      needsAudit ? window.repairCloud.obtenerAuditoria() : Promise.resolve([]),
     ]);
 
     const periodConfig = getPeriodConfig(activeStatisticsPeriod);
@@ -2774,6 +2785,120 @@ async function renderStatistics() {
     const repairStatusTotals = groupByMetric(periodRepairs, (repair) => repair.status);
     const periodRepairSeries = getPeriodRepairSeries(periodRepairs, periodConfig);
 
+    if (sectionName === "inventory") {
+      statisticsSummary.textContent = `${periodParts.length} repuestos`;
+      statisticsHint.textContent = `Inventario ${periodConfig.label.toLowerCase()}`;
+      statisticsGrid.innerHTML = `
+        <div class="control-dashboard">
+          <aside class="control-kpi-rail">
+            ${renderKpiRail([
+              canViewPartCost() ? { label: "Valor inventario", value: formatCompactCurrency(centsToMoney(inventoryCostCents)), icon: "VI" } : null,
+              canViewPartCustomerPrice() ? { label: "Venta potencial", value: formatCompactCurrency(centsToMoney(inventorySaleCents)), icon: "VP" } : null,
+              canViewPartCost() && canViewPartCustomerPrice() ? { label: "Utilidad estimada", value: formatCompactCurrency(centsToMoney(estimatedProfitCents)), icon: "UE" } : null,
+              { label: "Existencia", value: String(totalStock), icon: "EX" },
+            ].filter(Boolean))}
+          </aside>
+          <div class="control-main-grid">
+            ${renderDonutPanel("Repuestos por categoria", categoryTotals, periodParts.length, (value) => `${value}`)}
+            ${canViewPartCost() ? renderBarPanel("Valor por proveedor", providerValues, (value) => formatCompactCurrency(centsToMoney(value))) : ""}
+            ${canViewPartCost() && canViewPartCustomerPrice() ? renderBarPanel("Mayor utilidad potencial", topProfitParts, (value) => formatCompactCurrency(centsToMoney(value))) : ""}
+          </div>
+        </div>
+      `;
+      statisticsLists.innerHTML = "";
+      return;
+    }
+
+    if (sectionName === "repairs") {
+      statisticsSummary.textContent = `${periodRepairs.length} reparaciones`;
+      statisticsHint.textContent = `Reparaciones ${periodConfig.label.toLowerCase()}`;
+      renderStatisticCards([
+        { label: "Ingresos reparaciones", value: formatCurrency(repairIncome), detail: `${periodRepairs.length} registros` },
+        { label: periodConfig.label, value: formatCurrency(repairIncome), detail: `${periodRepairs.length} reparaciones` },
+        { label: "Emisiones reparacion", value: String(periodRepairInvoiceLogs.length), detail: `${repairInvoiceLogs.length} en auditoria` },
+      ]);
+      statisticsGrid.innerHTML += `
+        <div class="control-main-grid statistics-section-grid">
+          ${renderLineChart("Ingresos de reparaciones", periodRepairSeries, `${periodConfig.label}: ${formatCurrency(repairIncome)}`)}
+          ${renderBarPanel("Reparaciones por estado", repairStatusTotals, (value) => `${value}`)}
+        </div>
+      `;
+      statisticsLists.innerHTML = renderMetricList("Reparaciones recientes", repairs.slice(0, 6).map((repair) => ({
+        label: `#${repair.repairNumber || ""} ${repair.customer || "Sin nombre"}`,
+        value: `${repair.status || "Sin estado"} | ${formatCurrency(Number(repair.repairPrice) || 0)}`,
+      })));
+      return;
+    }
+
+    if (sectionName === "sales") {
+      const productTotals = groupByMetric(periodSales, (sale) => sale.product || "Producto", (sale) => Number(sale.total) || 0);
+      statisticsSummary.textContent = `${periodSales.length} ventas`;
+      statisticsHint.textContent = `Ventas ${periodConfig.label.toLowerCase()}`;
+      renderStatisticCards([
+        { label: "Ingresos ventas", value: formatCurrency(salesIncome), detail: `${periodSales.length} ventas` },
+        { label: "Emisiones venta", value: String(periodSaleInvoiceLogs.length), detail: `${saleInvoiceLogs.length} en auditoria` },
+      ]);
+      statisticsGrid.innerHTML += `
+        <div class="control-main-grid statistics-section-grid">
+          ${renderBarPanel("Ventas por producto", productTotals, (value) => formatCurrency(Number(value) || 0))}
+        </div>
+      `;
+      statisticsLists.innerHTML = renderSaleInvoiceHistory(saleInvoiceLogs);
+      return;
+    }
+
+    if (sectionName === "users") {
+      statisticsSummary.textContent = `${periodUserSecurityLogs.length} eventos`;
+      statisticsHint.textContent = `Usuarios ${periodConfig.label.toLowerCase()}`;
+      renderStatisticCards([
+        { label: "Usuarios bloqueados", value: String(periodBlockedUserLogs.length), detail: `${blockedUserLogs.length} eventos historicos` },
+        { label: "Eventos de seguridad", value: String(periodUserSecurityLogs.length), detail: "Periodo seleccionado" },
+      ]);
+      statisticsLists.innerHTML = renderUserSecurityHistory(periodUserSecurityLogs.length ? periodUserSecurityLogs : userSecurityLogs);
+      return;
+    }
+
+    if (sectionName === "audit") {
+      statisticsSummary.textContent = `${periodEditApprovalLogs.length} ediciones`;
+      statisticsHint.textContent = `Auditoria ${periodConfig.label.toLowerCase()}`;
+      renderStatisticCards([
+        { label: "Ediciones aprobadas", value: String(periodEditApprovalLogs.length), detail: `${editApprovalLogs.length} en auditoria` },
+      ]);
+      statisticsLists.innerHTML = renderEditApprovalHistory(editApprovalLogs);
+      return;
+    }
+
+    if (sectionName === "backups") {
+      statisticsSummary.textContent = `${periodCreatedBackupLogs.length} respaldos`;
+      statisticsHint.textContent = `Respaldos ${periodConfig.label.toLowerCase()}`;
+      renderStatisticCards([
+        { label: "Copias seguridad", value: String(periodCreatedBackupLogs.length), detail: `${backupLogs.length} eventos en auditoria` },
+      ]);
+      statisticsLists.innerHTML = renderBackupHistory(periodBackupLogs.length ? periodBackupLogs : backupLogs);
+      return;
+    }
+
+    if (sectionName === "alerts") {
+      statisticsSummary.textContent = `${lowStockParts.length + zeroStockParts.length + (canViewPartCost() && canViewPartCustomerPrice() ? priceIssues.length : 0)} alertas`;
+      statisticsHint.textContent = `Alertas ${periodConfig.label.toLowerCase()}`;
+      renderStatisticCards([
+        { label: "Stock bajo", value: String(lowStockParts.length), detail: "Existencia de 1 a 2" },
+        { label: "Sin existencia", value: String(zeroStockParts.length), detail: "Agotados" },
+        canViewPartCost() && canViewPartCustomerPrice() ? { label: "Precios por revisar", value: String(priceIssues.length), detail: "Costo o precio invalido" } : null,
+      ].filter(Boolean));
+      statisticsGrid.innerHTML += `
+        <div class="control-main-grid statistics-section-grid">
+          ${renderAlertPanel("Stock bajo y agotado", [...zeroStockParts, ...lowStockParts], "Sin alertas de stock.")}
+        </div>
+      `;
+      statisticsLists.innerHTML = [
+        renderPartAlertList("Stock bajo", lowStockParts, "Sin repuestos con stock bajo."),
+        renderPartAlertList("Sin existencia", zeroStockParts, "Sin repuestos agotados."),
+        canViewPartCost() && canViewPartCustomerPrice() ? renderPartAlertList("Precios por revisar", priceIssues, "Sin precios problematicos.") : "",
+      ].filter(Boolean).join("");
+      return;
+    }
+
     statisticsGrid.innerHTML = `
       <div class="control-dashboard">
         <aside class="control-kpi-rail">
@@ -2814,6 +2939,50 @@ async function renderStatistics() {
     statisticsGrid.innerHTML = "";
     statisticsLists.innerHTML = `<p class="hint">${escapeHtml(error.message)}</p>`;
   }
+}
+
+function setStatisticsSectionActive(sectionName = "") {
+  statisticsSectionButtons.forEach((button) => {
+    button.classList.toggle("active", button.dataset.statisticsSection === sectionName);
+  });
+}
+
+function renderStatisticsEmptyState() {
+  statisticsGrid.innerHTML = `
+    <section class="statistics-empty-state">
+      <strong>Selecciona una seccion para cargar informacion</strong>
+      <span>El resumen no consultara datos hasta que presiones un boton.</span>
+      <button class="secondary-button" type="button" disabled>Actualizar</button>
+    </section>
+  `;
+  statisticsLists.innerHTML = "";
+}
+
+async function renderStatistics() {
+  setStatisticsSectionActive(activeStatisticsSection);
+  if (!canAccessModule("statistics")) {
+    statisticsSummary.textContent = "Sin acceso";
+    statisticsHint.textContent = "Tu rol no puede ver estadisticas.";
+    statisticsGrid.innerHTML = "";
+    statisticsLists.innerHTML = `<p class="hint">Solo admin y root pueden ver este panel.</p>`;
+    return;
+  }
+
+  if (!window.repairCloud?.isConfigured()) {
+    statisticsSummary.textContent = "Base de datos requerida";
+    statisticsHint.textContent = "Configura CONVEX_URL para recopilar datos.";
+    statisticsGrid.innerHTML = "";
+    statisticsLists.innerHTML = `<p class="hint">Este panel toma sus datos de base de datos, no del almacenamiento local del navegador.</p>`;
+    return;
+  }
+
+  statisticsSummary.textContent = "Panel de control";
+  statisticsHint.textContent = "Elige una seccion";
+  if (!activeStatisticsSection) {
+    renderStatisticsEmptyState();
+    return;
+  }
+  await loadStatisticsSection(activeStatisticsSection);
 }
 
 async function renderUsers() {
@@ -3221,6 +3390,13 @@ statisticsPeriodButtons.forEach((button) => {
       periodButton.classList.toggle("active", periodButton === button);
     });
     renderStatistics();
+  });
+});
+statisticsSectionButtons.forEach((button) => {
+  button.addEventListener("click", () => {
+    activeStatisticsSection = button.dataset.statisticsSection || "";
+    setStatisticsSectionActive(activeStatisticsSection);
+    loadStatisticsSection(activeStatisticsSection);
   });
 });
 

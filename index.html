@@ -15,7 +15,7 @@
         }
       } catch {}
     </script>
-    <link rel="stylesheet" href="styles.css?v=internal-cost-permissions-1" />
+    <link rel="stylesheet" href="styles.css?v=statistics-on-demand-1" />
   </head>
   <body>
     <main class="app-shell">
@@ -499,6 +499,16 @@
               </div>
             </div>
 
+            <div class="statistics-actions" aria-label="Secciones de resumen">
+              <button type="button" data-statistics-section="inventory">Inventario</button>
+              <button type="button" data-statistics-section="repairs">Reparaciones</button>
+              <button type="button" data-statistics-section="sales">Ventas</button>
+              <button type="button" data-statistics-section="users">Usuarios</button>
+              <button type="button" data-statistics-section="audit">Auditoria</button>
+              <button type="button" data-statistics-section="backups">Respaldos</button>
+              <button type="button" data-statistics-section="alerts">Alertas</button>
+            </div>
+
             <div class="statistics-grid" id="statisticsGrid"></div>
             <div class="statistics-lists" id="statisticsLists"></div>
           </section>
@@ -747,7 +757,7 @@
     <script src="https://unpkg.com/convex/dist/browser.js"></script>
     <script>
       const appScript = document.createElement("script");
-      appScript.src = `script.js?v=internal-cost-permissions-1-${Date.now()}`;
+      appScript.src = `script.js?v=statistics-on-demand-1-${Date.now()}`;
       document.body.append(appScript);
     </script>
   </body>
