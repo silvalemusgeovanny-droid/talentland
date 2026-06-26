@@ -133,6 +133,7 @@ export default defineSchema({
     productId: v.string(),
     product: v.string(),
     productModel: v.string(),
+    customerName: v.optional(v.string()),
     quantity: v.number(),
     price: v.number(),
     discount: v.number(),

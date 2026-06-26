@@ -75,6 +75,7 @@
     updateProduct: (id, patch) => callConvex("mutation", "productos:update", withSession({ id, patch })),
     listSales: (limit = 500) => callConvex("query", "ventas:list", { limit }),
     createSale: (sale) => callConvex("mutation", "ventas:create", withSession(sale)),
+    updateSale: (id, patch) => callConvex("mutation", "ventas:update", withSession({ id, patch })),
     removeSale: (id) => callConvex("mutation", "ventas:remove", withSession({ id })),
   };
 })();

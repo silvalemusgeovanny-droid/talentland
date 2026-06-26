@@ -241,6 +241,10 @@ const saleConfirmList = document.querySelector("#saleConfirmList");
 const editSaleButton = document.querySelector("#editSaleButton");
 const printSaleInvoiceButton = document.querySelector("#printSaleInvoiceButton");
 const confirmSaleButton = document.querySelector("#confirmSaleButton");
+const saleCustomerOverlay = document.querySelector("#saleCustomerOverlay");
+const saleCustomerForm = document.querySelector("#saleCustomerForm");
+const saleCustomerNameInput = document.querySelector("#saleCustomerName");
+const cancelSaleCustomerButton = document.querySelector("#cancelSaleCustomer");
 const adminVoidOverlay = document.querySelector("#adminVoidOverlay");
 const adminVoidForm = document.querySelector("#adminVoidForm");
 const adminVoidTitle = document.querySelector("#adminVoidTitle");
@@ -267,6 +271,7 @@ const resetRolePermissionsButton = document.querySelector("#resetRolePermissions
 let repairExcelDatabasePromise = null;
 let pendingSale = null;
 let pendingSaleIsSaved = false;
+let pendingInvoiceSale = null;
 let pendingVoidSaleId = null;
 let pendingAdminAction = null;
 let pendingEditApproval = null;
@@ -1152,6 +1157,7 @@ function normalizeSaleForCloud(sale) {
     productId: sale.productId || "",
     product: sale.product || "Producto",
     productModel: sale.productModel || "",
+    customerName: sale.customerName || "",
     quantity: Number(sale.quantity) || 0,
     price: Number(sale.price) || 0,
     discount: Number(sale.discount) || 0,
@@ -1196,6 +1202,18 @@ async function removeSaleFromSource(sale) {
     return;
   }
   saveSales(loadSales().filter((item) => getSaleRecordId(item) !== saleId));
+}
+
+async function updateSaleInSource(sale, patch) {
+  const saleId = getSaleRecordId(sale);
+  const nextSale = { ...sale, ...patch };
+  if (window.repairCloud?.isConfigured() && sale._id) {
+    await window.repairCloud.updateSale(sale._id, patch);
+  }
+  saveSales(loadSales().map((item) =>
+    getSaleRecordId(item) === saleId ? { ...item, ...patch } : item,
+  ));
+  return nextSale;
 }
 
 function loadProducts() {
@@ -2023,8 +2041,8 @@ async function renderSales() {
           <strong>Venta #${sale.saleNumber} - ${escapeHtml(sale.product)} ${sale.productModel ? escapeHtml(sale.productModel) : ""}</strong>
           <div class="table-action-icons sale-action-icons">
             <button class="edit-button icon-action-button icon-edit-button" type="button" data-edit-sale-id="${escapeHtml(saleId)}" aria-label="Editar venta #${escapeHtml(sale.saleNumber || "")}" title="Editar">Editar</button>
+            <button class="secondary-button icon-action-button icon-invoice-button sale-invoice-button" type="button" data-print-sale-id="${escapeHtml(saleId)}" aria-label="Imprimir factura de venta #${escapeHtml(sale.saleNumber || "")}" title="Factura">Factura</button>
             <button class="delete-button icon-action-button icon-delete-button void-sale-button" type="button" data-id="${escapeHtml(saleId)}" aria-label="Borrar venta #${escapeHtml(sale.saleNumber || "")}" title="Borrar">Borrar</button>
-            <button class="secondary-button sale-invoice-button" type="button" data-print-sale-id="${escapeHtml(saleId)}" aria-label="Imprimir factura de venta #${escapeHtml(sale.saleNumber || "")}" title="Factura">Factura</button>
           </div>
         </div>
         <span>${date} | ${time}</span>
@@ -3113,6 +3131,23 @@ function openSaleConfirmation(sale, options = {}) {
 
 function closeSaleConfirmation() { saleConfirmOverlay.hidden = true; }
 
+function getSaleCustomerName(sale) {
+  return String(sale?.customerName || "").trim() || "Cliente general";
+}
+
+function openSaleCustomerDialog(sale) {
+  pendingInvoiceSale = sale;
+  saleCustomerNameInput.value = getSaleCustomerName(sale);
+  saleCustomerOverlay.hidden = false;
+  saleCustomerNameInput.focus();
+  saleCustomerNameInput.select();
+}
+
+function closeSaleCustomerDialog() {
+  saleCustomerOverlay.hidden = true;
+  pendingInvoiceSale = null;
+}
+
 function buildSaleInvoiceHtml(sale) {
   const saleDate = new Date(sale.createdAt);
   const date = Number.isNaN(saleDate.getTime())
@@ -3122,6 +3157,7 @@ function buildSaleInvoiceHtml(sale) {
     ? ""
     : new Intl.DateTimeFormat("es-MX", { hour: "2-digit", minute: "2-digit" }).format(saleDate);
   const saleNumber = String(sale.saleNumber || "").padStart(6, "0");
+  const customerName = getSaleCustomerName(sale);
   const attendedBy = currentUser?.name || currentUser?.username || "Usuario";
   const lineTotal = (Number(sale.quantity) || 0) * (Number(sale.price) || 0);
 
@@ -3129,83 +3165,74 @@ function buildSaleInvoiceHtml(sale) {
 <html lang="es">
 <head>
   <meta charset="UTF-8" />
-  <title>Factura venta ${escapeHtml(saleNumber)} | Dr. Movil</title>
+  <title>Ticket venta ${escapeHtml(saleNumber)} | DR MOVIL</title>
   <style>
     @page { size: letter; margin: 8mm; }
     * { box-sizing: border-box; }
-    body { margin: 0; background: #eef1f4; color: #18245b; font-family: Arial, Helvetica, sans-serif; }
-    .toolbar { position: sticky; top: 0; z-index: 10; display: flex; justify-content: center; padding: 10px; background: #eef1f4; }
-    .toolbar button { min-height: 38px; padding: 0 14px; border: 0; border-radius: 8px; background: #18245b; color: #fff; font-weight: 800; cursor: pointer; }
-    .page { width: 184mm; margin: 0 auto; padding: 5mm; background: #fff; }
-    .invoice { border: 1.6px solid #18245b; border-radius: 9px; padding: 10px; }
-    .top { display: grid; grid-template-columns: 1fr auto; gap: 14px; align-items: start; border-bottom: 1.4px solid #18245b; padding-bottom: 9px; }
-    .brand { font-size: 27px; font-weight: 900; letter-spacing: 0.02em; }
-    .brand small { display: block; margin-left: 54px; font-size: 11px; line-height: 1; }
-    .address { margin-top: 5px; font-size: 10.5px; font-weight: 800; line-height: 1.25; }
-    .phone { margin-top: 2px; color: #52626e; font-size: 10px; font-weight: 800; }
-    .order { text-align: right; }
-    .order strong { display: block; font-size: 20px; letter-spacing: 0.08em; }
-    .order span { display: block; margin-top: 8px; color: #b14248; font-size: 19px; font-weight: 900; }
-    .meta { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 18px; padding: 10px 0; border-bottom: 1.4px solid #18245b; font-size: 13px; font-weight: 800; }
-    .meta b, .totals b { color: #111; font-weight: 800; }
-    table { width: 100%; border-collapse: collapse; margin-top: 10px; color: #111; }
-    th { border-bottom: 1.4px solid #18245b; color: #18245b; font-size: 12px; text-align: left; }
-    td { padding: 8px 4px; border-bottom: 1px solid rgb(24 36 91 / 35%); font-size: 13px; font-weight: 700; }
-    th:nth-child(1), td:nth-child(1) { width: 16mm; text-align: center; }
-    th:nth-child(3), td:nth-child(3), th:nth-child(4), td:nth-child(4) { width: 26mm; text-align: right; }
-    .totals { display: grid; gap: 5px; margin-top: 12px; padding: 8px 0; border-bottom: 1.4px solid #18245b; font-size: 14px; font-weight: 900; }
-    .totals div { display: grid; grid-template-columns: 30mm 32mm; justify-content: start; }
-    .notice { margin-top: 10px; color: #18245b; font-size: 12px; font-weight: 800; line-height: 1.3; }
-    .thanks { margin-top: 8px; font-family: Georgia, serif; font-size: 17px; font-style: italic; font-weight: 900; }
-    .attended { margin-top: 16px; padding-top: 8px; border-top: 1.4px solid #18245b; color: #111; font-size: 13px; font-weight: 800; }
+    body { margin: 0; background: #edf2f4; color: #171f26; font-family: Arial, Helvetica, sans-serif; }
+    .toolbar { position: sticky; top: 0; z-index: 10; display: flex; justify-content: center; padding: 10px; background: #edf2f4; }
+    .toolbar button { min-height: 38px; padding: 0 14px; border: 0; border-radius: 8px; background: #0f4f6a; color: #fff; font-weight: 900; cursor: pointer; }
+    .ticket { width: 82mm; margin: 0 auto; padding: 5mm; background: #fff; box-shadow: 0 18px 48px rgb(17 24 32 / 18%); }
+    .brand { text-align: center; border-bottom: 1px dashed #84919b; padding-bottom: 7px; }
+    .brand strong { display: block; color: #0f4f6a; font-size: 25px; letter-spacing: 0.08em; }
+    .brand span { display: block; margin-top: 3px; font-size: 10.5px; font-weight: 800; line-height: 1.25; }
+    .meta { display: grid; gap: 4px; padding: 8px 0; border-bottom: 1px dashed #84919b; font-size: 11px; font-weight: 800; }
+    .meta div, .total-row { display: grid; grid-template-columns: 24mm minmax(0, 1fr); gap: 6px; }
+    .label { color: #52626e; text-transform: uppercase; }
+    table { width: 100%; border-collapse: collapse; margin-top: 8px; }
+    th { padding: 0 0 5px; border-bottom: 1px solid #d7e0e5; color: #52626e; font-size: 10px; text-align: left; text-transform: uppercase; }
+    td { padding: 7px 0; border-bottom: 1px solid #edf2f4; font-size: 11px; font-weight: 800; vertical-align: top; }
+    th:nth-child(1), td:nth-child(1) { width: 12mm; text-align: center; }
+    th:nth-child(3), td:nth-child(3) { width: 22mm; text-align: right; }
+    .product { word-break: break-word; }
+    .summary { display: grid; gap: 3px; margin-top: 8px; padding: 7px 0; border-top: 1px dashed #84919b; border-bottom: 1px dashed #84919b; font-size: 11px; font-weight: 900; }
+    .total-row b { text-align: right; }
+    .grand { color: #0f4f6a; font-size: 12px; }
+    .notice { margin-top: 8px; color: #52626e; font-size: 10px; font-weight: 800; line-height: 1.35; text-align: center; }
+    .thanks { margin-top: 7px; color: #0f4f6a; font-size: 12px; font-weight: 900; text-align: center; }
+    .cut { margin: 9px 0 0; border-top: 1px dashed #84919b; }
     @media print {
       body { background: #fff; }
-      .page { width: auto; padding: 0; }
+      .ticket { width: 78mm; padding: 0; box-shadow: none; }
       .no-print { display: none; }
     }
   </style>
 </head>
 <body>
   <div class="toolbar no-print"><button type="button" onclick="window.print()">Imprimir / Guardar PDF</button></div>
-  <div class="page">
-    <div class="invoice">
-      <section class="top">
-        <div>
-          <div class="brand">Dr. Movil<small>Servicio<br />Tecnico</small></div>
-          <div class="address">Bo. El Centro, Calle Gerardo, Frente a Cruz Roja,<br />Chinameca, San Miguel.</div>
-          <div class="phone">Tel. ${escapeHtml(repairInvoicePhone)}</div>
-        </div>
-        <div class="order"><strong>FACTURA VENTA</strong><span>No. ${escapeHtml(saleNumber)}</span></div>
-      </section>
-      <section class="meta">
-        <span>FECHA: <b>${escapeHtml(date)}</b></span>
-        <span>HORA: <b>${escapeHtml(time)}</b></span>
-        <span>CLIENTE: <b>Consumidor final</b></span>
-        <span>ATENDIDO POR: <b>${escapeHtml(attendedBy)}</b></span>
-      </section>
+  <main class="ticket">
+    <section class="brand">
+      <strong>DR MOVIL</strong>
+      <span>Bo. el centro, calle Gerardo frente a Cruz Roja<br />Chinameca, San Miguel Oeste</span>
+      <span>Tel. ${escapeHtml(repairInvoicePhone)}</span>
+    </section>
+    <section class="meta">
+      <div><span class="label">Ticket</span><b>No. ${escapeHtml(saleNumber)}</b></div>
+      <div><span class="label">Fecha</span><b>${escapeHtml(date)} ${escapeHtml(time)}</b></div>
+      <div><span class="label">Cliente</span><b>${escapeHtml(customerName)}</b></div>
+      <div><span class="label">Atendido</span><b>${escapeHtml(attendedBy)}</b></div>
+    </section>
       <table>
-        <thead><tr><th>CANT.</th><th>PRODUCTO / MODELO</th><th>PRECIO</th><th>TOTAL</th></tr></thead>
+        <thead><tr><th>Cant.</th><th>Producto</th><th>Total</th></tr></thead>
         <tbody>
           <tr>
             <td>${escapeHtml(sale.quantity)}</td>
-            <td>${escapeHtml([sale.product, sale.productModel].filter(Boolean).join(" / "))}</td>
-            <td>${formatCurrency(Number(sale.price) || 0)}</td>
+            <td class="product">${escapeHtml([sale.product, sale.productModel].filter(Boolean).join(" / "))}<br />${formatCurrency(Number(sale.price) || 0)} c/u</td>
             <td>${formatCurrency(lineTotal)}</td>
           </tr>
         </tbody>
       </table>
-      <section class="totals">
-        <div><span>SUBTOTAL:</span><b>${formatCurrency(lineTotal)}</b></div>
-        <div><span>DESCUENTO:</span><b>${formatCurrency(Number(sale.discount) || 0)}</b></div>
-        <div><span>TOTAL:</span><b>${formatCurrency(Number(sale.total) || 0)}</b></div>
-        <div><span>RECIBIDO:</span><b>${formatCurrency(Number(sale.received) || 0)}</b></div>
-        <div><span>VUELTO:</span><b>${formatCurrency(Number(sale.change) || 0)}</b></div>
+      <section class="summary">
+        <div class="total-row"><span>Subtotal</span><b>${formatCurrency(lineTotal)}</b></div>
+        <div class="total-row"><span>Descuento</span><b>${formatCurrency(Number(sale.discount) || 0)}</b></div>
+        <div class="total-row grand"><span>Total</span><b>${formatCurrency(Number(sale.total) || 0)}</b></div>
+        <div class="total-row"><span>Recibido</span><b>${formatCurrency(Number(sale.received) || 0)}</b></div>
+        <div class="total-row"><span>Vuelto</span><b>${formatCurrency(Number(sale.change) || 0)}</b></div>
       </section>
-      <div class="notice">No se aceptan reclamos sin este comprobante.</div>
-      <div class="thanks">Gracias por preferirnos.</div>
-      <div class="attended">Atendido por: ${escapeHtml(attendedBy)}</div>
-    </div>
-  </div>
+    <p class="notice">Garantia valida con este comprobante. No cubre golpes, humedad o mala manipulacion.</p>
+    <p class="thanks">Gracias por su compra</p>
+    <div class="cut"></div>
+  </main>
 </body>
 </html>`;
 }
@@ -3224,6 +3251,7 @@ function openSaleInvoice(sale, invoiceWindow = window.open("", "_blank")) {
       saleNumber: Number(sale.saleNumber) || 0,
       product: sale.product || "",
       productModel: sale.productModel || "",
+      customerName: getSaleCustomerName(sale),
       total: Number(sale.total) || 0,
       issuedAt: new Date().toISOString(),
     }),
@@ -3773,6 +3801,7 @@ salesForm.addEventListener("submit", async (event) => {
     productId: getProductRecordId(selectedProduct),
     product: selectedProduct.name,
     productModel: selectedProduct.exactModel || "",
+    customerName: "",
     quantity, price, discount, total, received, change,
     createdAt: new Date().toISOString(),
   });
@@ -3908,21 +3937,40 @@ confirmSaleButton.addEventListener("click", async () => {
 
 printSaleInvoiceButton?.addEventListener("click", async () => {
   if (!pendingSale) return;
+  try {
+    const savedSale = pendingSaleIsSaved
+      ? pendingSale
+      : await savePendingSale({ keepConfirmationOpen: true });
+    if (!savedSale) {
+      return;
+    }
+    closeSaleConfirmation();
+    openSaleCustomerDialog(savedSale);
+  } catch (error) {
+    salesHint.textContent = `No se pudo generar factura: ${error.message}`;
+  }
+});
+
+cancelSaleCustomerButton?.addEventListener("click", () => closeSaleCustomerDialog());
+
+saleCustomerForm?.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  if (!pendingInvoiceSale) return;
   const invoiceWindow = window.open("", "_blank");
   if (!invoiceWindow) {
     salesHint.textContent = "Permite ventanas emergentes para generar la factura.";
     return;
   }
   try {
-    const savedSale = pendingSaleIsSaved
-      ? pendingSale
-      : await savePendingSale({ keepConfirmationOpen: true });
-    if (!savedSale) {
-      invoiceWindow.close();
-      return;
-    }
-    openSaleInvoice(savedSale, invoiceWindow);
-    salesHint.textContent = "Factura lista. El resumen de la venta sigue abierto.";
+    const customerName = String(saleCustomerNameInput.value || "").trim() || "Cliente general";
+    const saleWithCustomer = await updateSaleInSource(pendingInvoiceSale, { customerName });
+    pendingSale = pendingSale && getSaleRecordId(pendingSale) === getSaleRecordId(saleWithCustomer)
+      ? saleWithCustomer
+      : pendingSale;
+    await renderSales();
+    openSaleInvoice(saleWithCustomer, invoiceWindow);
+    closeSaleCustomerDialog();
+    salesHint.textContent = "Factura lista.";
   } catch (error) {
     invoiceWindow.close();
     salesHint.textContent = `No se pudo generar factura: ${error.message}`;
@@ -3943,7 +3991,7 @@ salesList.addEventListener("click", async (event) => {
       salesHint.textContent = "No se encontro la venta para imprimir.";
       return;
     }
-    openSaleInvoice(sale);
+    openSaleCustomerDialog(sale);
     return;
   }
 

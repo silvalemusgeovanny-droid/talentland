@@ -15,7 +15,7 @@
         }
       } catch {}
     </script>
-    <link rel="stylesheet" href="styles.css?v=single-module-bar-1" />
+    <link rel="stylesheet" href="styles.css?v=sales-icons-navigation-1" />
   </head>
   <body>
     <main class="app-shell">
@@ -660,6 +660,24 @@
         </section>
       </div>
 
+      <div class="sale-confirm-overlay" id="saleCustomerOverlay" hidden>
+        <form class="sale-confirm-card sale-customer-card" id="saleCustomerForm" role="dialog" aria-modal="true" aria-labelledby="saleCustomerTitle">
+          <div>
+            <span class="panel-kicker">Factura de venta</span>
+            <h2 id="saleCustomerTitle">Nombre del cliente</h2>
+            <p class="hint">Puedes editarlo antes de imprimir el ticket.</p>
+          </div>
+
+          <label for="saleCustomerName">Cliente</label>
+          <input id="saleCustomerName" name="customerName" type="text" maxlength="80" placeholder="Cliente general" />
+
+          <div class="sale-confirm-actions">
+            <button class="secondary-button" type="button" id="cancelSaleCustomer">Cancelar</button>
+            <button class="primary-button" type="submit" id="confirmSaleCustomer">Imprimir factura</button>
+          </div>
+        </form>
+      </div>
+
       <aside class="pending-alert" id="pendingAlert" role="status" hidden>
         <div class="pending-alert-icon" aria-hidden="true">
           <svg viewBox="0 0 24 24">
@@ -746,12 +764,12 @@
 <script src="reparaciones-db.js?v=parts-model-1"></script>
     <script src="convex-config.js?v=parts-model-1"></script>
     <script src="app-core.js?v=shared-parts-1"></script>
-    <script src="convex-client.js?v=shared-session-1"></script>
+    <script src="convex-client.js?v=sale-customer-1"></script>
     <script src="https://accounts.google.com/gsi/client" async defer></script>
     <script src="https://unpkg.com/convex/dist/browser.js"></script>
     <script>
       const appScript = document.createElement("script");
-      appScript.src = `script.js?v=statistics-on-demand-1-${Date.now()}`;
+      appScript.src = `script.js?v=sales-icons-navigation-1-${Date.now()}`;
       document.body.append(appScript);
     </script>
   </body>
