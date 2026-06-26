@@ -265,13 +265,11 @@ body.users-active .side-repairs-panel {
 }
 
 :is(body.login-dark, html.login-dark body) .secondary-button,
-:is(body.login-dark, html.login-dark body) .module-nav-bar,
 :is(body.login-dark, html.login-dark body) .module-tabs {
   background: #17242e;
   color: #f4f8fa;
 }
 
-:is(body.login-dark, html.login-dark body) .module-nav-bar,
 :is(body.login-dark, html.login-dark body) .module-tabs {
   border-color: rgb(255 255 255 / 12%);
 }
@@ -286,10 +284,6 @@ body.users-active .side-repairs-panel {
   border-color: #3c5261;
   background: rgb(255 255 255 / 2%);
   color: #91a9ba;
-}
-
-:is(body.login-dark, html.login-dark body) .module-nav-bar span {
-  color: #f4f8fa;
 }
 
 :is(body.login-dark, html.login-dark body) .nav-arrow-button {
@@ -901,25 +895,6 @@ input[readonly] {
   display: none;
 }
 
-.module-nav-bar {
-  display: grid;
-  grid-template-columns: 42px minmax(0, 1fr) 42px;
-  gap: 8px;
-  align-items: center;
-  padding: 6px;
-  border: 1px solid rgb(23 32 38 / 10%);
-  border-radius: 8px;
-  background: rgb(237 243 245 / 82%);
-}
-
-.module-nav-bar span {
-  min-width: 0;
-  color: var(--ink);
-  font-size: 0.95rem;
-  font-weight: 900;
-  text-align: center;
-}
-
 .nav-arrow-button,
 .page-nav-button {
   position: relative;
@@ -1046,12 +1021,6 @@ input[readonly] {
   background: rgb(255 255 255 / 12%);
 }
 
-.technical .module-nav-bar,
-.visual .module-nav-bar {
-  border-color: rgb(255 255 255 / 18%);
-  background: rgb(255 255 255 / 12%);
-}
-
 .technical .module-tab,
 .visual .module-tab {
   border-color: rgb(255 255 255 / 14%);
@@ -1064,11 +1033,6 @@ input[readonly] {
   border-color: rgb(255 255 255 / 18%);
   background: rgb(255 255 255 / 7%);
   color: rgb(255 255 255 / 72%);
-}
-
-.technical .module-nav-bar span,
-.visual .module-nav-bar span {
-  color: white;
 }
 
 .technical .module-tab.active,
@@ -3500,10 +3464,6 @@ tbody tr:hover {
   .module-tab-icon svg {
     width: 20px;
     height: 20px;
-  }
-
-  .module-nav-bar {
-    grid-template-columns: 40px minmax(0, 1fr) 40px;
   }
 
   .nav-arrow-button,
