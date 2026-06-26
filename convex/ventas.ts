@@ -8,6 +8,7 @@ const saleFields = {
   productId: v.string(),
   product: v.string(),
   productModel: v.string(),
+  customerName: v.optional(v.string()),
   quantity: v.number(),
   price: v.number(),
   discount: v.number(),
@@ -39,6 +40,21 @@ export const create = mutation({
       : null;
     if (existing) return existing._id;
     return await ctx.db.insert("ventas", sale);
+  },
+});
+
+export const update = mutation({
+  args: {
+    sessionToken: v.string(),
+    id: v.id("ventas"),
+    patch: v.object({
+      customerName: v.optional(v.string()),
+    }),
+  },
+  handler: async (ctx, args) => {
+    await requireModuleWrite(ctx, args.sessionToken, "sales");
+    await ctx.db.patch(args.id, args.patch);
+    return args.id;
   },
 });
 

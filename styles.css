@@ -1876,13 +1876,12 @@ body.users-active .users-panel-header {
 }
 
 .sale-invoice-button {
-  width: auto;
-  min-width: 76px;
+  width: 42px;
+  min-width: 42px;
   min-height: 42px;
   margin: 0;
-  padding: 0 12px;
+  padding: 0;
   flex: 0 0 auto;
-  font-size: 0.78rem;
 }
 
 .sale-confirm-overlay {
