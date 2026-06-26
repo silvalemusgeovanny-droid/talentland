@@ -9,21 +9,17 @@
         if (localStorage.getItem("loginColorMode") === "dark") document.documentElement.classList.add("login-dark");
       } catch {}
     </script>
-    <link rel="stylesheet" href="styles.css?v=parts-price-permissions-1" />
+    <link rel="stylesheet" href="styles.css?v=single-navigation-1" />
   </head>
   <body class="parts-page">
     <main class="parts-shell">
       <header class="parts-header">
-        <nav class="page-nav" aria-label="Navegacion">
-          <button class="page-nav-button page-back-button" type="button" aria-label="Retroceder" title="Retroceder">Retroceder</button>
-          <a class="back-link" href="index.html" data-return-module="parts">Panel</a>
-          <button class="page-nav-button page-next-button" type="button" aria-label="Avanzar" title="Avanzar">Avanzar</button>
-        </nav>
         <div>
           <span class="panel-kicker">Inventario</span>
           <h1>Repuestos</h1>
           <p>Registra piezas, valor, calidad, proveedor y existencia disponible.</p>
         </div>
+        <a class="back-link header-panel-link" href="index.html" data-return-module="parts">Panel</a>
       </header>
 
       <section class="parts-summary" aria-label="Resumen de repuestos">
@@ -253,7 +249,7 @@
     <script src="app-core.js?v=shared-parts-1"></script>
     <script src="convex-client.js?v=shared-session-1"></script>
     <script src="pending-notes.js?v=shared-session-1"></script>
-    <script src="page-nav.js?v=activator-role-1"></script>
+    <script src="page-nav.js?v=single-navigation-1"></script>
     <script src="repuestos.js?v=shared-parts-1"></script>
   </body>
 </html>
