@@ -126,9 +126,6 @@ const currentTime = document.querySelector("#currentTime");
 const moduleTabs = document.querySelectorAll(".module-tab");
 const modulePanels = document.querySelectorAll(".module-panel");
 const moduleLink = document.querySelector("#moduleLink");
-const moduleBackButton = document.querySelector("#moduleBackButton");
-const moduleNextButton = document.querySelector("#moduleNextButton");
-const moduleNavLabel = document.querySelector("#moduleNavLabel");
 const quickPartsForm = document.querySelector("#quickPartsForm");
 const quickPartsSubmit = document.querySelector("#quickPartsSubmit");
 const quickPartsHint = document.querySelector("#quickPartsHint");
@@ -3300,27 +3297,6 @@ function getAllowedModules() {
   return getUserModules(currentUser).filter((moduleName) => navigableModules.has(moduleName));
 }
 
-function updateModuleNavigation(moduleName) {
-  if (!moduleNavLabel || !moduleBackButton || !moduleNextButton) return;
-  const allowedModules = getAllowedModules();
-  const currentIndex = allowedModules.indexOf(moduleName);
-  const canMove = allowedModules.length > 1 && currentIndex !== -1;
-
-  moduleNavLabel.textContent = moduleLabels[moduleName] || "Panel";
-  moduleBackButton.disabled = !canMove;
-  moduleNextButton.disabled = !canMove;
-}
-
-function moveModule(direction) {
-  const allowedModules = getAllowedModules();
-  if (allowedModules.length < 2) return;
-
-  const currentModule = getSavedActiveModule();
-  const currentIndex = Math.max(0, allowedModules.indexOf(currentModule));
-  const nextIndex = (currentIndex + direction + allowedModules.length) % allowedModules.length;
-  setModule(allowedModules[nextIndex]);
-}
-
 function setModule(moduleName) {
   if (!canAccessModule(moduleName)) {
     credentialHint.textContent = "Tu rol no tiene permiso para abrir ese modulo.";
@@ -3367,14 +3343,11 @@ function setModule(moduleName) {
   } else {
     moduleLink.hidden = true;
   }
-  updateModuleNavigation(moduleName);
   setLeftPanelForModule(moduleName);
 }
 
 tabButtons.forEach((button) => button.addEventListener("click", () => setTheme(button.dataset.theme)));
 moduleTabs.forEach((button) => button.addEventListener("click", () => setModule(button.dataset.module)));
-moduleBackButton?.addEventListener("click", () => moveModule(-1));
-moduleNextButton?.addEventListener("click", () => moveModule(1));
 brandHomeButton?.addEventListener("click", () => {
   if (!sessionPanel.hidden && currentUser) {
     setModule("permissions");
