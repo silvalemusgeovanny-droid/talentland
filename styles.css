@@ -286,11 +286,6 @@ body.users-active .side-repairs-panel {
   color: #91a9ba;
 }
 
-:is(body.login-dark, html.login-dark body) .nav-arrow-button {
-  background: #263844;
-  color: #ffffff;
-}
-
 :is(body.login-dark, html.login-dark body) .module-tab.active {
   background: #263844;
   color: #ffffff;
@@ -893,42 +888,6 @@ input[readonly] {
 
 .module-link[hidden] {
   display: none;
-}
-
-.nav-arrow-button,
-.page-nav-button {
-  position: relative;
-  width: 42px;
-  min-width: 42px;
-  min-height: 42px;
-  padding: 0;
-  border: 0;
-  border-radius: 8px;
-  background: #ffffff;
-  color: var(--accent);
-  cursor: pointer;
-  font-size: 0;
-  box-shadow: 0 4px 14px rgb(17 24 32 / 9%);
-}
-
-.nav-arrow-button::before,
-.page-nav-button::before {
-  content: "";
-  position: absolute;
-  inset: 12px;
-  background: currentColor;
-  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M15 5 8 12l7 7' fill='none' stroke='white' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / contain no-repeat;
-  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M15 5 8 12l7 7' fill='none' stroke='white' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / contain no-repeat;
-}
-
-.nav-arrow-next::before,
-.page-next-button::before {
-  transform: rotate(180deg);
-}
-
-.nav-arrow-button:disabled {
-  opacity: 0.42;
-  cursor: default;
 }
 
 .module-tabs {
@@ -2540,16 +2499,8 @@ body.users-active .session-panel {
   box-shadow: 0 8px 18px rgb(17 24 32 / 7%);
 }
 
-.page-nav {
-  display: inline-grid;
-  grid-template-columns: 42px auto 42px;
-  gap: 8px;
-  align-items: center;
-  flex: 0 0 auto;
-}
-
-.page-nav .back-link {
-  min-width: 82px;
+.header-panel-link {
+  align-self: flex-start;
 }
 
 .back-link:hover {
@@ -2560,15 +2511,6 @@ body.users-active .session-panel {
 :is(body.login-dark, html.login-dark body) .back-link {
   border-color: rgb(255 255 255 / 14%);
   background: #17242e;
-  color: #ffffff;
-}
-
-:is(body.login-dark, html.login-dark body) .page-nav-button,
-.technical .nav-arrow-button,
-.technical .page-nav-button,
-.visual .nav-arrow-button,
-.visual .page-nav-button {
-  background: rgb(255 255 255 / 16%);
   color: #ffffff;
 }
 
@@ -3466,20 +3408,12 @@ tbody tr:hover {
     height: 20px;
   }
 
-  .nav-arrow-button,
-  .page-nav-button {
-    width: 40px;
-    min-width: 40px;
-  }
-
   .parts-header {
     flex-direction: column;
   }
 
-  .page-nav {
-    order: 2;
-    width: 100%;
-    grid-template-columns: 42px minmax(0, 1fr) 42px;
+  .header-panel-link {
+    align-self: stretch;
   }
 
   .users-panel-layout {

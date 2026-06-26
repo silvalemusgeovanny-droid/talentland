@@ -284,6 +284,7 @@ let partsCloudMigrationDone = false;
 let presenceTimer = null;
 let activeStatisticsPeriod = "month";
 let activeStatisticsSection = "";
+let statisticsRenderRequestId = 0;
 const presenceHeartbeatMs = 25000;
 
 const starterParts = [
@@ -2672,7 +2673,18 @@ function renderEditApprovalHistory(logs) {
   `;
 }
 
-async function loadStatisticsSection(sectionName = "dashboard") {
+function restoreStatisticsScroll(scrollTop, requestId) {
+  if (requestId !== statisticsRenderRequestId) return;
+  requestAnimationFrame(() => {
+    if (requestId !== statisticsRenderRequestId) return;
+    window.scrollTo({ top: scrollTop, left: window.scrollX, behavior: "auto" });
+  });
+}
+
+async function loadStatisticsSection(sectionName = "dashboard", options = {}) {
+  const { preserveContent = false, preserveScroll = false } = options;
+  const requestId = ++statisticsRenderRequestId;
+  const scrollTop = window.scrollY;
   if (!canAccessModule("statistics")) {
     statisticsSummary.textContent = "Sin acceso";
     statisticsHint.textContent = "Tu rol no puede ver estadisticas.";
@@ -2691,8 +2703,11 @@ async function loadStatisticsSection(sectionName = "dashboard") {
 
   statisticsSummary.textContent = "Cargando...";
   statisticsHint.textContent = "Consultando seccion";
-  statisticsGrid.innerHTML = "";
-  statisticsLists.innerHTML = `<p class="hint">Cargando informacion seleccionada.</p>`;
+  const hasRenderedStatistics = Boolean(statisticsGrid.innerHTML.trim() || statisticsLists.innerHTML.trim());
+  if (!preserveContent || !hasRenderedStatistics) {
+    statisticsGrid.innerHTML = "";
+    statisticsLists.innerHTML = `<p class="hint">Cargando informacion seleccionada.</p>`;
+  }
 
   try {
     const needsAllStatistics = sectionName === "dashboard";
@@ -2706,6 +2721,7 @@ async function loadStatisticsSection(sectionName = "dashboard") {
       needsSales ? window.repairCloud.listSales(10000) : Promise.resolve([]),
       needsAudit ? window.repairCloud.obtenerAuditoria() : Promise.resolve([]),
     ]);
+    if (requestId !== statisticsRenderRequestId) return;
 
     const periodConfig = getPeriodConfig(activeStatisticsPeriod);
     const periodParts = filterRecordsByPeriod(parts, periodConfig, "publishedAt", "updatedAt");
@@ -2931,10 +2947,13 @@ async function loadStatisticsSection(sectionName = "dashboard") {
       renderEditApprovalHistory(editApprovalLogs),
     ].join("");
   } catch (error) {
+    if (requestId !== statisticsRenderRequestId) return;
     statisticsSummary.textContent = "Error";
     statisticsHint.textContent = "No se pudo consultar base de datos.";
     statisticsGrid.innerHTML = "";
     statisticsLists.innerHTML = `<p class="hint">${escapeHtml(error.message)}</p>`;
+  } finally {
+    if (preserveScroll) restoreStatisticsScroll(scrollTop, requestId);
   }
 }
 
@@ -3362,6 +3381,10 @@ statisticsPeriodButtons.forEach((button) => {
     statisticsPeriodButtons.forEach((periodButton) => {
       periodButton.classList.toggle("active", periodButton === button);
     });
+    if (activeStatisticsSection) {
+      loadStatisticsSection(activeStatisticsSection, { preserveContent: true, preserveScroll: true });
+      return;
+    }
     renderStatistics();
   });
 });
@@ -3369,7 +3392,7 @@ statisticsSectionButtons.forEach((button) => {
   button.addEventListener("click", () => {
     activeStatisticsSection = button.dataset.statisticsSection || "";
     setStatisticsSectionActive(activeStatisticsSection);
-    loadStatisticsSection(activeStatisticsSection);
+    loadStatisticsSection(activeStatisticsSection, { preserveContent: true, preserveScroll: true });
   });
 });
 
