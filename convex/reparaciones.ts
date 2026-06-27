@@ -2,6 +2,23 @@ import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 import { requireModuleWrite } from "./authorization";
 
+const repairPartFields = {
+  partId: v.string(),
+  sourcePartId: v.optional(v.string()),
+  name: v.string(),
+  brand: v.optional(v.string()),
+  model: v.optional(v.string()),
+  quality: v.optional(v.string()),
+  supplier: v.optional(v.string()),
+  quantity: v.number(),
+  unitPrice: v.number(),
+  unitPriceCents: v.optional(v.number()),
+  unitCost: v.optional(v.number()),
+  unitCostCents: v.optional(v.number()),
+  subtotal: v.number(),
+  subtotalCents: v.optional(v.number()),
+};
+
 const repairFields = {
   sourceId: v.optional(v.string()),
   repairNumber: v.number(),
@@ -17,6 +34,7 @@ const repairFields = {
   deliveredAt: v.string(),
   repairPrice: v.number(),
   abono: v.optional(v.number()),
+  repairParts: v.optional(v.array(v.object(repairPartFields))),
   notes: v.string(),
 };
 
@@ -35,8 +53,48 @@ const repairPatchFields = {
   deliveredAt: v.optional(v.string()),
   repairPrice: v.optional(v.number()),
   abono: v.optional(v.number()),
+  repairParts: v.optional(v.array(v.object(repairPartFields))),
   notes: v.optional(v.string()),
 };
+
+function getRepairPartsUsage(parts: Array<{ partId: string; quantity: number }> | undefined) {
+  const usage = new Map<string, number>();
+  for (const line of parts || []) {
+    const partId = String(line.partId || "");
+    const quantity = Math.max(0, Math.trunc(Number(line.quantity) || 0));
+    if (!partId || !quantity) continue;
+    usage.set(partId, (usage.get(partId) || 0) + quantity);
+  }
+  return usage;
+}
+
+async function applyRepairPartsStockDelta(ctx: any, previousParts: Array<{ partId: string; quantity: number }> | undefined, nextParts: Array<{ partId: string; quantity: number }> | undefined) {
+  const previousUsage = getRepairPartsUsage(previousParts);
+  const nextUsage = getRepairPartsUsage(nextParts);
+  const partIds = new Set([...previousUsage.keys(), ...nextUsage.keys()]);
+
+  for (const rawPartId of partIds) {
+    const delta = (nextUsage.get(rawPartId) || 0) - (previousUsage.get(rawPartId) || 0);
+    if (!delta) continue;
+
+    const part = await ctx.db.get(rawPartId as any);
+    if (!part) {
+      throw new Error("No se encontro un repuesto usado en la reparacion.");
+    }
+
+    const currentStock = Math.max(0, Math.trunc(Number(part.stock) || 0));
+    const nextStock = currentStock - delta;
+    if (nextStock < 0) {
+      const label = [part.name, part.brand, part.model].filter(Boolean).join(" ") || "Repuesto";
+      throw new Error(`${label} solo tiene ${currentStock} pieza(s) disponibles.`);
+    }
+
+    await ctx.db.patch(rawPartId as any, {
+      stock: nextStock,
+      updatedAt: new Date().toISOString(),
+    });
+  }
+}
 
 function normalizeSearch(value: string) {
   return value
@@ -81,6 +139,7 @@ export const create = mutation({
   handler: async (ctx, args) => {
     await requireModuleWrite(ctx, args.sessionToken, "repairs");
     const { sessionToken: _sessionToken, ...repair } = args;
+    await applyRepairPartsStockDelta(ctx, [], repair.repairParts);
     return await ctx.db.insert("reparaciones", repair);
   },
 });
@@ -93,6 +152,13 @@ export const update = mutation({
   },
   handler: async (ctx, args) => {
     await requireModuleWrite(ctx, args.sessionToken, "repairs");
+    const existing = await ctx.db.get(args.id);
+    if (!existing) {
+      throw new Error("No se encontro la reparacion.");
+    }
+    if (Object.prototype.hasOwnProperty.call(args.patch, "repairParts")) {
+      await applyRepairPartsStockDelta(ctx, existing.repairParts, args.patch.repairParts);
+    }
     await ctx.db.patch(args.id, args.patch);
     return args.id;
   },
@@ -105,6 +171,11 @@ export const remove = mutation({
   },
   handler: async (ctx, args) => {
     await requireModuleWrite(ctx, args.sessionToken, "repairs");
+    const existing = await ctx.db.get(args.id);
+    if (!existing) {
+      throw new Error("No se encontro la reparacion.");
+    }
+    await applyRepairPartsStockDelta(ctx, existing.repairParts, []);
     await ctx.db.delete(args.id);
     return args.id;
   },

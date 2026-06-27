@@ -15,7 +15,7 @@
         }
       } catch {}
     </script>
-    <link rel="stylesheet" href="styles.css?v=sales-icons-navigation-1" />
+    <link rel="stylesheet" href="styles.css?v=repair-parts-1" />
   </head>
   <body>
     <main class="app-shell">
@@ -401,6 +401,27 @@
                 <div>
                   <label for="repairAbono">Abono</label>
                   <input id="repairAbono" name="abono" type="number" min="0" step="0.01" placeholder="0.00" />
+                </div>
+              </div>
+
+              <div class="repair-used-parts">
+                <div class="users-form-heading">
+                  <span class="panel-kicker">Repuestos usados</span>
+                  <strong>Agregar desde inventario</strong>
+                </div>
+                <div class="repair-parts-picker">
+                  <select id="repairPartSelect" aria-label="Seleccionar repuesto">
+                    <option value="">Cargando repuestos...</option>
+                  </select>
+                  <input id="repairPartQuantity" type="number" min="1" step="1" value="1" aria-label="Cantidad de repuesto" />
+                  <button class="secondary-button" type="button" id="addRepairPart">Agregar</button>
+                </div>
+                <div class="repair-parts-list" id="repairPartsList">
+                  <p class="hint">Sin repuestos agregados.</p>
+                </div>
+                <div class="repair-parts-total">
+                  <span>Total repuestos</span>
+                  <strong id="repairPartsTotal">$0.00</strong>
                 </div>
               </div>
 

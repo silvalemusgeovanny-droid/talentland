@@ -1144,6 +1144,10 @@ body.entry-panel-active :is(.product-catalog-form, .sales-form, .compact-parts-f
   grid-column: 1 / -1;
 }
 
+body.entry-panel-active .repairs-form > .repair-used-parts {
+  grid-column: 1 / -1;
+}
+
 body.entry-panel-active :is(.repairs-form, .contacts-form) > textarea {
   min-height: 82px;
 }
@@ -1167,6 +1171,73 @@ body.entry-panel-active :is(.repairs-form, .contacts-form) > textarea {
 
 .sale-total-box strong {
   font-size: 1.2rem;
+}
+
+.repair-used-parts {
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+  padding: 12px 0;
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+}
+
+.repair-parts-picker {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 76px auto;
+  gap: 8px;
+  align-items: center;
+}
+
+.repair-parts-picker select,
+.repair-parts-picker input {
+  width: 100%;
+}
+
+.repair-parts-list {
+  display: grid;
+  gap: 6px;
+}
+
+.repair-part-line {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto 34px;
+  gap: 8px;
+  align-items: center;
+  min-height: 44px;
+  padding: 8px;
+  border-radius: 8px;
+  background: rgb(23 107 135 / 8%);
+}
+
+.repair-part-line div {
+  min-width: 0;
+}
+
+.repair-part-line strong,
+.repair-part-line span {
+  display: block;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.repair-part-line span {
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.repair-parts-total {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  color: var(--muted);
+  font-size: 0.85rem;
+  font-weight: 900;
+}
+
+.repair-parts-total strong {
+  color: var(--ink);
 }
 
 .product-catalog-list {
