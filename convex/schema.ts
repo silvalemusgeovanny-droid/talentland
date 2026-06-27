@@ -53,6 +53,22 @@ export default defineSchema({
     deliveredAt: v.string(),
     repairPrice: v.number(),
     abono: v.optional(v.number()),
+    repairParts: v.optional(v.array(v.object({
+      partId: v.string(),
+      sourcePartId: v.optional(v.string()),
+      name: v.string(),
+      brand: v.optional(v.string()),
+      model: v.optional(v.string()),
+      quality: v.optional(v.string()),
+      supplier: v.optional(v.string()),
+      quantity: v.number(),
+      unitPrice: v.number(),
+      unitPriceCents: v.optional(v.number()),
+      unitCost: v.optional(v.number()),
+      unitCostCents: v.optional(v.number()),
+      subtotal: v.number(),
+      subtotalCents: v.optional(v.number()),
+    }))),
     notes: v.string(),
   })
     .index("by_source_id", ["sourceId"])

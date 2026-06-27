@@ -203,6 +203,11 @@ const repairPriceInput = document.querySelector("#repairPrice");
 const repairAbonoInput = document.querySelector("#repairAbono");
 const repairStatusInput = document.querySelector("#repairStatus");
 const repairDeliveredAtInput = document.querySelector("#repairDeliveredAt");
+const repairPartSelect = document.querySelector("#repairPartSelect");
+const repairPartQuantityInput = document.querySelector("#repairPartQuantity");
+const addRepairPartButton = document.querySelector("#addRepairPart");
+const repairPartsList = document.querySelector("#repairPartsList");
+const repairPartsTotal = document.querySelector("#repairPartsTotal");
 const repairsHint = document.querySelector("#repairsHint");
 const repairsCount = document.querySelector("#repairsCount");
 const repairsList = document.querySelector("#repairsList");
@@ -281,6 +286,7 @@ let sideRepairSearchTimer = null;
 let contactSearchTimer = null;
 let contactRepairSearchTimer = null;
 let repairContactSuggestions = [];
+let selectedRepairParts = [];
 let salesCloudMigrationDone = false;
 let currentUser = null;
 let managedUsersCache = [];
@@ -790,6 +796,215 @@ function formatCurrencyCents(cents) {
 function getPartStock(part) {
   return normalizeStockQuantity(part?.stock);
 }
+
+function getPartRecordId(part) {
+  return part?._id || part?.id || part?.sourceId || "";
+}
+
+function getPartDisplayName(part) {
+  return [part?.name, part?.brand, part?.model, part?.quality].filter(Boolean).join(" | ") || "Repuesto";
+}
+
+async function loadPartsForRepairPicker() {
+  if (window.repairCloud?.isConfigured()) {
+    const cloudParts = await window.repairCloud.listParts();
+    const parts = cloudParts.map((part) => ({ ...part, id: part._id || part.id, stock: normalizeStockQuantity(part.stock) }));
+    saveParts(parts);
+    return parts;
+  }
+  return loadParts();
+}
+
+function normalizeRepairPartLine(line) {
+  const quantity = Math.max(1, normalizeStockQuantity(line?.quantity || 1));
+  const priceCents = getMoneyCents(line || {}, "unitPrice", "unitPriceCents");
+  const costCents = getMoneyCents(line || {}, "unitCost", "unitCostCents");
+  return {
+    partId: line?.partId || "",
+    sourcePartId: line?.sourcePartId || line?.partId || "",
+    name: line?.name || "Repuesto",
+    brand: line?.brand || "",
+    model: line?.model || "",
+    quality: line?.quality || "",
+    supplier: line?.supplier || "",
+    quantity,
+    unitPrice: centsToMoney(priceCents),
+    unitPriceCents: priceCents,
+    unitCost: centsToMoney(costCents),
+    unitCostCents: costCents,
+    subtotal: centsToMoney(priceCents * quantity),
+    subtotalCents: priceCents * quantity,
+  };
+}
+
+function normalizeRepairParts(parts = []) {
+  return Array.isArray(parts) ? parts.map(normalizeRepairPartLine).filter((line) => line.partId && line.quantity > 0) : [];
+}
+
+function getRepairPartsTotalCents(parts = selectedRepairParts) {
+  return normalizeRepairParts(parts).reduce((sum, line) => sum + line.subtotalCents, 0);
+}
+
+function buildRepairPartLine(part, quantity) {
+  const partId = getPartRecordId(part);
+  const unitPriceCents = getMoneyCents(part, "customerPrice", "customerPriceCents");
+  const unitCostCents = getMoneyCents(part, "price", "priceCents");
+  return normalizeRepairPartLine({
+    partId,
+    sourcePartId: part.sourceId || part.id || partId,
+    name: part.name,
+    brand: part.brand,
+    model: part.model,
+    quality: part.quality,
+    supplier: part.supplier,
+    quantity,
+    unitPriceCents,
+    unitCostCents,
+  });
+}
+
+function getRepairPartsUsageMap(parts = []) {
+  return normalizeRepairParts(parts).reduce((usage, line) => {
+    usage.set(line.partId, (usage.get(line.partId) || 0) + line.quantity);
+    return usage;
+  }, new Map());
+}
+
+function getPartOptionLabel(part, reservedQuantity = 0) {
+  const availableStock = Math.max(0, getPartStock(part) - reservedQuantity);
+  return `${getPartDisplayName(part)} - ${formatCurrencyCents(getMoneyCents(part, "customerPrice", "customerPriceCents"))} (${availableStock})`;
+}
+
+async function renderRepairPartPicker() {
+  if (!repairPartSelect) return;
+  try {
+    const parts = await loadPartsForRepairPicker();
+    const usage = getRepairPartsUsageMap(selectedRepairParts);
+    const activeParts = parts
+      .filter((part) => getPartRecordId(part))
+      .sort((a, b) => getPartDisplayName(a).localeCompare(getPartDisplayName(b), "es"));
+    repairPartSelect.innerHTML = activeParts.length
+      ? `<option value="">Selecciona un repuesto</option>${activeParts.map((part) => {
+          const partId = getPartRecordId(part);
+          return `<option value="${escapeHtml(partId)}">${escapeHtml(getPartOptionLabel(part, usage.get(partId) || 0))}</option>`;
+        }).join("")}`
+      : `<option value="">Sin repuestos disponibles</option>`;
+  } catch (error) {
+    repairPartSelect.innerHTML = `<option value="">No se pudieron cargar</option>`;
+    repairsHint.textContent = `No se pudieron listar repuestos: ${error.message}`;
+  }
+}
+
+function renderSelectedRepairParts() {
+  if (!repairPartsList || !repairPartsTotal) return;
+  selectedRepairParts = normalizeRepairParts(selectedRepairParts);
+  repairPartsTotal.textContent = formatCurrencyCents(getRepairPartsTotalCents());
+  if (!selectedRepairParts.length) {
+    repairPartsList.innerHTML = `<p class="hint">Sin repuestos agregados.</p>`;
+    return;
+  }
+  repairPartsList.innerHTML = selectedRepairParts.map((line) => `
+    <article class="repair-part-line">
+      <div>
+        <strong>${escapeHtml(line.name)}</strong>
+        <span>${escapeHtml([line.brand, line.model, line.quality].filter(Boolean).join(" | ") || "Sin modelo")}</span>
+      </div>
+      <span>${line.quantity} x ${formatCurrencyCents(line.unitPriceCents)}</span>
+      <b>${formatCurrencyCents(line.subtotalCents)}</b>
+      <button class="icon-action-button icon-delete-button" type="button" data-remove-repair-part="${escapeHtml(line.partId)}" aria-label="Quitar ${escapeHtml(line.name)}" title="Quitar">Quitar</button>
+    </article>
+  `).join("");
+}
+
+function resetSelectedRepairParts(parts = []) {
+  selectedRepairParts = normalizeRepairParts(parts);
+  renderSelectedRepairParts();
+  renderRepairPartPicker();
+}
+
+async function addSelectedRepairPart() {
+  const partId = repairPartSelect?.value || "";
+  const quantity = normalizeStockQuantity(repairPartQuantityInput?.value || 1);
+  if (!partId) {
+    repairsHint.textContent = "Selecciona un repuesto para agregar.";
+    return;
+  }
+  if (quantity <= 0) {
+    repairsHint.textContent = "La cantidad del repuesto debe ser mayor a cero.";
+    return;
+  }
+  const parts = await loadPartsForRepairPicker();
+  const part = parts.find((item) => getPartRecordId(item) === partId);
+  if (!part) {
+    repairsHint.textContent = "No se encontro ese repuesto en inventario.";
+    return;
+  }
+  const alreadySelected = selectedRepairParts
+    .filter((line) => line.partId === partId)
+    .reduce((sum, line) => sum + line.quantity, 0);
+  const availableStock = getPartStock(part) - alreadySelected;
+  if (availableStock < quantity) {
+    repairsHint.textContent = `Solo hay ${Math.max(0, availableStock)} pieza(s) disponibles.`;
+    return;
+  }
+  const existingIndex = selectedRepairParts.findIndex((line) => line.partId === partId);
+  if (existingIndex >= 0) {
+    selectedRepairParts[existingIndex] = normalizeRepairPartLine({
+      ...selectedRepairParts[existingIndex],
+      quantity: selectedRepairParts[existingIndex].quantity + quantity,
+    });
+  } else {
+    selectedRepairParts.push(buildRepairPartLine(part, quantity));
+  }
+  if (repairPartQuantityInput) repairPartQuantityInput.value = "1";
+  repairsHint.textContent = "Repuesto agregado a la reparacion.";
+  renderSelectedRepairParts();
+  await renderRepairPartPicker();
+}
+
+async function applyRepairPartsStockChange(previousParts = [], nextParts = []) {
+  const previousUsage = getRepairPartsUsageMap(previousParts);
+  const nextUsage = getRepairPartsUsageMap(nextParts);
+  const partIds = new Set([...previousUsage.keys(), ...nextUsage.keys()]);
+  if (!partIds.size) return;
+
+  const parts = await loadPartsForRepairPicker();
+  const updatedParts = [...parts];
+  for (const partId of partIds) {
+    const delta = (nextUsage.get(partId) || 0) - (previousUsage.get(partId) || 0);
+    if (!delta) continue;
+    const index = updatedParts.findIndex((part) => getPartRecordId(part) === partId);
+    const part = index >= 0 ? updatedParts[index] : null;
+    if (!part) throw new Error("No se encontro un repuesto usado en la reparacion.");
+    const currentStock = getPartStock(part);
+    const nextStock = currentStock - delta;
+    if (nextStock < 0) {
+      throw new Error(`${getPartDisplayName(part)} solo tiene ${currentStock} pieza(s) disponibles.`);
+    }
+    const updatedAt = new Date().toISOString();
+    const patch = { stock: nextStock, updatedAt };
+    if (window.repairCloud?.isConfigured() && part._id) {
+      await window.repairCloud.updatePart(part._id, patch);
+    }
+    updatedParts[index] = { ...part, ...patch };
+  }
+  saveParts(updatedParts);
+  await renderRepairPartPicker();
+}
+
+addRepairPartButton?.addEventListener("click", () => {
+  addSelectedRepairPart().catch((error) => {
+    repairsHint.textContent = `No se pudo agregar el repuesto: ${error.message}`;
+  });
+});
+
+repairPartsList?.addEventListener("click", async (event) => {
+  const removeButton = event.target.closest("[data-remove-repair-part]");
+  if (!removeButton) return;
+  selectedRepairParts = selectedRepairParts.filter((line) => line.partId !== removeButton.dataset.removeRepairPart);
+  renderSelectedRepairParts();
+  await renderRepairPartPicker();
+});
 
 
 function isOptionValueDuplicate(field, value) {
@@ -1437,6 +1652,7 @@ function normalizeRepairForCloud(repair) {
     deliveredAt: repair.deliveredAt || "",
     repairPrice: Number(repair.repairPrice) || 0,
     abono: Number(repair.abono) || 0,
+    repairParts: normalizeRepairParts(repair.repairParts),
     notes: repair.notes || "",
   };
 }
@@ -1563,7 +1779,9 @@ function getRepairInvoiceType(repair) {
 }
 
 function buildRepairInvoiceHtml(repair, options = {}) {
-  const total = Number(repair.repairPrice) || 0;
+  const repairParts = normalizeRepairParts(repair.repairParts);
+  const partsTotal = centsToMoney(getRepairPartsTotalCents(repairParts));
+  const total = (Number(repair.repairPrice) || 0) + partsTotal;
   const abono = Math.max(0, Number(repair.abono) || 0);
   const resta = Math.max(0, total - abono);
   const date = formatInvoiceDate(repair.createdAt);
@@ -2069,6 +2287,9 @@ function renderRepairsList(repairs) {
       ? `Entregado ${formatRepairDateTimeInput(repair.deliveredAt)}`
       : "Entrega pendiente";
     const repairId = getRepairRecordId(repair);
+    const repairParts = normalizeRepairParts(repair.repairParts);
+    const partsTotalCents = getRepairPartsTotalCents(repairParts);
+    const finalTotal = (Number(repair.repairPrice) || 0) + centsToMoney(partsTotalCents);
     const actions = repairId ? `
           <div class="table-action-icons repair-action-icons">
             <button class="edit-button icon-action-button icon-edit-button" type="button" data-repair-id="${escapeHtml(repairId)}" aria-label="Editar reparacion #${escapeHtml(repair.repairNumber || "")}" title="Editar">Editar</button>
@@ -2085,7 +2306,9 @@ function renderRepairsList(repairs) {
         <span>${escapeHtml(repair.deviceType)} ${repair.brand ? `${escapeHtml(repair.brand)} ` : ""}${escapeHtml(repair.model)} | ${escapeHtml(repair.status)}</span>
         <span>${escapeHtml(repair.repairType)} | Cel. ${escapeHtml(repair.phone)}</span>
         ${repair.email ? `<span>Correo ${escapeHtml(repair.email)}</span>` : ""}
-        <span>Precio ${formatCurrency(Number(repair.repairPrice) || 0)} | Abono ${formatCurrency(Number(repair.abono) || 0)} | Resta ${formatCurrency(Math.max(0, (Number(repair.repairPrice) || 0) - (Number(repair.abono) || 0)))}</span>
+        <span>Mano de obra ${formatCurrency(Number(repair.repairPrice) || 0)} | Repuestos ${formatCurrencyCents(partsTotalCents)} | Total ${formatCurrency(finalTotal)}</span>
+        ${repairParts.length ? `<span>${escapeHtml(repairParts.map((line) => `${line.quantity} ${line.name}`).join(" | "))}</span>` : ""}
+        <span>Abono ${formatCurrency(Number(repair.abono) || 0)} | Resta ${formatCurrency(Math.max(0, finalTotal - (Number(repair.abono) || 0)))}</span>
         <span>Ingreso ${formatRepairDateTimeInput(repair.createdAt)} | ${deliveredLabel}</span>
         ${repair.notes ? `<p>${escapeHtml(repair.notes)}</p>` : ""}
       </article>
@@ -3376,6 +3599,7 @@ function setModule(moduleName) {
     setNextRepairNumber();
     if (!repairCreatedAtInput.dataset.value) setRepairCreatedAt();
     updateRepairDeliveredAt();
+    renderRepairPartPicker();
     renderRepairs();
   }
   if (moduleName === "database") renderDatabase();
@@ -4201,6 +4425,7 @@ function openRepairInForm(repair, approval = null) {
   repairPriceInput.value = repair.repairPrice ?? "";
   repairAbonoInput.value = repair.abono ?? "";
   repairStatusInput.value = repair.status;
+  resetSelectedRepairParts(repair.repairParts);
   document.querySelector("#repairDeviceType").value = repair.deviceType;
   document.querySelector("#repairNotes").value = repair.notes || "";
   repairCreatedAtInput.dataset.value = repair.createdAt;
@@ -4270,6 +4495,8 @@ repairsList.addEventListener("click", async (event) => {
     if (window.repairCloud?.isConfigured() && repair._id) {
       await window.repairCloud.removeRepair(repair._id);
       window.repairCloud?.registrarAuditoria("REPARACION_ELIMINADA", `Reparacion #${repair.repairNumber} eliminada`, currentUser?.username);
+    } else {
+      await applyRepairPartsStockChange(repair.repairParts, []);
     }
     saveRepairs(repairs.filter((item) => getRepairRecordId(item) !== repairId));
     repairsHint.textContent = "Reparacion eliminada correctamente.";
@@ -4291,6 +4518,7 @@ repairsForm.addEventListener("submit", async (event) => {
   const brand = addRepairBrand(formData.get("brand"));
   const model = addRepairModel(formData.get("model"));
   const repairType = addRepairType(formData.get("repairType"));
+  const repairParts = normalizeRepairParts(selectedRepairParts);
   if (!validateEmailInput(repairEmailInput, repairsHint)) return;
 
   if (editingId) {
@@ -4311,11 +4539,14 @@ repairsForm.addEventListener("submit", async (event) => {
       brand, model, repairType, status, createdAt, deliveredAt,
       repairPrice: Number(formData.get("repairPrice")) || 0,
       abono: Number(formData.get("abono")) || 0,
+      repairParts,
       notes: formData.get("notes").trim(),
     };
 
     if (window.repairCloud?.isConfigured() && existingRepair._id) {
       await window.repairCloud.updateRepair(existingRepair._id, normalizeRepairForCloud(updatedRepair));
+    } else {
+      await applyRepairPartsStockChange(existingRepair.repairParts, repairParts);
     }
 
     if (index !== -1) {
@@ -4351,12 +4582,14 @@ repairsForm.addEventListener("submit", async (event) => {
       brand, model, repairType, status, createdAt, deliveredAt,
       repairPrice: Number(formData.get("repairPrice")) || 0,
       abono: Number(formData.get("abono")) || 0,
+      repairParts,
       notes: formData.get("notes").trim(),
     };
 
     if (window.repairCloud?.isConfigured()) {
       await window.repairCloud.createRepair(normalizeRepairForCloud(repairData));
     } else {
+      await applyRepairPartsStockChange([], repairParts);
       repairs.unshift(repairData);
     }
     repairsHint.textContent = "Reparacion guardada correctamente.";
@@ -4365,6 +4598,7 @@ repairsForm.addEventListener("submit", async (event) => {
   if (!window.repairCloud?.isConfigured() || editingId) saveRepairs(repairs);
   repairsForm.reset();
   repairDeliveredAtInput.dataset.value = "";
+  resetSelectedRepairParts();
   setNextRepairNumber();
   setRepairCreatedAt();
   updateRepairDeliveredAt();
