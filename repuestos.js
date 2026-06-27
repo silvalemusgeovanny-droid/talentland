@@ -441,6 +441,23 @@ function escapeHtml(value) {
     .replaceAll("'", "&#039;");
 }
 
+function getPartBrandModelValues(brandValue = "") {
+  const brandKey = normalizePartSearch(brandValue);
+  const deletedKeys = getDeletedOptionKeys("model");
+  return getUniqueNormalizedValues(loadParts()
+    .filter((part) => !brandKey || normalizePartSearch(part.brand) === brandKey)
+    .map((part) => part.model))
+    .filter((value) => !deletedKeys.has(normalizePartSearch(value)));
+}
+
+function isKnownModelForOtherBrand(brandValue, modelValue) {
+  const brandKey = normalizePartSearch(brandValue);
+  const modelKey = normalizePartSearch(modelValue);
+  if (!brandKey || !modelKey) return false;
+  const matchingParts = loadParts().filter((part) => normalizePartSearch(part.model) === modelKey);
+  return matchingParts.length > 0 && !matchingParts.some((part) => normalizePartSearch(part.brand) === brandKey);
+}
+
 function getUniquePartValues(field) {
   const deletedKeys = getDeletedOptionKeys(field);
   return getUniqueNormalizedValues(loadParts().map((part) => part[field]))
@@ -454,7 +471,8 @@ function getCategoryValues() {
   return values.length ? values : ["Telefono"];
 }
 
-function renderSelectOptions(select, values, placeholder) {
+function renderSelectOptions(select, values, placeholder, selectedValue = select.value) {
+  const normalizedSelected = normalizePartType(selectedValue);
   delete select.dataset.editing;
   select.hidden = false;
   select.disabled = false;
@@ -464,6 +482,7 @@ function renderSelectOptions(select, values, placeholder) {
     ...values.map((value) => `<option value="${escapeHtml(value)}">${escapeHtml(value)}</option>`),
     `<option value="${newOptionValue}">Agregar nuevo</option>`,
   ].join("");
+  if (values.includes(normalizedSelected)) select.value = normalizedSelected;
 }
 
 function renderCategoryOptions(selectedValue = categorySelect.value || "Telefono") {
@@ -540,10 +559,13 @@ function renderBrandOptions() {
 
 function syncBrandText() {
   brandInput.value = normalizePartType(brandInput.value);
+  renderModelOptions();
 }
 
 function renderModelOptions() {
-  renderSelectOptions(modelSelect, getUniquePartValues("model"), "Selecciona un modelo");
+  const brandValue = brandSelect.value === newOptionValue ? brandInput.value : brandSelect.value;
+  const modelValues = brandValue ? getPartBrandModelValues(brandValue) : getUniquePartValues("model");
+  renderSelectOptions(modelSelect, modelValues, brandValue ? "Selecciona un modelo de esta marca" : "Selecciona un modelo");
   syncManualField(modelSelect, modelInput);
 }
 
@@ -584,10 +606,15 @@ function getPartFormValues() {
   const priceCents = parseMoneyCents(document.querySelector("#price").value);
   const customerPriceCents = parseMoneyCents(document.querySelector("#customerPrice").value);
   const stock = parseStockQuantity(document.querySelector("#stock").value);
+  const brand = normalizePartType(brandInput.value);
+  const model = normalizePartType(modelInput.value);
+  if (isKnownModelForOtherBrand(brand, model)) {
+    throw new Error(`El modelo ${model} ya esta ligado a otra marca. Revisa la marca o captura un modelo correcto.`);
+  }
   return {
     name: normalizePartType(partNameInput.value),
-    brand: normalizePartType(brandInput.value),
-    model: normalizePartType(modelInput.value),
+    brand,
+    model,
     supplier: normalizePartType(supplierInput.value),
     category: normalizeCategory(categorySelect.value),
     price: centsToMoney(priceCents),
@@ -1016,7 +1043,8 @@ partsTable.addEventListener("click", async (event) => {
     }
     setSelectValueForEditingWithSuggestions(partNameSelect, partNameInput, part.name, "name", "partNameEditOptions");
     setSelectValueForEditingWithSuggestions(brandSelect, brandInput, part.brand || "", "brand", "brandEditOptions");
-    setSelectValueForEditingWithSuggestions(modelSelect, modelInput, part.model || "", "model", "modelEditOptions");
+    setSelectValueForEditing(modelSelect, modelInput, part.model || "");
+    setEditableSuggestions(modelInput, getPartBrandModelValues(part.brand || ""), "modelEditOptions");
     renderCategoryOptions(normalizeCategory(part.category));
     document.querySelector("#price").value = formatMoneyInput(getMoneyCents(part, "price", "priceCents"));
     document.querySelector("#customerPrice").value = formatMoneyInput(getMoneyCents(part, "customerPrice", "customerPriceCents"));
@@ -1134,7 +1162,10 @@ document.addEventListener("keydown", (event) => {
 partNameSelect.addEventListener("change", () => syncManualField(partNameSelect, partNameInput));
 partNameInput.addEventListener("blur", syncPartTypeText);
 partNameInput.addEventListener("change", syncPartTypeText);
-brandSelect.addEventListener("change", () => syncManualField(brandSelect, brandInput));
+brandSelect.addEventListener("change", () => {
+  syncManualField(brandSelect, brandInput);
+  renderModelOptions();
+});
 brandInput.addEventListener("blur", syncBrandText);
 brandInput.addEventListener("change", syncBrandText);
 modelSelect.addEventListener("change", () => syncManualField(modelSelect, modelInput));

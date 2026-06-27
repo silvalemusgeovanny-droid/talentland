@@ -875,20 +875,35 @@ function getPartOptionLabel(part, reservedQuantity = 0) {
   return `${getPartDisplayName(part)} - ${formatCurrencyCents(getMoneyCents(part, "customerPrice", "customerPriceCents"))} (${availableStock})`;
 }
 
+function getRepairEquipmentFilter() {
+  return {
+    brand: normalizeSystemOption(repairBrandInput?.value || ""),
+    model: normalizeSystemOption(repairModelInput?.value || ""),
+  };
+}
+
+function isPartCompatibleWithRepair(part, filter = getRepairEquipmentFilter()) {
+  if (!filter.brand || !filter.model) return true;
+  return normalizePartSearch(part.brand) === normalizePartSearch(filter.brand) &&
+    normalizePartSearch(part.model) === normalizePartSearch(filter.model);
+}
+
 async function renderRepairPartPicker() {
   if (!repairPartSelect) return;
   try {
     const parts = await loadPartsForRepairPicker();
     const usage = getRepairPartsUsageMap(selectedRepairParts);
+    const equipmentFilter = getRepairEquipmentFilter();
     const activeParts = parts
       .filter((part) => getPartRecordId(part))
+      .filter((part) => isPartCompatibleWithRepair(part, equipmentFilter))
       .sort((a, b) => getPartDisplayName(a).localeCompare(getPartDisplayName(b), "es"));
     repairPartSelect.innerHTML = activeParts.length
-      ? `<option value="">Selecciona un repuesto</option>${activeParts.map((part) => {
+      ? `<option value="">Selecciona un repuesto compatible</option>${activeParts.map((part) => {
           const partId = getPartRecordId(part);
           return `<option value="${escapeHtml(partId)}">${escapeHtml(getPartOptionLabel(part, usage.get(partId) || 0))}</option>`;
         }).join("")}`
-      : `<option value="">Sin repuestos disponibles</option>`;
+      : `<option value="">Sin repuestos compatibles</option>`;
   } catch (error) {
     repairPartSelect.innerHTML = `<option value="">No se pudieron cargar</option>`;
     repairsHint.textContent = `No se pudieron listar repuestos: ${error.message}`;
@@ -937,6 +952,11 @@ async function addSelectedRepairPart() {
   const part = parts.find((item) => getPartRecordId(item) === partId);
   if (!part) {
     repairsHint.textContent = "No se encontro ese repuesto en inventario.";
+    return;
+  }
+  if (!isPartCompatibleWithRepair(part)) {
+    repairsHint.textContent = "Ese repuesto no corresponde a la marca y modelo de esta reparacion.";
+    await renderRepairPartPicker();
     return;
   }
   const alreadySelected = selectedRepairParts
@@ -1245,6 +1265,23 @@ async function refreshQuickPartsView() {
   renderQuickParts();
 }
 
+function getPartBrandModelValues(brandValue = "") {
+  const brandKey = normalizePartSearch(brandValue);
+  const deletedKeys = getDeletedPartOptionKeys("model");
+  return getUniqueNormalizedValues(loadParts()
+    .filter((part) => !brandKey || normalizePartSearch(part.brand) === brandKey)
+    .map((part) => part.model))
+    .filter((value) => !deletedKeys.has(normalizePartSearch(value)));
+}
+
+function isKnownModelForOtherBrand(brandValue, modelValue) {
+  const brandKey = normalizePartSearch(brandValue);
+  const modelKey = normalizePartSearch(modelValue);
+  if (!brandKey || !modelKey) return false;
+  const matchingParts = loadParts().filter((part) => normalizePartSearch(part.model) === modelKey);
+  return matchingParts.length > 0 && !matchingParts.some((part) => normalizePartSearch(part.brand) === brandKey);
+}
+
 function getUniquePartValues(field) {
   const deletedKeys = getDeletedPartOptionKeys(field);
   return getUniqueNormalizedValues(loadParts().map((part) => part[field]))
@@ -1258,12 +1295,14 @@ function getCategoryValues() {
   return values.length ? values : ["Telefono"];
 }
 
-function renderSelectOptions(select, values, placeholder) {
+function renderSelectOptions(select, values, placeholder, selectedValue = select.value) {
+  const normalizedSelected = normalizePartType(selectedValue);
   select.innerHTML = [
     `<option value="">${escapeHtml(placeholder)}</option>`,
     ...values.map((value) => `<option value="${escapeHtml(value)}">${escapeHtml(value)}</option>`),
     `<option value="${newOptionValue}">Agregar nuevo</option>`,
   ].join("");
+  if (values.includes(normalizedSelected)) select.value = normalizedSelected;
 }
 
 function renderQuickCategoryOptions(selectedValue = quickCategoryInput.value || "Telefono") {
@@ -1296,10 +1335,13 @@ function renderQuickBrandOptions() {
 
 function syncQuickBrandText() {
   quickBrandInput.value = normalizePartType(quickBrandInput.value);
+  renderQuickModelOptions();
 }
 
 function renderQuickModelOptions() {
-  renderSelectOptions(quickModelSelect, getUniquePartValues("model"), "Selecciona un modelo");
+  const brandValue = quickBrandSelect.value === newOptionValue ? quickBrandInput.value : quickBrandSelect.value;
+  const modelValues = brandValue ? getPartBrandModelValues(brandValue) : getUniquePartValues("model");
+  renderSelectOptions(quickModelSelect, modelValues, brandValue ? "Selecciona un modelo de esta marca" : "Selecciona un modelo");
   syncManualField(quickModelSelect, quickModelInput);
 }
 
@@ -1690,7 +1732,10 @@ function loadRepairOptions(storageKey, repairField) {
   const savedOptions = localStorage.getItem(storageKey);
   const savedList = savedOptions ? JSON.parse(savedOptions) : [];
   const repairOptions = loadRepairs().map((repair) => repair[repairField]).filter(Boolean);
-  return [...new Set([...savedList, ...repairOptions].map(normalizeSystemOption).filter(Boolean))].sort();
+  const partOptions = ["brand", "model"].includes(repairField)
+    ? loadParts().map((part) => part[repairField]).filter(Boolean)
+    : [];
+  return [...new Set([...savedList, ...repairOptions, ...partOptions].map(normalizeSystemOption).filter(Boolean))].sort();
 }
 
 function saveRepairOptions(storageKey, options) {
@@ -1711,6 +1756,30 @@ function renderRepairOptions(datalist, storageKey, repairField) {
     .join("");
 }
 
+function getRepairModelsForBrand(brandValue = "") {
+  const brandKey = normalizePartSearch(brandValue);
+  const savedOptions = localStorage.getItem(repairModelsStorageKey);
+  const savedModels = savedOptions ? JSON.parse(savedOptions) : [];
+  const repairModels = loadRepairs()
+    .filter((repair) => !brandKey || normalizePartSearch(repair.brand) === brandKey)
+    .map((repair) => repair.model);
+  const partModels = loadParts()
+    .filter((part) => !brandKey || normalizePartSearch(part.brand) === brandKey)
+    .map((part) => part.model);
+  const models = brandKey ? [...repairModels, ...partModels] : [...savedModels, ...repairModels, ...partModels];
+  return [...new Set(models.map(normalizeSystemOption).filter(Boolean))].sort();
+}
+
+function isKnownRepairModelForOtherBrand(brandValue, modelValue) {
+  const brandKey = normalizePartSearch(brandValue);
+  const modelKey = normalizePartSearch(modelValue);
+  if (!brandKey || !modelKey) return false;
+  const partMatches = loadParts().filter((part) => normalizePartSearch(part.model) === modelKey);
+  const repairMatches = loadRepairs().filter((repair) => normalizePartSearch(repair.model) === modelKey);
+  const matches = [...partMatches, ...repairMatches];
+  return matches.length > 0 && !matches.some((item) => normalizePartSearch(item.brand) === brandKey);
+}
+
 function syncKnownRepairOptionCase(input, storageKey, repairField) {
   const typedValue = normalizeSystemOption(input.value);
   const knownValue = loadRepairOptions(storageKey, repairField).find((option) => option === typedValue);
@@ -1718,13 +1787,26 @@ function syncKnownRepairOptionCase(input, storageKey, repairField) {
 }
 
 function renderRepairBrandOptions() { renderRepairOptions(repairBrandOptions, repairBrandsStorageKey, "brand"); }
-function renderRepairModelOptions() { renderRepairOptions(repairModelOptions, repairModelsStorageKey, "model"); }
+function renderRepairModelOptions() {
+  repairModelOptions.innerHTML = getRepairModelsForBrand(repairBrandInput.value)
+    .map((option) => `<option value="${escapeHtml(option)}"></option>`)
+    .join("");
+}
 function renderRepairTypeOptions() { renderRepairOptions(repairTypeOptions, repairTypesStorageKey, "repairType"); }
 function addRepairBrand(brand) { return addRepairOption(brand, repairBrandsStorageKey, "brand", renderRepairBrandOptions); }
 function addRepairModel(model) { return addRepairOption(model, repairModelsStorageKey, "model", renderRepairModelOptions); }
 function addRepairType(repairType) { return addRepairOption(repairType, repairTypesStorageKey, "repairType", renderRepairTypeOptions); }
-function syncKnownRepairBrandCase() { syncKnownRepairOptionCase(repairBrandInput, repairBrandsStorageKey, "brand"); }
-function syncKnownRepairModelCase() { syncKnownRepairOptionCase(repairModelInput, repairModelsStorageKey, "model"); }
+function syncKnownRepairBrandCase() {
+  syncKnownRepairOptionCase(repairBrandInput, repairBrandsStorageKey, "brand");
+  renderRepairModelOptions();
+  renderRepairPartPicker();
+}
+function syncKnownRepairModelCase() {
+  const typedValue = normalizeSystemOption(repairModelInput.value);
+  const knownValue = getRepairModelsForBrand(repairBrandInput.value).find((option) => option === typedValue);
+  if (knownValue) repairModelInput.value = knownValue;
+  renderRepairPartPicker();
+}
 function syncKnownRepairTypeCase() { syncKnownRepairOptionCase(repairTypeInput, repairTypesStorageKey, "repairType"); }
 
 function escapeHtml(value) {
@@ -3770,7 +3852,10 @@ notesList.addEventListener("click", async (event) => {
 quickPartNameSelect.addEventListener("change", () => syncManualField(quickPartNameSelect, quickPartNameInput));
 quickPartNameInput.addEventListener("blur", syncQuickPartTypeText);
 quickPartNameInput.addEventListener("change", syncQuickPartTypeText);
-quickBrandSelect.addEventListener("change", () => syncManualField(quickBrandSelect, quickBrandInput));
+quickBrandSelect.addEventListener("change", () => {
+  syncManualField(quickBrandSelect, quickBrandInput);
+  renderQuickModelOptions();
+});
 quickBrandInput.addEventListener("blur", syncQuickBrandText);
 quickBrandInput.addEventListener("change", syncQuickBrandText);
 quickModelSelect.addEventListener("change", () => syncManualField(quickModelSelect, quickModelInput));
@@ -3963,7 +4048,14 @@ repairPhoneInput.addEventListener("input", () => {
 });
 repairBrandInput.addEventListener("blur", syncKnownRepairBrandCase);
 repairBrandInput.addEventListener("change", syncKnownRepairBrandCase);
-repairModelInput.addEventListener("input", () => { repairModelInput.value = repairModelInput.value.replace(/[^A-Za-z0-9 ]/g, ""); });
+repairBrandInput.addEventListener("input", () => {
+  renderRepairModelOptions();
+  renderRepairPartPicker();
+});
+repairModelInput.addEventListener("input", () => {
+  repairModelInput.value = repairModelInput.value.replace(/[^A-Za-z0-9 ]/g, "");
+  renderRepairPartPicker();
+});
 repairModelInput.addEventListener("blur", syncKnownRepairModelCase);
 repairModelInput.addEventListener("change", syncKnownRepairModelCase);
 repairTypeInput.addEventListener("blur", syncKnownRepairTypeCase);
@@ -4347,6 +4439,10 @@ quickPartsForm.addEventListener("submit", async (event) => {
     publishedAt: now,
     updatedAt: "",
   };
+  if (isKnownModelForOtherBrand(part.brand, part.model)) {
+    quickPartsHint.textContent = `El modelo ${part.model} ya esta ligado a otra marca. Revisa la marca o captura un modelo correcto.`;
+    return;
+  }
   if (hasModelSupplierConflict(part)) {
     quickPartsHint.textContent = getModelSupplierConflictMessage();
     return;
@@ -4515,8 +4611,14 @@ repairsForm.addEventListener("submit", async (event) => {
   const status = formData.get("status");
   const createdAt = repairCreatedAtInput.dataset.value || new Date().toISOString();
   const deliveredAt = status === "Entregado" ? repairDeliveredAtInput.dataset.value || new Date().toISOString() : "";
-  const brand = addRepairBrand(formData.get("brand"));
-  const model = addRepairModel(formData.get("model"));
+  const rawBrand = normalizeSystemOption(formData.get("brand"));
+  const rawModel = normalizeSystemOption(formData.get("model"));
+  if (isKnownRepairModelForOtherBrand(rawBrand, rawModel)) {
+    repairsHint.textContent = `El modelo ${rawModel} ya esta ligado a otra marca. Revisa la marca antes de guardar.`;
+    return;
+  }
+  const brand = addRepairBrand(rawBrand);
+  const model = addRepairModel(rawModel);
   const repairType = addRepairType(formData.get("repairType"));
   const repairParts = normalizeRepairParts(selectedRepairParts);
   if (!validateEmailInput(repairEmailInput, repairsHint)) return;
