@@ -254,6 +254,26 @@ export const update = mutation({
   },
 });
 
+export const updateStockForSale = mutation({
+  args: {
+    sessionToken: v.string(),
+    id: v.id("repuestos"),
+    quantityChange: v.number(),
+    updatedAt: v.string(),
+  },
+  handler: async (ctx, args) => {
+    await requireModuleWrite(ctx, args.sessionToken, "sales");
+    if (!Number.isInteger(args.quantityChange)) {
+      throw new Error("La cantidad debe ser entera.");
+    }
+    const part = await ctx.db.get(args.id);
+    if (!part) throw new Error("No se encontro el repuesto.");
+    const nextStock = normalizeStockQuantity((Number(part.stock) || 0) + args.quantityChange);
+    await ctx.db.patch(args.id, { stock: nextStock, updatedAt: args.updatedAt });
+    return args.id;
+  },
+});
+
 export const remove = mutation({
   args: {
     sessionToken: v.string(),
