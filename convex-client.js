@@ -63,6 +63,8 @@
     listParts: () => callConvex("query", "repuestos:list", withSession({})),
     createPart: (part) => callConvex("mutation", "repuestos:create", withSession(part)),
     updatePart: (id, patch) => callConvex("mutation", "repuestos:update", withSession({ id, patch })),
+    updatePartStockForSale: (id, quantityChange) =>
+      callConvex("mutation", "repuestos:updateStockForSale", withSession({ id, quantityChange, updatedAt: new Date().toISOString() })),
     removePart: (id) => callConvex("mutation", "repuestos:remove", withSession({ id })),
     importParts: (parts) => callConvex("mutation", "repuestos:importBatch", withSession({ parts })),
     listContacts: () => callConvex("query", "contactos:list", {}),

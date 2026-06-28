@@ -139,6 +139,7 @@ const quickSupplierSelect = document.querySelector("#quickSupplierSelect");
 const quickSupplierInput = document.querySelector("#quickSupplier");
 const quickCategoryInput = document.querySelector("#quickCategory");
 const partsStorageKey = "inventoryParts";
+const salePartIdPrefix = "part:";
 const newOptionValue = "__new__";
 const colorModeToggle = document.querySelector("#colorModeToggle");
 const colorModeStorageKey = "loginColorMode";
@@ -803,6 +804,18 @@ function getPartRecordId(part) {
 
 function getPartDisplayName(part) {
   return [part?.name, part?.brand, part?.model, part?.quality].filter(Boolean).join(" | ") || "Repuesto";
+}
+
+function makeSalePartId(partId) {
+  return `${salePartIdPrefix}${partId}`;
+}
+
+function isSalePartId(productId = "") {
+  return String(productId).startsWith(salePartIdPrefix);
+}
+
+function getSalePartRecordId(productId = "") {
+  return isSalePartId(productId) ? String(productId).slice(salePartIdPrefix.length) : "";
 }
 
 async function loadPartsForRepairPicker() {
@@ -1471,6 +1484,39 @@ async function updateSaleInSource(sale, patch) {
     getSaleRecordId(item) === saleId ? { ...item, ...patch } : item,
   ));
   return nextSale;
+}
+
+async function updateSaleItemStock(productId, quantityChange) {
+  const updatedAt = new Date().toISOString();
+  if (isSalePartId(productId)) {
+    const partId = getSalePartRecordId(productId);
+    const parts = await loadPartsForRepairPicker();
+    const part = parts.find((item) => getPartRecordId(item) === partId);
+    if (!part) return false;
+    const nextStock = getPartStock(part) + quantityChange;
+    if (nextStock < 0) return false;
+    if (window.repairCloud?.isConfigured()) {
+      await window.repairCloud.updatePartStockForSale(partId, quantityChange);
+    } else {
+      saveParts(parts.map((item) =>
+        getPartRecordId(item) === partId ? { ...item, stock: nextStock, updatedAt } : item,
+      ));
+    }
+    return true;
+  }
+
+  const products = await loadProductsFromSource();
+  const product = products.find((item) => getProductRecordId(item) === productId);
+  const nextQuantity = (Number(product?.quantity) || 0) + quantityChange;
+  if (!product || nextQuantity < 0) return false;
+  if (window.repairCloud?.isConfigured()) {
+    await window.repairCloud.updateProduct(productId, { quantity: nextQuantity, updatedAt });
+  } else {
+    saveProducts(products.map((item) =>
+      getProductRecordId(item) === productId ? { ...item, quantity: nextQuantity, updatedAt } : item,
+    ));
+  }
+  return true;
 }
 
 function loadProducts() {
@@ -2231,61 +2277,84 @@ function updateCatalogEstimatedProfit() {
   catalogProductEstimatedProfitInput.value = formatCurrency(salePrice - providerPrice);
 }
 
-function getSelectedSaleProduct(products = loadProducts()) {
+function getSelectedSaleProduct(products = loadProducts(), parts = loadParts()) {
   const productId = saleProductInput?.value || "";
-  return products.find((product) => getProductRecordId(product) === productId);
+  if (isSalePartId(productId)) {
+    const partId = getSalePartRecordId(productId);
+    const part = parts.find((item) => getPartRecordId(item) === partId);
+    if (!part) return null;
+    return {
+      ...part,
+      saleItemType: "part",
+      saleItemId: makeSalePartId(partId),
+      name: part.name || "Repuesto",
+      exactModel: [part.brand, part.model, part.quality].filter(Boolean).join(" | "),
+      price: centsToMoney(getMoneyCents(part, "customerPrice", "customerPriceCents")),
+      quantity: getPartStock(part),
+    };
+  }
+  const product = products.find((item) => getProductRecordId(item) === productId);
+  return product ? { ...product, saleItemType: "product", saleItemId: getProductRecordId(product) } : null;
 }
 
-function applySelectedSaleProduct(products = loadProducts()) {
-  const product = getSelectedSaleProduct(products);
+function applySelectedSaleProduct(products = loadProducts(), parts = loadParts()) {
+  const product = getSelectedSaleProduct(products, parts);
   salePriceInput.value = product ? (Number(product.price) || 0).toFixed(2) : "";
   updateSaleTotals();
 }
 
-function renderProductCatalog(products) {
+function renderProductCatalog(products, parts = loadParts()) {
   const activeProducts = products.filter((product) => product.active !== false);
+  const saleParts = parts.filter((part) => getPartStock(part) > 0 && getMoneyCents(part, "customerPrice", "customerPriceCents") > 0);
   const canEditProducts = canEditProductCatalog();
   productCatalogForm.hidden = !canEditProducts;
   saleProductInput.innerHTML = [
     `<option value="">Selecciona producto</option>`,
+    activeProducts.length ? `<optgroup label="Catalogo">` : "",
     ...activeProducts.map((product) =>
       `<option value="${escapeHtml(getProductRecordId(product))}">#${escapeHtml(product.productNumber || "")} ${escapeHtml(product.name)} ${escapeHtml(product.exactModel || "")} - ${formatCurrency(Number(product.price) || 0)} (${Number(product.quantity) || 0})</option>`,
     ),
+    activeProducts.length ? `</optgroup>` : "",
+    saleParts.length ? `<optgroup label="Repuestos">` : "",
+    ...saleParts.map((part) =>
+      `<option value="${escapeHtml(makeSalePartId(getPartRecordId(part)))}">${escapeHtml(getPartDisplayName(part))} - ${formatCurrencyCents(getMoneyCents(part, "customerPrice", "customerPriceCents"))} (${getPartStock(part)})</option>`,
+    ),
+    saleParts.length ? `</optgroup>` : "",
   ].join("");
   catalogProductNumberInput.value = getNextProductNumber(products);
 
   if (!activeProducts.length) {
     productCatalogList.innerHTML = `<p class="hint">Todavia no hay productos guardados.</p>`;
-    salePriceInput.value = "";
-    updateSaleTotals();
-    return;
   }
 
-  productCatalogList.innerHTML = activeProducts.slice(0, 8).map((product) => `
-    <article class="compact-part-item product-catalog-item">
-      <strong>#${escapeHtml(product.productNumber || "")} ${escapeHtml(product.name)}</strong>
-      <span>${escapeHtml(product.exactModel || "Sin modelo")} | ${canViewPartCost() ? `Proveedor ${formatCurrency(Number(product.providerPrice) || 0)} | ` : ""}Precio ${formatCurrency(Number(product.price) || 0)} | Cant. ${Number(product.quantity) || 0}</span>
-      ${canEditProducts ? `<div class="table-action-icons">
-        <button class="edit-button icon-action-button icon-edit-button" type="button" data-edit-product-id="${escapeHtml(getProductRecordId(product))}" aria-label="Editar ${escapeHtml(product.name)}" title="Editar">Editar</button>
-        <button class="delete-button icon-action-button icon-delete-button" type="button" data-delete-product-id="${escapeHtml(getProductRecordId(product))}" aria-label="Eliminar ${escapeHtml(product.name)}" title="Eliminar">Eliminar</button>
-      </div>` : ""}
-    </article>
-  `).join("");
-  applySelectedSaleProduct(activeProducts);
+  if (activeProducts.length) {
+    productCatalogList.innerHTML = activeProducts.slice(0, 8).map((product) => `
+      <article class="compact-part-item product-catalog-item">
+        <strong>#${escapeHtml(product.productNumber || "")} ${escapeHtml(product.name)}</strong>
+        <span>${escapeHtml(product.exactModel || "Sin modelo")} | ${canViewPartCost() ? `Proveedor ${formatCurrency(Number(product.providerPrice) || 0)} | ` : ""}Precio ${formatCurrency(Number(product.price) || 0)} | Cant. ${Number(product.quantity) || 0}</span>
+        ${canEditProducts ? `<div class="table-action-icons">
+          <button class="edit-button icon-action-button icon-edit-button" type="button" data-edit-product-id="${escapeHtml(getProductRecordId(product))}" aria-label="Editar ${escapeHtml(product.name)}" title="Editar">Editar</button>
+          <button class="delete-button icon-action-button icon-delete-button" type="button" data-delete-product-id="${escapeHtml(getProductRecordId(product))}" aria-label="Eliminar ${escapeHtml(product.name)}" title="Eliminar">Eliminar</button>
+        </div>` : ""}
+      </article>
+    `).join("");
+  }
+  applySelectedSaleProduct(activeProducts, saleParts);
 }
 
 async function renderProducts() {
   try {
-    const products = await loadProductsFromSource();
-    renderProductCatalog(products);
+    const [products, parts] = await Promise.all([loadProductsFromSource(), loadPartsForRepairPicker()]);
+    renderProductCatalog(products, parts);
     const activeCount = products.filter((product) => product.active !== false).length;
+    const salePartsCount = parts.filter((part) => getPartStock(part) > 0 && getMoneyCents(part, "customerPrice", "customerPriceCents") > 0).length;
     productCatalogHint.textContent = canEditProductCatalog()
-      ? `${activeCount} producto${activeCount === 1 ? "" : "s"} disponible${activeCount === 1 ? "" : "s"}.`
+      ? `${activeCount} producto${activeCount === 1 ? "" : "s"} y ${salePartsCount} repuesto${salePartsCount === 1 ? "" : "s"} disponible${activeCount + salePartsCount === 1 ? "" : "s"} para ventas.`
       : canManageProducts()
         ? "Tu rol puede consultar el catalogo, pero no ver ni editar costos internos."
-        : "Tu rol puede vender con productos guardados, pero no editar el catalogo.";
+        : "Tu rol puede vender con productos y repuestos guardados, pero no editar el catalogo.";
   } catch (error) {
-    renderProductCatalog(loadProducts());
+    renderProductCatalog(loadProducts(), loadParts());
     productCatalogHint.textContent = `No se pudo consultar Convex: ${error.message}`;
   }
 }
@@ -4114,8 +4183,8 @@ salesForm.addEventListener("submit", async (event) => {
   openSaleConfirmation({
     id: crypto.randomUUID(),
     saleNumber: nextSaleNumber,
-    productId: getProductRecordId(selectedProduct),
-    product: selectedProduct.name,
+    productId: selectedProduct.saleItemId || getProductRecordId(selectedProduct),
+    product: selectedProduct.saleItemType === "part" ? getPartDisplayName(selectedProduct) : selectedProduct.name,
     productModel: selectedProduct.exactModel || "",
     customerName: "",
     quantity, price, discount, total, received, change,
@@ -4134,25 +4203,14 @@ async function savePendingSale(options = {}) {
   if (!pendingSale) return;
   if (pendingSaleIsSaved) return pendingSale;
   const saleToSave = pendingSale;
-  const products = await loadProductsFromSource();
-  const product = products.find((item) => getProductRecordId(item) === saleToSave.productId);
-  const currentQuantity = Number(product?.quantity) || 0;
-  if (!product || currentQuantity < saleToSave.quantity) {
-    salesHint.textContent = "La existencia cambio. Revisa el producto antes de guardar la venta.";
+  const stockUpdated = await updateSaleItemStock(saleToSave.productId, -Number(saleToSave.quantity || 0));
+  if (!stockUpdated) {
+    salesHint.textContent = "La existencia cambio. Revisa el producto o repuesto antes de guardar la venta.";
     closeSaleConfirmation();
     pendingSale = null;
     pendingSaleIsSaved = false;
     await renderProducts();
     return null;
-  }
-  const nextQuantity = Math.max(0, currentQuantity - saleToSave.quantity);
-  const updatedAt = new Date().toISOString();
-  if (window.repairCloud?.isConfigured()) {
-    await window.repairCloud.updateProduct(saleToSave.productId, { quantity: nextQuantity, updatedAt });
-  } else {
-    saveProducts(products.map((item) =>
-      getProductRecordId(item) === saleToSave.productId ? { ...item, quantity: nextQuantity, updatedAt } : item,
-    ));
   }
   const savedSale = await saveSaleToSource(saleToSave);
   if (pendingEditApproval?.type === "sale") {
@@ -4191,18 +4249,7 @@ async function savePendingSale(options = {}) {
 
 async function restoreSaleProductStock(sale) {
   if (!sale?.productId) return;
-  const products = await loadProductsFromSource();
-  const product = products.find((item) => getProductRecordId(item) === sale.productId);
-  if (!product) return;
-  const nextQuantity = (Number(product.quantity) || 0) + (Number(sale.quantity) || 0);
-  const updatedAt = new Date().toISOString();
-  if (window.repairCloud?.isConfigured()) {
-    await window.repairCloud.updateProduct(sale.productId, { quantity: nextQuantity, updatedAt });
-  } else {
-    saveProducts(products.map((item) =>
-      getProductRecordId(item) === sale.productId ? { ...item, quantity: nextQuantity, updatedAt } : item,
-    ));
-  }
+  await updateSaleItemStock(sale.productId, Number(sale.quantity) || 0);
 }
 
 async function beginEditSale(sale, approval) {
