@@ -82,12 +82,8 @@ async function applyRepairPartsStockDelta(ctx: any, previousParts: Array<{ partI
       throw new Error("No se encontro un repuesto usado en la reparacion.");
     }
 
-    const currentStock = Math.max(0, Math.trunc(Number(part.stock) || 0));
+    const currentStock = Math.trunc(Number(part.stock) || 0);
     const nextStock = currentStock - delta;
-    if (nextStock < 0) {
-      const label = [part.name, part.brand, part.model].filter(Boolean).join(" ") || "Repuesto";
-      throw new Error(`${label} solo tiene ${currentStock} pieza(s) disponibles.`);
-    }
 
     await ctx.db.patch(rawPartId as any, {
       stock: nextStock,

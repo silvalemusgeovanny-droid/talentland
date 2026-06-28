@@ -798,6 +798,11 @@ function getPartStock(part) {
   return normalizeStockQuantity(part?.stock);
 }
 
+function getPartStoredStock(part) {
+  const stock = Number(part?.stock);
+  return Number.isFinite(stock) ? Math.trunc(stock) : 0;
+}
+
 function getPartRecordId(part) {
   return part?._id || part?.id || part?.sourceId || "";
 }
@@ -975,11 +980,6 @@ async function addSelectedRepairPart() {
   const alreadySelected = selectedRepairParts
     .filter((line) => line.partId === partId)
     .reduce((sum, line) => sum + line.quantity, 0);
-  const availableStock = getPartStock(part) - alreadySelected;
-  if (availableStock < quantity) {
-    repairsHint.textContent = `Solo hay ${Math.max(0, availableStock)} pieza(s) disponibles.`;
-    return;
-  }
   const existingIndex = selectedRepairParts.findIndex((line) => line.partId === partId);
   if (existingIndex >= 0) {
     selectedRepairParts[existingIndex] = normalizeRepairPartLine({
@@ -990,7 +990,10 @@ async function addSelectedRepairPart() {
     selectedRepairParts.push(buildRepairPartLine(part, quantity));
   }
   if (repairPartQuantityInput) repairPartQuantityInput.value = "1";
-  repairsHint.textContent = "Repuesto agregado a la reparacion.";
+  const availableStock = getPartStoredStock(part) - alreadySelected;
+  repairsHint.textContent = availableStock < quantity
+    ? "Repuesto agregado a la reparacion. La existencia quedara pendiente."
+    : "Repuesto agregado a la reparacion.";
   renderSelectedRepairParts();
   await renderRepairPartPicker();
 }
@@ -1009,11 +1012,8 @@ async function applyRepairPartsStockChange(previousParts = [], nextParts = []) {
     const index = updatedParts.findIndex((part) => getPartRecordId(part) === partId);
     const part = index >= 0 ? updatedParts[index] : null;
     if (!part) throw new Error("No se encontro un repuesto usado en la reparacion.");
-    const currentStock = getPartStock(part);
+    const currentStock = getPartStoredStock(part);
     const nextStock = currentStock - delta;
-    if (nextStock < 0) {
-      throw new Error(`${getPartDisplayName(part)} solo tiene ${currentStock} pieza(s) disponibles.`);
-    }
     const updatedAt = new Date().toISOString();
     const patch = { stock: nextStock, updatedAt };
     if (window.repairCloud?.isConfigured() && part._id) {
