@@ -4514,6 +4514,45 @@ productCatalogForm?.addEventListener("submit", async (event) => {
   }
 });
 
+async function deleteProductWithApproval(productId, approver) {
+  try {
+    const products = await loadProductsFromSource();
+    const product = products.find((item) => getProductRecordId(item) === productId);
+    if (window.repairCloud?.isConfigured()) {
+      await window.repairCloud.updateProduct(productId, { active: false, updatedAt: new Date().toISOString() });
+      await window.repairCloud.registrarAuditoria(
+        "PRODUCTO_BORRADO",
+        `Producto #${product?.productNumber || ""} desactivado`,
+        approver?.username || currentUser?.username,
+        JSON.stringify({
+          approvedBy: approver?.username || "",
+          approvedByName: approver?.name || approver?.username || "Administrador",
+          requestedBy: currentUser?.username || "",
+          requestedByName: currentUser?.name || currentUser?.username || "Usuario",
+          productId,
+          name: product?.name || "",
+          exactModel: product?.exactModel || "",
+          deletedAt: new Date().toISOString(),
+        }),
+      );
+      productCatalogHint.textContent = "Producto desactivado en Convex.";
+    } else {
+      const localProducts = loadProducts().map((product) =>
+        getProductRecordId(product) === productId ? { ...product, active: false, updatedAt: new Date().toISOString() } : product,
+      );
+      saveProducts(localProducts);
+      productCatalogHint.textContent = "Producto desactivado.";
+    }
+    if (saleProductInput.value === productId) {
+      saleProductInput.value = "";
+      salePriceInput.value = "";
+    }
+    await renderProducts();
+  } catch (error) {
+    productCatalogHint.textContent = `No se pudo eliminar producto: ${error.message}`;
+  }
+}
+
 productCatalogList?.addEventListener("click", async (event) => {
   const editButton = event.target.closest("[data-edit-product-id]");
   if (editButton) {
@@ -4552,34 +4591,12 @@ productCatalogList?.addEventListener("click", async (event) => {
     return;
   }
   const productId = button.dataset.deleteProductId;
-
-  try {
-    const products = await loadProductsFromSource();
-    const product = products.find((item) => getProductRecordId(item) === productId);
-    if (window.repairCloud?.isConfigured()) {
-      await window.repairCloud.updateProduct(productId, { active: false, updatedAt: new Date().toISOString() });
-      await window.repairCloud.registrarAuditoria(
-        "PRODUCTO_BORRADO",
-        `Producto #${product?.productNumber || ""} desactivado`,
-        currentUser?.username,
-        JSON.stringify({ productId, name: product?.name || "", exactModel: product?.exactModel || "", deletedAt: new Date().toISOString() }),
-      );
-      productCatalogHint.textContent = "Producto desactivado en Convex.";
-    } else {
-      const products = loadProducts().map((product) =>
-        getProductRecordId(product) === productId ? { ...product, active: false, updatedAt: new Date().toISOString() } : product,
-      );
-      saveProducts(products);
-      productCatalogHint.textContent = "Producto desactivado.";
-    }
-    if (saleProductInput.value === productId) {
-      saleProductInput.value = "";
-      salePriceInput.value = "";
-    }
-    await renderProducts();
-  } catch (error) {
-    productCatalogHint.textContent = `No se pudo eliminar producto: ${error.message}`;
-  }
+  openAdminApproval({
+    title: "Eliminar producto",
+    hint: "Ingresa credenciales root o administrador para eliminar este producto.",
+    submitText: "Eliminar",
+    onApprove: async (approver) => deleteProductWithApproval(productId, approver),
+  });
 });
 
 repairPhoneInput.addEventListener("input", () => {
@@ -4689,7 +4706,7 @@ async function savePendingSale(options = {}) {
     window.repairCloud?.registrarAuditoria(
       "VENTA_EDITADA",
       `Venta #${saleToSave.saleNumber} editada`,
-      pendingEditApproval.approvedBy || currentUser?.username,
+      currentUser?.username,
       JSON.stringify({
         ...pendingEditApproval,
         saleId: getSaleRecordId(savedSale || saleToSave),
@@ -4725,7 +4742,10 @@ async function restoreSaleProductStock(sale) {
 }
 
 async function beginEditSale(sale, approval) {
-  pendingEditApproval = approval || null;
+  pendingEditApproval = approval || createApprovalRecord("sale", currentUser || {}, {
+    saleId: getSaleRecordId(sale),
+    saleNumber: sale.saleNumber,
+  });
   await restoreSaleProductStock(sale);
   await removeSaleFromSource(sale);
   await renderProducts();
@@ -4737,20 +4757,7 @@ async function beginEditSale(sale, approval) {
   saleNumberInput.value = sale.saleNumber || saleNumberInput.value;
   updateSaleTotals();
   await renderSales();
-  salesHint.textContent = `Editando venta autorizada por ${approval?.approvedByName || approval?.approvedBy || "administrador"}. Guarda de nuevo para confirmar.`;
-  window.repairCloud?.registrarAuditoria(
-    "VENTA_EDICION_AUTORIZADA",
-    `Edicion autorizada para venta #${sale.saleNumber}`,
-    approval?.approvedBy || currentUser?.username,
-    JSON.stringify({
-      ...approval,
-      saleId: getSaleRecordId(sale),
-      saleNumber: sale.saleNumber,
-      product: sale.product,
-      productModel: sale.productModel,
-      total: Number(sale.total) || 0,
-    }),
-  );
+  salesHint.textContent = "Editando venta. Guarda de nuevo para confirmar.";
   salesForm.scrollIntoView({ behavior: "smooth", block: "center" });
 }
 
@@ -4837,17 +4844,8 @@ salesList.addEventListener("click", async (event) => {
       salesHint.textContent = "No se encontro la venta para editar.";
       return;
     }
-    openAdminApproval({
-      title: "Editar venta",
-      hint: "Ingresa credenciales root o administrador para editar esta venta.",
-      submitText: "Autorizar",
-      onApprove: async (approver) => {
-        const approval = createApprovalRecord("sale", approver, {
-          saleId: getSaleRecordId(sale),
-          saleNumber: sale.saleNumber,
-        });
-        await beginEditSale(sale, approval);
-      },
+    beginEditSale(sale).catch((error) => {
+      salesHint.textContent = `No se pudo editar venta: ${error.message}`;
     });
     return;
   }
@@ -5022,18 +5020,7 @@ repairsList.addEventListener("click", (event) => {
   const repairs = loadRepairs();
   const repair = findRepairByRecordId(repairs, editButton.dataset.repairId);
   if (!repair) return;
-  openAdminApproval({
-    title: "Editar reparacion",
-    hint: "Ingresa credenciales root o administrador para editar esta reparacion.",
-    submitText: "Autorizar",
-    onApprove: async (approver) => {
-      const approval = createApprovalRecord("repair", approver, {
-        repairId: getRepairRecordId(repair),
-        repairNumber: repair.repairNumber,
-      });
-      openRepairInForm(repair, approval);
-    },
-  });
+  openRepairInForm(repair);
 });
 
 repairsList.addEventListener("click", (event) => {
@@ -5050,7 +5037,10 @@ repairsList.addEventListener("click", (event) => {
 
 function openRepairInForm(repair, approval = null) {
   if (!repair) return;
-  pendingEditApproval = approval || null;
+  pendingEditApproval = approval || createApprovalRecord("repair", currentUser || {}, {
+    repairId: getRepairRecordId(repair),
+    repairNumber: repair.repairNumber,
+  });
   setModule("repairs");
   repairCustomerInput.value = repair.customer;
   repairPhoneInput.value = repair.phone;
@@ -5072,23 +5062,7 @@ function openRepairInForm(repair, approval = null) {
   repairNumberInput.value = repair.repairNumber;
   repairsForm.dataset.editingId = getRepairRecordId(repair);
   updateRepairDeliveredAt();
-  repairsHint.textContent = approval
-    ? `Editando reparacion autorizada por ${approval.approvedByName || approval.approvedBy}. Guarda para confirmar los cambios.`
-    : "Editando reparacion - guarda para confirmar los cambios.";
-  if (approval) {
-    window.repairCloud?.registrarAuditoria(
-      "REPARACION_EDICION_AUTORIZADA",
-      `Edicion autorizada para reparacion #${repair.repairNumber}`,
-      approval.approvedBy || currentUser?.username,
-      JSON.stringify({
-        ...approval,
-        repairId: getRepairRecordId(repair),
-        repairNumber: repair.repairNumber,
-        customer: repair.customer,
-        repairPrice: Number(repair.repairPrice) || 0,
-      }),
-    );
-  }
+  repairsHint.textContent = "Editando reparacion - guarda para confirmar los cambios.";
   document.querySelector("#submitRepairs").textContent = "Guardar cambios";
   repairsForm.scrollIntoView({ behavior: "smooth", block: "start" });
 }
@@ -5100,19 +5074,43 @@ function handlePendingRepairEdit() {
 
   try {
     const repair = JSON.parse(pendingRepair);
-    openAdminApproval({
-      title: "Editar reparacion",
-      hint: "Ingresa credenciales root o administrador para editar esta reparacion.",
-      submitText: "Autorizar",
-      onApprove: async (approver) => {
-        openRepairInForm(repair, createApprovalRecord("repair", approver, {
-          repairId: getRepairRecordId(repair),
-          repairNumber: repair.repairNumber,
-        }));
-      },
-    });
+    openRepairInForm(repair);
   } catch {
     repairsHint.textContent = "No se pudo abrir la reparacion para editar.";
+  }
+}
+
+async function deleteRepairWithApproval(repairId, approver) {
+  const repairs = loadRepairs();
+  const repair = findRepairByRecordId(repairs, repairId);
+  if (!repair) return;
+
+  try {
+    if (window.repairCloud?.isConfigured() && repair._id) {
+      await window.repairCloud.removeRepair(repair._id);
+      window.repairCloud?.registrarAuditoria(
+        "REPARACION_ELIMINADA",
+        `Reparacion #${repair.repairNumber} eliminada`,
+        approver?.username || currentUser?.username,
+        JSON.stringify({
+          approvedBy: approver?.username || "",
+          approvedByName: approver?.name || approver?.username || "Administrador",
+          requestedBy: currentUser?.username || "",
+          requestedByName: currentUser?.name || currentUser?.username || "Usuario",
+          repairId: getRepairRecordId(repair),
+          repairNumber: repair.repairNumber,
+          customer: repair.customer,
+        }),
+      );
+    } else {
+      await applyRepairPartsStockChange(repair.repairParts, []);
+    }
+    saveRepairs(repairs.filter((item) => getRepairRecordId(item) !== repairId));
+    repairsHint.textContent = "Reparacion eliminada correctamente.";
+    renderRepairs();
+    renderSideRepairs();
+  } catch (error) {
+    repairsHint.textContent = `No se pudo eliminar: ${error.message}`;
   }
 }
 
@@ -5127,21 +5125,12 @@ repairsList.addEventListener("click", async (event) => {
 
   const label = repair.repairNumber ? `#${repair.repairNumber}` : repair.customer || "esta reparacion";
   if (!confirm(`Eliminar reparacion ${label}?`)) return;
-
-  try {
-    if (window.repairCloud?.isConfigured() && repair._id) {
-      await window.repairCloud.removeRepair(repair._id);
-      window.repairCloud?.registrarAuditoria("REPARACION_ELIMINADA", `Reparacion #${repair.repairNumber} eliminada`, currentUser?.username);
-    } else {
-      await applyRepairPartsStockChange(repair.repairParts, []);
-    }
-    saveRepairs(repairs.filter((item) => getRepairRecordId(item) !== repairId));
-    repairsHint.textContent = "Reparacion eliminada correctamente.";
-    renderRepairs();
-    renderSideRepairs();
-  } catch (error) {
-    repairsHint.textContent = `No se pudo eliminar: ${error.message}`;
-  }
+  openAdminApproval({
+    title: "Eliminar reparacion",
+    hint: "Ingresa credenciales root o administrador para eliminar esta reparacion.",
+    submitText: "Eliminar",
+    onApprove: async (approver) => deleteRepairWithApproval(repairId, approver),
+  });
 });
 
 repairsForm.addEventListener("submit", async (event) => {
@@ -5173,10 +5162,9 @@ repairsForm.addEventListener("submit", async (event) => {
     }
 
     if (editingId) {
-      if (pendingEditApproval?.type !== "repair") {
-        repairsHint.textContent = "Necesitas autorizacion root o administrador para guardar esta edicion.";
-        return;
-      }
+      const editAudit = pendingEditApproval?.type === "repair"
+        ? pendingEditApproval
+        : createApprovalRecord("repair", currentUser || {}, { repairId: editingId, repairNumber: Number(repairNumberInput.value) || 0 });
       const index = repairs.findIndex((repair) => getRepairRecordId(repair) === editingId);
       const existingRepair = index !== -1 ? repairs[index] : {};
       const updatedRepair = {
@@ -5210,9 +5198,9 @@ repairsForm.addEventListener("submit", async (event) => {
       window.repairCloud?.registrarAuditoria(
         "REPARACION_EDITADA",
         `Reparacion #${updatedRepair.repairNumber} editada`,
-        pendingEditApproval.approvedBy || currentUser?.username,
+        currentUser?.username,
         JSON.stringify({
-          ...pendingEditApproval,
+          ...editAudit,
           repairId: getRepairRecordId(updatedRepair),
           repairNumber: updatedRepair.repairNumber,
           customer: updatedRepair.customer,
