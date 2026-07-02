@@ -67,6 +67,12 @@
       callConvex("mutation", "repuestos:updateStockForSale", withSession({ id, quantityChange, updatedAt: new Date().toISOString() })),
     removePart: (id) => callConvex("mutation", "repuestos:remove", withSession({ id })),
     importParts: (parts) => callConvex("mutation", "repuestos:importBatch", withSession({ parts })),
+    listCatalogPending: () => callConvex("query", "catalogoPendientes:list", { status: "pending", limit: 100 }),
+    createCatalogPending: (pending) => callConvex("mutation", "catalogoPendientes:create", withSession(pending)),
+    resolveCatalogPending: (id) =>
+      callConvex("mutation", "catalogoPendientes:resolve", withSession({ id, resolvedAt: new Date().toISOString() })),
+    dismissCatalogPending: (id) =>
+      callConvex("mutation", "catalogoPendientes:dismiss", withSession({ id, resolvedAt: new Date().toISOString() })),
     listContacts: () => callConvex("query", "contactos:list", {}),
     createContact: (contact) => callConvex("mutation", "contactos:create", withSession(contact)),
     updateContact: (id, patch) => callConvex("mutation", "contactos:update", withSession({ id, patch })),

@@ -945,10 +945,26 @@ input[readonly] {
   min-width: 38px;
   height: 38px;
   place-items: center;
+  position: relative;
   border: 1px solid rgb(23 107 135 / 24%);
   border-radius: 50%;
   background: rgb(23 107 135 / 7%);
   color: #5d7b8d;
+}
+
+.module-pending-dot {
+  position: absolute;
+  top: 1px;
+  right: 1px;
+  width: 10px;
+  height: 10px;
+  border: 2px solid #fff;
+  border-radius: 50%;
+  background: #e11d48;
+}
+
+.module-pending-dot[hidden] {
+  display: none;
 }
 
 .module-tab-icon svg {
@@ -1043,6 +1059,25 @@ input[readonly] {
 
 .quick-parts-actions .primary-button[hidden] + .module-link {
   grid-column: 1 / -1;
+}
+
+.catalog-pending-panel {
+  display: grid;
+  gap: 12px;
+  margin-bottom: 14px;
+  padding: 14px;
+  border: 1px solid rgb(225 29 72 / 24%);
+  border-radius: 8px;
+  background: rgb(255 241 242 / 78%);
+}
+
+.catalog-pending-list {
+  display: grid;
+  gap: 10px;
+}
+
+.catalog-pending-item .table-action-icons {
+  justify-content: flex-start;
 }
 
 .sales-module.active {
@@ -1307,6 +1342,10 @@ body.entry-panel-active :is(.repairs-form, .contacts-form) > textarea {
 
 .statistics-list {
   max-height: 220px;
+}
+
+.statistics-list-tall {
+  max-height: 520px;
 }
 
 .statistics-periods-bar {
