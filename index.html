@@ -111,7 +111,7 @@
               <span>Contactos</span>
             </button>
             <button class="module-tab" type="button" data-module="statistics">
-              <span class="module-tab-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 20V10h4v10M10 20V4h4v16M16 20v-7h4v7M2 20h20"/></svg></span>
+              <span class="module-tab-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 20V10h4v10M10 20V4h4v16M16 20v-7h4v7M2 20h20"/></svg><span class="module-pending-dot" id="statisticsPendingDot" hidden></span></span>
               <span>Resumen</span>
             </button>
             <button class="module-tab" type="button" data-module="database">
@@ -250,6 +250,14 @@
           </section>
 
           <section class="module-panel compact-parts" id="partsModule">
+            <div class="catalog-pending-panel" id="catalogPendingPanel" hidden>
+              <div class="users-form-heading">
+                <span class="panel-kicker">Pendientes</span>
+                <strong id="catalogPendingTitle">Validacion de catalogo</strong>
+              </div>
+              <div class="compact-list catalog-pending-list" id="catalogPendingList"></div>
+            </div>
+
             <form class="compact-parts-form" id="quickPartsForm">
               <label for="quickPartNameSelect">Repuesto</label>
               <div class="managed-option-row" data-managed-field="name">
@@ -374,8 +382,9 @@
               <datalist id="repairModelOptions"></datalist>
 
               <label for="repairType">Tipo de reparacion</label>
-              <input id="repairType" name="repairType" type="text" list="repairTypeOptions" placeholder="Cambio de pantalla, diagnostico..." required />
-              <datalist id="repairTypeOptions"></datalist>
+              <select id="repairType" name="repairType" required>
+                <option value="">Selecciona tipo de reparacion</option>
+              </select>
 
               <div class="field-grid">
                 <div>
@@ -393,6 +402,9 @@
                 </div>
               </div>
 
+              <label for="repairEstimatedDeliveryAt">Hora estimada de entrega</label>
+              <input id="repairEstimatedDeliveryAt" name="estimatedDeliveryAt" type="datetime-local" />
+
               <div class="field-grid">
                 <div>
                   <label for="repairPrice">Precio de reparacion</label>
@@ -406,8 +418,8 @@
 
               <div class="repair-used-parts">
                 <div class="users-form-heading">
-                  <span class="panel-kicker">Repuestos usados</span>
-                  <strong>Agregar desde inventario</strong>
+                  <span class="panel-kicker">Repuesto</span>
+                  <strong>Seleccionar repuesto</strong>
                 </div>
                 <div class="repair-parts-picker">
                   <select id="repairPartSelect" aria-label="Seleccionar repuesto">
@@ -417,7 +429,7 @@
                   <button class="secondary-button" type="button" id="addRepairPart">Agregar</button>
                 </div>
                 <div class="repair-parts-list" id="repairPartsList">
-                  <p class="hint">Sin repuestos agregados.</p>
+                  <p class="hint">Sin repuesto seleccionado.</p>
                 </div>
                 <div class="repair-parts-total">
                   <span>Total repuestos</span>
@@ -522,6 +534,7 @@
               <button type="button" data-statistics-section="audit">Auditoria</button>
               <button type="button" data-statistics-section="backups">Respaldos</button>
               <button type="button" data-statistics-section="alerts">Alertas</button>
+              <button type="button" data-statistics-section="catalogPending">Pendientes</button>
             </div>
 
             <div class="statistics-grid" id="statisticsGrid"></div>

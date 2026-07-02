@@ -51,6 +51,7 @@ export default defineSchema({
     status: v.string(),
     createdAt: v.string(),
     deliveredAt: v.string(),
+    estimatedDeliveryAt: v.optional(v.string()),
     repairPrice: v.number(),
     abono: v.optional(v.number()),
     repairParts: v.optional(v.array(v.object({
@@ -181,4 +182,22 @@ export default defineSchema({
     .index("by_source_id", ["sourceId"])
     .index("by_published_at", ["publishedAt"])
     .index("by_updated_at", ["updatedAt"]),
+
+  catalogoPendientes: defineTable({
+    sourceId: v.optional(v.string()),
+    repairId: v.optional(v.string()),
+    repairNumber: v.number(),
+    brand: v.string(),
+    model: v.string(),
+    partName: v.string(),
+    status: v.string(),
+    createdBy: v.string(),
+    createdAt: v.string(),
+    updatedAt: v.string(),
+    resolvedBy: v.optional(v.string()),
+    resolvedAt: v.optional(v.string()),
+  })
+    .index("by_source_id", ["sourceId"])
+    .index("by_status", ["status"])
+    .index("by_created_at", ["createdAt"]),
 });

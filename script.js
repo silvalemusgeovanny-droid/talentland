@@ -129,6 +129,9 @@ const moduleLink = document.querySelector("#moduleLink");
 const quickPartsForm = document.querySelector("#quickPartsForm");
 const quickPartsSubmit = document.querySelector("#quickPartsSubmit");
 const quickPartsHint = document.querySelector("#quickPartsHint");
+const catalogPendingPanel = document.querySelector("#catalogPendingPanel");
+const catalogPendingTitle = document.querySelector("#catalogPendingTitle");
+const catalogPendingList = document.querySelector("#catalogPendingList");
 const quickPartNameSelect = document.querySelector("#quickPartNameSelect");
 const quickPartNameInput = document.querySelector("#quickPartName");
 const quickBrandSelect = document.querySelector("#quickBrandSelect");
@@ -184,6 +187,7 @@ const salesList = document.querySelector("#salesList");
 const dailySalesTotal = document.querySelector("#dailySalesTotal");
 const dailySalesCount = document.querySelector("#dailySalesCount");
 const repairsStorageKey = "inventoryRepairs";
+const catalogPendingStorageKey = "catalogPending";
 const contactsStorageKey = "customerContacts";
 const repairBrandsStorageKey = "inventoryRepairBrands";
 const repairModelsStorageKey = "inventoryRepairModels";
@@ -199,16 +203,17 @@ const repairBrandOptions = document.querySelector("#repairBrandOptions");
 const repairModelInput = document.querySelector("#repairModel");
 const repairModelOptions = document.querySelector("#repairModelOptions");
 const repairTypeInput = document.querySelector("#repairType");
-const repairTypeOptions = document.querySelector("#repairTypeOptions");
 const repairPriceInput = document.querySelector("#repairPrice");
 const repairAbonoInput = document.querySelector("#repairAbono");
 const repairStatusInput = document.querySelector("#repairStatus");
 const repairDeliveredAtInput = document.querySelector("#repairDeliveredAt");
+const repairEstimatedDeliveryAtInput = document.querySelector("#repairEstimatedDeliveryAt");
 const repairPartSelect = document.querySelector("#repairPartSelect");
 const repairPartQuantityInput = document.querySelector("#repairPartQuantity");
 const addRepairPartButton = document.querySelector("#addRepairPart");
 const repairPartsList = document.querySelector("#repairPartsList");
 const repairPartsTotal = document.querySelector("#repairPartsTotal");
+const repairNotesInput = document.querySelector("#repairNotes");
 const repairsHint = document.querySelector("#repairsHint");
 const repairsCount = document.querySelector("#repairsCount");
 const repairsList = document.querySelector("#repairsList");
@@ -240,6 +245,7 @@ const statisticsSummary = document.querySelector("#statisticsSummary");
 const statisticsHint = document.querySelector("#statisticsHint");
 const statisticsGrid = document.querySelector("#statisticsGrid");
 const statisticsLists = document.querySelector("#statisticsLists");
+const statisticsPendingDot = document.querySelector("#statisticsPendingDot");
 const statisticsPeriodButtons = document.querySelectorAll("[data-statistics-period]");
 const statisticsSectionButtons = document.querySelectorAll("[data-statistics-section]");
 const saleConfirmOverlay = document.querySelector("#saleConfirmOverlay");
@@ -288,6 +294,12 @@ let contactSearchTimer = null;
 let contactRepairSearchTimer = null;
 let repairContactSuggestions = [];
 let selectedRepairParts = [];
+let catalogPendingCache = [];
+let activeCatalogPendingId = "";
+let repairStatusReminderCache = [];
+let pendingNotesCache = [];
+let repairStatusReminderTimer = null;
+let pendingAlertMode = "notes";
 let salesCloudMigrationDone = false;
 let currentUser = null;
 let managedUsersCache = [];
@@ -298,6 +310,8 @@ let activeStatisticsPeriod = "month";
 let activeStatisticsSection = "";
 let statisticsRenderRequestId = 0;
 const presenceHeartbeatMs = 25000;
+const repairStatusReminderIntervalMs = 30 * 60 * 1000;
+const repairStatusReminderLeadMs = 60 * 60 * 1000;
 
 const starterParts = [
   {
@@ -659,6 +673,7 @@ function applyAuthenticatedUser(user, message = "Sesion iniciada correctamente."
   credentialHint.textContent = message;
   setModule(getSavedActiveModule());
   renderQuickParts();
+  refreshCatalogPendingIndicators();
   renderProducts();
   renderSales();
   renderRepairs();
@@ -667,6 +682,7 @@ function applyAuthenticatedUser(user, message = "Sesion iniciada correctamente."
   renderNotes();
   handlePendingRepairEdit();
   startPresenceUpdates();
+  startRepairStatusReminder();
   setTimeout(() => requestPasswordChangeIfNeeded(currentUser), 120);
 }
 
@@ -684,6 +700,7 @@ function closeLogoutConfirmation() {
 
 async function performLogout() {
   stopPresenceUpdates();
+  stopRepairStatusReminder();
   const { remoteError } = await appSession.logout();
   if (remoteError) credentialHint.textContent = remoteError.message;
   currentUser = null;
@@ -692,6 +709,7 @@ async function performLogout() {
   if (logoutButton) logoutButton.hidden = true;
   closeLogoutConfirmation();
   closeNotesPanel();
+  pendingNotesCache = [];
   renderNotes();
   resetLoginLayout();
 }
@@ -811,6 +829,117 @@ function getPartDisplayName(part) {
   return [part?.name, part?.brand, part?.model, part?.quality].filter(Boolean).join(" | ") || "Repuesto";
 }
 
+function loadCatalogPending() {
+  const saved = localStorage.getItem(catalogPendingStorageKey);
+  return saved ? JSON.parse(saved) : [];
+}
+
+function saveCatalogPending(items) {
+  localStorage.setItem(catalogPendingStorageKey, JSON.stringify(items));
+}
+
+function getCatalogPendingRecordId(item) {
+  return item?._id || item?.id || item?.sourceId || "";
+}
+
+function makeCatalogPendingSourceId(pending) {
+  return [pending.repairId || pending.repairNumber, pending.brand, pending.model, pending.partName]
+    .map((value) => normalizePartSearch(value))
+    .join("|");
+}
+
+function normalizeCatalogPending(pending) {
+  const now = new Date().toISOString();
+  const sourceId = pending.sourceId || makeCatalogPendingSourceId(pending);
+  return {
+    id: pending.id || crypto.randomUUID(),
+    sourceId,
+    repairId: pending.repairId || "",
+    repairNumber: Number(pending.repairNumber) || 0,
+    brand: normalizeSystemOption(pending.brand || ""),
+    model: normalizeSystemOption(pending.model || ""),
+    partName: normalizeSystemOption(pending.partName || ""),
+    status: pending.status || "pending",
+    createdBy: pending.createdBy || currentUser?.username || "sistema",
+    createdAt: pending.createdAt || now,
+    updatedAt: pending.updatedAt || now,
+  };
+}
+
+async function loadCatalogPendingFromSource() {
+  if (window.repairCloud?.isConfigured()) {
+    const pending = await window.repairCloud.listCatalogPending();
+    catalogPendingCache = pending || [];
+    saveCatalogPending(catalogPendingCache);
+    return catalogPendingCache;
+  }
+  catalogPendingCache = loadCatalogPending().filter((item) => item.status === "pending");
+  return catalogPendingCache;
+}
+
+async function createCatalogPendingIfNeeded(repair) {
+  const partName = normalizeSystemOption(repair.repairType || "");
+  const brand = normalizeSystemOption(repair.brand || "");
+  const model = normalizeSystemOption(repair.model || "");
+  if (!brand || !model || !partName) return;
+  const parts = window.repairCloud?.isConfigured()
+    ? await loadPartsForRepairPicker().catch(() => loadParts())
+    : loadParts();
+  const exists = parts.some((part) =>
+    normalizePartSearch(part.brand) === normalizePartSearch(brand) &&
+    normalizePartSearch(part.model) === normalizePartSearch(model) &&
+    normalizePartSearch(part.name) === normalizePartSearch(partName)
+  );
+  if (exists) return;
+
+  const pending = normalizeCatalogPending({
+    repairId: getRepairRecordId(repair),
+    repairNumber: repair.repairNumber,
+    brand,
+    model,
+    partName,
+  });
+
+  if (window.repairCloud?.isConfigured()) {
+    const { id: _localId, ...cloudPending } = pending;
+    await window.repairCloud.createCatalogPending(cloudPending);
+  } else {
+    const items = loadCatalogPending();
+    if (!items.some((item) => item.sourceId === pending.sourceId && item.status === "pending")) {
+      items.unshift(pending);
+      saveCatalogPending(items);
+    }
+  }
+  await refreshCatalogPendingIndicators();
+}
+
+async function resolveCatalogPending(id) {
+  if (!id) return;
+  if (window.repairCloud?.isConfigured()) {
+    await window.repairCloud.resolveCatalogPending(id);
+  } else {
+    const now = new Date().toISOString();
+    saveCatalogPending(loadCatalogPending().map((item) =>
+      getCatalogPendingRecordId(item) === id ? { ...item, status: "resolved", resolvedAt: now, resolvedBy: currentUser?.username || "" } : item,
+    ));
+  }
+  if (activeCatalogPendingId === id) activeCatalogPendingId = "";
+  await refreshCatalogPendingIndicators();
+}
+
+async function dismissCatalogPending(id) {
+  if (!id) return;
+  if (window.repairCloud?.isConfigured()) {
+    await window.repairCloud.dismissCatalogPending(id);
+  } else {
+    const now = new Date().toISOString();
+    saveCatalogPending(loadCatalogPending().map((item) =>
+      getCatalogPendingRecordId(item) === id ? { ...item, status: "dismissed", resolvedAt: now, resolvedBy: currentUser?.username || "" } : item,
+    ));
+  }
+  await refreshCatalogPendingIndicators();
+}
+
 function makeSalePartId(partId) {
   return `${salePartIdPrefix}${partId}`;
 }
@@ -921,7 +1050,11 @@ async function renderRepairPartPicker() {
           const partId = getPartRecordId(part);
           return `<option value="${escapeHtml(partId)}">${escapeHtml(getPartOptionLabel(part, usage.get(partId) || 0))}</option>`;
         }).join("")}`
-      : `<option value="">Sin repuestos compatibles</option>`;
+      : `<option value="">Repuesto pendiente por asignar</option>`;
+    if (!activeParts.length && equipmentFilter.brand && equipmentFilter.model) {
+      repairsHint.textContent = "No hay repuesto compatible en inventario; puedes guardar la reparacion como pendiente.";
+    }
+    renderRepairTypeOptions();
   } catch (error) {
     repairPartSelect.innerHTML = `<option value="">No se pudieron cargar</option>`;
     repairsHint.textContent = `No se pudieron listar repuestos: ${error.message}`;
@@ -931,9 +1064,15 @@ async function renderRepairPartPicker() {
 function renderSelectedRepairParts() {
   if (!repairPartsList || !repairPartsTotal) return;
   selectedRepairParts = normalizeRepairParts(selectedRepairParts);
+  if (repairNotesInput) {
+    repairNotesInput.required = selectedRepairParts.length === 0;
+    repairNotesInput.placeholder = selectedRepairParts.length === 0
+      ? "Obligatorio si no seleccionas repuesto. Explica que queda pendiente."
+      : "Observaciones, accesorios, detalles del equipo...";
+  }
   repairPartsTotal.textContent = formatCurrencyCents(getRepairPartsTotalCents());
   if (!selectedRepairParts.length) {
-    repairPartsList.innerHTML = `<p class="hint">Sin repuestos agregados.</p>`;
+    repairPartsList.innerHTML = `<p class="hint">Sin repuesto seleccionado.</p>`;
     return;
   }
   repairPartsList.innerHTML = selectedRepairParts.map((line) => `
@@ -1258,6 +1397,7 @@ async function loadPartsFromSource() {
 }
 
 async function refreshQuickPartsView() {
+  await refreshCatalogPendingIndicators();
   renderQuickPartTypeOptions();
   renderQuickBrandOptions();
   renderQuickModelOptions();
@@ -1404,7 +1544,93 @@ function isPendingAlertSnoozed() {
 
 function snoozeNotesAlert() {
   appNotes.snooze();
-  renderNotes();
+  renderPendingAlert();
+}
+
+function updateStatisticsPendingDot() {
+  if (!statisticsPendingDot) return;
+  statisticsPendingDot.hidden = catalogPendingCache.length === 0 && repairStatusReminderCache.length === 0;
+}
+
+function isReadyForDeliveryRepair(repair) {
+  return normalizeSearch(repair?.status || "") === "listo";
+}
+
+function isClosedRepairStatus(status) {
+  return ["entregado", "entregado no reparado", "cancelado"].includes(normalizeSearch(status || ""));
+}
+
+function isRepairDueWithinLeadTime(repair, now = Date.now()) {
+  if (isClosedRepairStatus(repair?.status)) return false;
+  const estimatedTime = new Date(repair?.estimatedDeliveryAt || "").getTime();
+  if (Number.isNaN(estimatedTime)) return false;
+  return estimatedTime - now <= repairStatusReminderLeadMs;
+}
+
+function getRepairStatusReminderItems(repairs) {
+  const now = Date.now();
+  return repairs.filter((repair) => isReadyForDeliveryRepair(repair) || isRepairDueWithinLeadTime(repair, now));
+}
+
+async function loadRepairStatusReminderItems() {
+  if (!currentUser || !canAccessModule("repairs")) return [];
+  const repairs = await loadRepairsFromSource(1000);
+  return getRepairStatusReminderItems(repairs);
+}
+
+function openPendingRepairSummary() {
+  activeStatisticsSection = "catalogPending";
+  setModule("statistics");
+  setStatisticsSectionActive(activeStatisticsSection);
+  loadStatisticsSection(activeStatisticsSection, { preserveContent: true });
+}
+
+function renderPendingAlert() {
+  if (!pendingAlert) return;
+  const hasSession = Boolean(currentUser);
+  const isSnoozed = isPendingAlertSnoozed();
+  const readyRepairs = repairStatusReminderCache;
+  const pendingNotes = pendingNotesCache;
+
+  if (!hasSession || isSnoozed || (!readyRepairs.length && !pendingNotes.length)) {
+    pendingAlert.hidden = true;
+    return;
+  }
+
+  pendingAlert.hidden = false;
+  if (readyRepairs.length) {
+    pendingAlertMode = "repairs";
+    pendingAlertTitle.textContent = `${readyRepairs.length} reparacion${readyRepairs.length === 1 ? "" : "es"} por revisar`;
+    pendingAlertCopy.textContent = "Revisa como va la reparacion y actualiza el estado si corresponde.";
+    return;
+  }
+
+  pendingAlertMode = "notes";
+  pendingAlertTitle.textContent = `${pendingNotes.length} pendiente${pendingNotes.length === 1 ? "" : "s"} activo${pendingNotes.length === 1 ? "" : "s"}`;
+  pendingAlertCopy.textContent = pendingNotes[0]?.text || "Tienes notas por revisar.";
+}
+
+async function refreshRepairStatusReminder() {
+  try {
+    repairStatusReminderCache = await loadRepairStatusReminderItems();
+  } catch {
+    repairStatusReminderCache = getRepairStatusReminderItems(loadRepairs());
+  }
+  updateStatisticsPendingDot();
+  renderPendingAlert();
+}
+
+function stopRepairStatusReminder() {
+  if (repairStatusReminderTimer) clearInterval(repairStatusReminderTimer);
+  repairStatusReminderTimer = null;
+  repairStatusReminderCache = [];
+  updateStatisticsPendingDot();
+}
+
+function startRepairStatusReminder() {
+  stopRepairStatusReminder();
+  refreshRepairStatusReminder();
+  repairStatusReminderTimer = setInterval(refreshRepairStatusReminder, repairStatusReminderIntervalMs);
 }
 
 function loadSales() {
@@ -1738,6 +1964,7 @@ function normalizeRepairForCloud(repair) {
     status: repair.status || "En proceso",
     createdAt: repair.createdAt || new Date().toISOString(),
     deliveredAt: repair.deliveredAt || "",
+    estimatedDeliveryAt: repair.estimatedDeliveryAt || "",
     repairPrice: Number(repair.repairPrice) || 0,
     abono: Number(repair.abono) || 0,
     repairParts: normalizeRepairParts(repair.repairParts),
@@ -1784,6 +2011,14 @@ function loadRepairOptions(storageKey, repairField) {
   return [...new Set([...savedList, ...repairOptions, ...partOptions].map(normalizeSystemOption).filter(Boolean))].sort();
 }
 
+function getPartFieldOptions(field, filter = () => true) {
+  return [...new Set(loadParts()
+    .filter(filter)
+    .map((part) => part[field])
+    .map(normalizeSystemOption)
+    .filter(Boolean))].sort();
+}
+
 function saveRepairOptions(storageKey, options) {
   localStorage.setItem(storageKey, JSON.stringify([...new Set(options.map(normalizeSystemOption).filter(Boolean))].sort()));
 }
@@ -1802,18 +2037,27 @@ function renderRepairOptions(datalist, storageKey, repairField) {
     .join("");
 }
 
+function isPartLikelyForRepairEquipment(part, brandValue = "", modelValue = "") {
+  const brandKey = normalizePartSearch(brandValue);
+  const modelKey = normalizePartSearch(modelValue);
+  if (brandKey && normalizePartSearch(part.brand) !== brandKey) return false;
+  if (!modelKey) return true;
+  const partModelKey = normalizePartSearch(part.model);
+  if (partModelKey === modelKey || partModelKey.includes(modelKey) || modelKey.includes(partModelKey)) return true;
+  const modelTokens = modelKey.split(" ").filter((token) => token.length >= 2);
+  return modelTokens.some((token) => partModelKey.includes(token));
+}
+
+function getRepairTypeOptionsForEquipment() {
+  const partTypes = loadParts()
+    .filter((part) => isPartLikelyForRepairEquipment(part, repairBrandInput.value, repairModelInput.value))
+    .map((part) => part.name);
+  return [...new Set(partTypes.map(normalizeSystemOption).filter(Boolean))].sort();
+}
+
 function getRepairModelsForBrand(brandValue = "") {
   const brandKey = normalizePartSearch(brandValue);
-  const savedOptions = localStorage.getItem(repairModelsStorageKey);
-  const savedModels = savedOptions ? JSON.parse(savedOptions) : [];
-  const repairModels = loadRepairs()
-    .filter((repair) => !brandKey || normalizePartSearch(repair.brand) === brandKey)
-    .map((repair) => repair.model);
-  const partModels = loadParts()
-    .filter((part) => !brandKey || normalizePartSearch(part.brand) === brandKey)
-    .map((part) => part.model);
-  const models = brandKey ? [...repairModels, ...partModels] : [...savedModels, ...repairModels, ...partModels];
-  return [...new Set(models.map(normalizeSystemOption).filter(Boolean))].sort();
+  return getPartFieldOptions("model", (part) => !brandKey || normalizePartSearch(part.brand) === brandKey);
 }
 
 function isKnownRepairModelForOtherBrand(brandValue, modelValue) {
@@ -1821,9 +2065,7 @@ function isKnownRepairModelForOtherBrand(brandValue, modelValue) {
   const modelKey = normalizePartSearch(modelValue);
   if (!brandKey || !modelKey) return false;
   const partMatches = loadParts().filter((part) => normalizePartSearch(part.model) === modelKey);
-  const repairMatches = loadRepairs().filter((repair) => normalizePartSearch(repair.model) === modelKey);
-  const matches = [...partMatches, ...repairMatches];
-  return matches.length > 0 && !matches.some((item) => normalizePartSearch(item.brand) === brandKey);
+  return partMatches.length > 0 && !partMatches.some((item) => normalizePartSearch(item.brand) === brandKey);
 }
 
 function syncKnownRepairOptionCase(input, storageKey, repairField) {
@@ -1832,28 +2074,52 @@ function syncKnownRepairOptionCase(input, storageKey, repairField) {
   if (knownValue) input.value = knownValue;
 }
 
-function renderRepairBrandOptions() { renderRepairOptions(repairBrandOptions, repairBrandsStorageKey, "brand"); }
+function renderRepairBrandOptions() {
+  repairBrandOptions.innerHTML = getPartFieldOptions("brand")
+    .map((option) => `<option value="${escapeHtml(option)}"></option>`)
+    .join("");
+}
 function renderRepairModelOptions() {
   repairModelOptions.innerHTML = getRepairModelsForBrand(repairBrandInput.value)
     .map((option) => `<option value="${escapeHtml(option)}"></option>`)
     .join("");
 }
-function renderRepairTypeOptions() { renderRepairOptions(repairTypeOptions, repairTypesStorageKey, "repairType"); }
+function renderRepairTypeOptions() {
+  const selectedValue = normalizeSystemOption(repairTypeInput?.value || "");
+  const options = getRepairTypeOptionsForEquipment();
+  if (selectedValue && !options.includes(selectedValue)) options.push(selectedValue);
+  if (!options.length) options.push("PENDIENTE POR ASIGNAR");
+  repairTypeInput.innerHTML = [
+    `<option value="">Selecciona tipo de reparacion</option>`,
+    ...options.sort().map((option) => `<option value="${escapeHtml(option)}">${escapeHtml(option)}</option>`),
+  ].join("");
+  repairTypeInput.value = selectedValue || (options.length === 1 && options[0] === "PENDIENTE POR ASIGNAR" ? options[0] : "");
+}
+
+function syncKnownRepairTypeCase() {
+  const typedValue = normalizeSystemOption(repairTypeInput.value);
+  const knownValue = getRepairTypeOptionsForEquipment().find((option) => option === typedValue);
+  if (knownValue) repairTypeInput.value = knownValue;
+}
+
 function addRepairBrand(brand) { return addRepairOption(brand, repairBrandsStorageKey, "brand", renderRepairBrandOptions); }
 function addRepairModel(model) { return addRepairOption(model, repairModelsStorageKey, "model", renderRepairModelOptions); }
 function addRepairType(repairType) { return addRepairOption(repairType, repairTypesStorageKey, "repairType", renderRepairTypeOptions); }
 function syncKnownRepairBrandCase() {
-  syncKnownRepairOptionCase(repairBrandInput, repairBrandsStorageKey, "brand");
+  const typedValue = normalizeSystemOption(repairBrandInput.value);
+  const knownValue = getPartFieldOptions("brand").find((option) => option === typedValue);
+  if (knownValue) repairBrandInput.value = knownValue;
   renderRepairModelOptions();
+  renderRepairTypeOptions();
   renderRepairPartPicker();
 }
 function syncKnownRepairModelCase() {
   const typedValue = normalizeSystemOption(repairModelInput.value);
   const knownValue = getRepairModelsForBrand(repairBrandInput.value).find((option) => option === typedValue);
   if (knownValue) repairModelInput.value = knownValue;
+  renderRepairTypeOptions();
   renderRepairPartPicker();
 }
-function syncKnownRepairTypeCase() { syncKnownRepairOptionCase(repairTypeInput, repairTypesStorageKey, "repairType"); }
 
 function escapeHtml(value) {
   return String(value)
@@ -1879,6 +2145,23 @@ function formatSaleDateTime(value) {
 function formatRepairDateTimeInput(value) {
   const { date, time } = formatSaleDateTime(value);
   return `${date} | ${time}`;
+}
+
+function formatDateTimeLocalInput(value) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  const pad = (number) => String(number).padStart(2, "0");
+  return [
+    date.getFullYear(),
+    pad(date.getMonth() + 1),
+    pad(date.getDate()),
+  ].join("-") + `T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
+
+function parseDateTimeLocalInput(value) {
+  if (!value) return "";
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? "" : date.toISOString();
 }
 
 function formatInvoiceDate(value) {
@@ -2147,6 +2430,58 @@ function renderQuickParts() {
       ? "Este usuario no tiene permiso para capturar precios de repuestos."
       : "Tu rol solo permite consultar repuestos.";
   }
+  renderCatalogPendingPanel();
+}
+
+function renderCatalogPendingPanel() {
+  if (!catalogPendingPanel || !catalogPendingList) return;
+  const canReview = canManageParts() && canViewPartCost() && canViewPartCustomerPrice();
+  catalogPendingPanel.hidden = !canReview || catalogPendingCache.length === 0;
+  updateStatisticsPendingDot();
+  if (!canReview || !catalogPendingCache.length) return;
+  catalogPendingTitle.textContent = `${catalogPendingCache.length} pendiente${catalogPendingCache.length === 1 ? "" : "s"} por validar`;
+  catalogPendingList.innerHTML = catalogPendingCache.map((item) => {
+    const id = getCatalogPendingRecordId(item);
+    return `
+      <article class="compact-part-item catalog-pending-item">
+        <strong>Reparacion #${escapeHtml(item.repairNumber || "")} | ${escapeHtml(item.partName || "Repuesto")}</strong>
+        <span>${escapeHtml(item.brand || "Sin marca")} | ${escapeHtml(item.model || "Sin modelo")}</span>
+        <span>Creado por ${escapeHtml(item.createdBy || "sistema")} | ${escapeHtml(formatRepairDateTimeInput(item.createdAt))}</span>
+        <div class="table-action-icons">
+          <button class="edit-button" type="button" data-load-catalog-pending="${escapeHtml(id)}">Cargar</button>
+          <button class="delete-button" type="button" data-dismiss-catalog-pending="${escapeHtml(id)}">Descartar</button>
+        </div>
+      </article>
+    `;
+  }).join("");
+}
+
+async function refreshCatalogPendingIndicators() {
+  try {
+    catalogPendingCache = await loadCatalogPendingFromSource();
+  } catch {
+    catalogPendingCache = loadCatalogPending().filter((item) => item.status === "pending");
+  }
+  renderCatalogPendingPanel();
+}
+
+function setManagedSelectValue(select, input, value) {
+  const normalizedValue = normalizePartType(value || "");
+  const hasOption = [...select.options].some((option) => option.value === normalizedValue);
+  select.value = hasOption ? normalizedValue : newOptionValue;
+  syncManualField(select, input);
+  if (!hasOption) input.value = normalizedValue;
+}
+
+function loadCatalogPendingIntoPartsForm(pending) {
+  if (!pending) return;
+  activeCatalogPendingId = getCatalogPendingRecordId(pending);
+  setManagedSelectValue(quickPartNameSelect, quickPartNameInput, pending.partName);
+  setManagedSelectValue(quickBrandSelect, quickBrandInput, pending.brand);
+  renderQuickModelOptions();
+  setManagedSelectValue(quickModelSelect, quickModelInput, pending.model);
+  quickPartsHint.textContent = `Validando pendiente de reparacion #${pending.repairNumber || ""}. Completa proveedor, precios y existencia.`;
+  quickPartsForm.scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
 function formatNoteDate(value) {
@@ -2165,8 +2500,9 @@ async function renderNotes() {
   if (!canUseNotes) {
     notesToggle.hidden = true;
     notesBadge.hidden = true;
-    pendingAlert.hidden = true;
     notesOverlay.hidden = true;
+    pendingNotesCache = [];
+    renderPendingAlert();
     return;
   }
 
@@ -2178,17 +2514,13 @@ async function renderNotes() {
     notesList.innerHTML = `<p class="hint">${escapeHtml(error.message)}</p>`;
   }
   const pendingNotes = notes.filter((note) => !note.done);
+  pendingNotesCache = pendingNotes;
   const hasSession = Boolean(currentUser);
 
   notesToggle.hidden = !hasSession;
   notesBadge.hidden = !hasSession || pendingNotes.length === 0;
   notesBadge.textContent = hasSession ? pendingNotes.length : 0;
-  pendingAlert.hidden = !hasSession || pendingNotes.length === 0 || isPendingAlertSnoozed();
-
-  if (pendingNotes.length) {
-    pendingAlertTitle.textContent = `${pendingNotes.length} pendiente${pendingNotes.length === 1 ? "" : "s"} activo${pendingNotes.length === 1 ? "" : "s"}`;
-    pendingAlertCopy.textContent = pendingNotes[0].text;
-  }
+  renderPendingAlert();
 
   if (!notes.length) {
     notesList.innerHTML = `<p class="hint">Todavia no hay notas pendientes.</p>`;
@@ -2385,6 +2717,11 @@ function updateRepairDeliveredAt() {
   repairDeliveredAtInput.value = formatRepairDateTimeInput(repairDeliveredAtInput.dataset.value);
 }
 
+function resetRepairEstimatedDeliveryAt() {
+  if (!repairEstimatedDeliveryAtInput) return;
+  repairEstimatedDeliveryAtInput.value = "";
+}
+
 async function renderSales() {
   let sales = [];
   try {
@@ -2437,6 +2774,9 @@ function renderRepairsList(repairs) {
     const deliveredLabel = repair.deliveredAt
       ? `Entregado ${formatRepairDateTimeInput(repair.deliveredAt)}`
       : "Entrega pendiente";
+    const estimatedDeliveryLabel = repair.estimatedDeliveryAt
+      ? `Estimada ${formatRepairDateTimeInput(repair.estimatedDeliveryAt)}`
+      : "Sin hora estimada";
     const repairId = getRepairRecordId(repair);
     const repairParts = normalizeRepairParts(repair.repairParts);
     const partsTotalCents = getRepairPartsTotalCents(repairParts);
@@ -2460,7 +2800,7 @@ function renderRepairsList(repairs) {
         <span>Mano de obra ${formatCurrency(Number(repair.repairPrice) || 0)} | Repuestos ${formatCurrencyCents(partsTotalCents)} | Total ${formatCurrency(finalTotal)}</span>
         ${repairParts.length ? `<span>${escapeHtml(repairParts.map((line) => `${line.quantity} ${line.name}`).join(" | "))}</span>` : ""}
         <span>Abono ${formatCurrency(Number(repair.abono) || 0)} | Resta ${formatCurrency(Math.max(0, finalTotal - (Number(repair.abono) || 0)))}</span>
-        <span>Ingreso ${formatRepairDateTimeInput(repair.createdAt)} | ${deliveredLabel}</span>
+        <span>Ingreso ${formatRepairDateTimeInput(repair.createdAt)} | ${estimatedDeliveryLabel} | ${deliveredLabel}</span>
         ${repair.notes ? `<p>${escapeHtml(repair.notes)}</p>` : ""}
       </article>
     `;
@@ -3005,6 +3345,47 @@ function renderBackupHistory(logs) {
   `;
 }
 
+function renderCatalogPendingHistory(items) {
+  const rows = items.slice(0, 12);
+  return `
+    <section class="statistics-list-group">
+      <h3>Pendientes de catalogo</h3>
+      <div class="compact-list statistics-list">
+        ${rows.length ? rows.map((item) => `
+          <article class="compact-part-item">
+            <strong>Reparacion #${escapeHtml(item.repairNumber || "")} - ${escapeHtml(item.partName || "Repuesto")}</strong>
+            <span>${escapeHtml(item.brand || "Sin marca")} | ${escapeHtml(item.model || "Sin modelo")}</span>
+            <span>${escapeHtml(formatRepairDateTimeInput(item.createdAt))} | ${escapeHtml(item.createdBy || "sistema")}</span>
+          </article>
+        `).join("") : `<p class="hint">No hay pendientes de catalogo.</p>`}
+      </div>
+    </section>
+  `;
+}
+
+function isPendingRepair(repair) {
+  return !isClosedRepairStatus(repair?.status);
+}
+
+function renderPendingRepairHistory(repairs) {
+  const rows = repairs.filter(isPendingRepair).slice(0, 10);
+  return `
+    <section class="statistics-list-group">
+      <h3>Reparaciones pendientes</h3>
+      <div class="compact-list statistics-list">
+        ${rows.length ? rows.map((repair) => `
+          <article class="compact-part-item">
+            <strong>#${escapeHtml(repair.repairNumber || "")} ${escapeHtml(repair.customer || "Sin cliente")}</strong>
+            <span>${escapeHtml([repair.brand, repair.model, repair.repairType].filter(Boolean).join(" | ") || "Sin detalle")}</span>
+            <span>${escapeHtml(repair.status || "En proceso")} | Ingreso ${escapeHtml(formatRepairDateTimeInput(repair.createdAt))}</span>
+            <span>${repair.estimatedDeliveryAt ? `Entrega estimada ${escapeHtml(formatRepairDateTimeInput(repair.estimatedDeliveryAt))}` : "Sin hora estimada"}</span>
+          </article>
+        `).join("") : `<p class="hint">No hay reparaciones pendientes.</p>`}
+      </div>
+    </section>
+  `;
+}
+
 function renderUserSecurityHistory(logs) {
   const rows = logs.slice(0, 10);
   return `
@@ -3065,6 +3446,63 @@ function renderEditApprovalHistory(logs) {
   `;
 }
 
+function getAuditTypeLabel(type = "") {
+  const labels = {
+    BACKUP_DRIVE_CREADO: "Backup creado",
+    BACKUP_DRIVE_OMITIDO: "Backup omitido",
+    FACTURA_EMITIDA: "Factura de reparacion",
+    FACTURA_VENTA_EMITIDA: "Factura de venta",
+    LOGIN: "Sesion iniciada",
+    LOGIN_EXITOSO: "Login exitoso",
+    LOGIN_FALLIDO: "Login fallido",
+    LOGOUT: "Cierre de sesion",
+    REPARACION_EDITADA: "Reparacion editada",
+    REPARACION_ELIMINADA: "Reparacion eliminada",
+    USUARIO_BLOQUEADO: "Usuario bloqueado",
+    USUARIO_DESBLOQUEADO: "Usuario autorizado",
+    USUARIO_INHABILITADO: "Usuario inhabilitado",
+    VENTA_EDITADA: "Venta editada",
+    VENTA_ELIMINADA: "Venta eliminada",
+  };
+  return labels[type] || String(type || "Movimiento");
+}
+
+function getAuditDetail(log, data) {
+  const details = [];
+  if (data.repairNumber) details.push(`Reparacion #${data.repairNumber}`);
+  if (data.saleNumber) details.push(`Venta #${data.saleNumber}`);
+  if (data.customer) details.push(data.customer);
+  if (data.product) details.push(data.product);
+  if (data.username) details.push(`Usuario ${data.username}`);
+  if (data.recordCount) details.push(`${Number(data.recordCount) || 0} registros`);
+  if (data.total) details.push(`Total ${formatCurrency(Number(data.total) || 0)}`);
+  if (data.approvedByName || data.approvedBy) details.push(`Autorizo ${data.approvedByName || data.approvedBy}`);
+  if (data.requestedByName || data.requestedBy) details.push(`Solicito ${data.requestedByName || data.requestedBy}`);
+  return details.join(" | ") || log.descripcion || "";
+}
+
+function renderAuditMovementHistory(logs) {
+  const rows = logs.slice(0, 20);
+  return `
+    <section class="statistics-list-group">
+      <h3>Ultimos 20 movimientos</h3>
+      <div class="compact-list statistics-list statistics-list-tall">
+        ${rows.length ? rows.map((log) => {
+          const data = parseAuditData(log);
+          return `
+            <article class="compact-part-item">
+              <strong>${escapeHtml(getAuditTypeLabel(log.tipo))}</strong>
+              <span>${escapeHtml(formatRepairDateTimeInput(log.fecha))} | ${escapeHtml(log.usuario || "sistema")}</span>
+              <span>${escapeHtml(log.descripcion || "Sin descripcion")}</span>
+              <span>${escapeHtml(getAuditDetail(log, data))}</span>
+            </article>
+          `;
+        }).join("") : `<p class="hint">Todavia no hay movimientos de auditoria.</p>`}
+      </div>
+    </section>
+  `;
+}
+
 function restoreStatisticsScroll(scrollTop, requestId) {
   if (requestId !== statisticsRenderRequestId) return;
   requestAnimationFrame(() => {
@@ -3104,14 +3542,16 @@ async function loadStatisticsSection(sectionName = "dashboard", options = {}) {
   try {
     const needsAllStatistics = sectionName === "dashboard";
     const needsParts = needsAllStatistics || ["inventory", "alerts"].includes(sectionName);
-    const needsRepairs = needsAllStatistics || sectionName === "repairs";
+    const needsRepairs = needsAllStatistics || ["repairs", "catalogPending"].includes(sectionName);
     const needsSales = needsAllStatistics || sectionName === "sales";
     const needsAudit = needsAllStatistics || ["repairs", "sales", "users", "audit", "backups"].includes(sectionName);
-    const [parts, repairs, sales, auditLogs] = await Promise.all([
+    const needsCatalogPending = needsAllStatistics || ["catalogPending", "alerts"].includes(sectionName);
+    const [parts, repairs, sales, auditLogs, catalogPending] = await Promise.all([
       needsParts ? window.repairCloud.listParts() : Promise.resolve([]),
       needsRepairs ? window.repairCloud.listRepairs({ limit: 10000 }) : Promise.resolve([]),
       needsSales ? window.repairCloud.listSales(10000) : Promise.resolve([]),
       needsAudit ? window.repairCloud.obtenerAuditoria() : Promise.resolve([]),
+      needsCatalogPending ? window.repairCloud.listCatalogPending() : Promise.resolve([]),
     ]);
     if (requestId !== statisticsRenderRequestId) return;
 
@@ -3119,6 +3559,7 @@ async function loadStatisticsSection(sectionName = "dashboard", options = {}) {
     const periodParts = filterRecordsByPeriod(parts, periodConfig, "publishedAt", "updatedAt");
     const periodRepairs = filterRecordsByPeriod(repairs, periodConfig, "createdAt");
     const periodSales = filterRecordsByPeriod(sales, periodConfig, "createdAt");
+    const pendingRepairs = repairs.filter(isPendingRepair);
     const repairInvoiceLogs = auditLogs.filter((log) => log.tipo === "FACTURA_EMITIDA");
     const periodRepairInvoiceLogs = filterRecordsByPeriod(repairInvoiceLogs, periodConfig, "fecha");
     const saleInvoiceLogs = auditLogs.filter((log) => log.tipo === "FACTURA_VENTA_EMITIDA");
@@ -3158,6 +3599,7 @@ async function loadStatisticsSection(sectionName = "dashboard", options = {}) {
     statisticsSummary.textContent = `${periodParts.length} repuestos | ${periodRepairs.length} reparaciones | ${periodSales.length} ventas`;
     statisticsHint.textContent = "Datos activos de base de datos";
     renderStatisticCards([
+      { label: "Pendientes catalogo", value: String(catalogPending.length), detail: "Marca, modelo o repuesto por validar" },
       canViewPartCost() ? { label: "Valor inventario", value: formatCurrencyCents(inventoryCostCents), detail: `${totalStock} piezas en existencia` } : null,
       canViewPartCustomerPrice() ? { label: "Venta potencial", value: formatCurrencyCents(inventorySaleCents), detail: "Precio cliente final x existencia" } : null,
       canViewPartCost() && canViewPartCustomerPrice() ? { label: "Utilidad estimada", value: formatCurrencyCents(estimatedProfitCents), detail: "Antes de gastos operativos" } : null,
@@ -3169,11 +3611,12 @@ async function loadStatisticsSection(sectionName = "dashboard", options = {}) {
       { label: "Ediciones aprobadas", value: String(periodEditApprovalLogs.length), detail: `${editApprovalLogs.length} en auditoria` },
       { label: "Copias seguridad", value: String(periodCreatedBackupLogs.length), detail: `${backupLogs.length} eventos en auditoria` },
       { label: "Usuarios bloqueados", value: String(periodBlockedUserLogs.length), detail: `${blockedUserLogs.length} eventos historicos` },
-      { label: "Alertas", value: String(lowStockParts.length + zeroStockParts.length + (canViewPartCost() && canViewPartCustomerPrice() ? priceIssues.length : 0)), detail: "Stock y precios por revisar" },
+      { label: "Alertas", value: String(lowStockParts.length + zeroStockParts.length + catalogPending.length + (canViewPartCost() && canViewPartCustomerPrice() ? priceIssues.length : 0)), detail: "Stock, precios y catalogo" },
     ].filter(Boolean));
 
     statisticsLists.innerHTML = [
       renderPartAlertList("Stock bajo", lowStockParts, "Sin repuestos con stock bajo."),
+      renderCatalogPendingHistory(catalogPending),
       renderPartAlertList("Sin existencia", zeroStockParts, "Sin repuestos agotados."),
       renderPartAlertList("Precios por revisar", priceIssues, "Sin precios problemáticos."),
       renderMetricList("Valor por proveedor", groupByMetric(parts, (part) => part.supplier, (part) => getMoneyCents(part, "price", "priceCents") * getPartStock(part)), (value) => formatCurrencyCents(value)),
@@ -3264,12 +3707,17 @@ async function loadStatisticsSection(sectionName = "dashboard", options = {}) {
     }
 
     if (sectionName === "audit") {
-      statisticsSummary.textContent = `${periodEditApprovalLogs.length} ediciones`;
+      const periodAuditLogs = filterRecordsByPeriod(auditLogs, periodConfig, "fecha");
+      const deletionLogs = auditLogs.filter((log) => String(log.tipo || "").includes("ELIMINADA") || String(log.tipo || "").includes("ELIMINADO"));
+      statisticsSummary.textContent = `${auditLogs.slice(0, 20).length} movimientos recientes`;
       statisticsHint.textContent = `Auditoria ${periodConfig.label.toLowerCase()}`;
       renderStatisticCards([
-        { label: "Ediciones aprobadas", value: String(periodEditApprovalLogs.length), detail: `${editApprovalLogs.length} en auditoria` },
+        { label: "Ultimos movimientos", value: String(auditLogs.slice(0, 20).length), detail: "Bitacora reciente" },
+        { label: "Periodo seleccionado", value: String(periodAuditLogs.length), detail: periodConfig.label },
+        { label: "Ediciones aprobadas", value: String(periodEditApprovalLogs.length), detail: `${editApprovalLogs.length} historicas` },
+        { label: "Eliminaciones", value: String(deletionLogs.length), detail: "Registros sensibles" },
       ]);
-      statisticsLists.innerHTML = renderEditApprovalHistory(editApprovalLogs);
+      statisticsLists.innerHTML = renderAuditMovementHistory(auditLogs);
       return;
     }
 
@@ -3284,11 +3732,12 @@ async function loadStatisticsSection(sectionName = "dashboard", options = {}) {
     }
 
     if (sectionName === "alerts") {
-      statisticsSummary.textContent = `${lowStockParts.length + zeroStockParts.length + (canViewPartCost() && canViewPartCustomerPrice() ? priceIssues.length : 0)} alertas`;
+      statisticsSummary.textContent = `${lowStockParts.length + zeroStockParts.length + catalogPending.length + (canViewPartCost() && canViewPartCustomerPrice() ? priceIssues.length : 0)} alertas`;
       statisticsHint.textContent = `Alertas ${periodConfig.label.toLowerCase()}`;
       renderStatisticCards([
         { label: "Stock bajo", value: String(lowStockParts.length), detail: "Existencia de 1 a 2" },
         { label: "Sin existencia", value: String(zeroStockParts.length), detail: "Agotados" },
+        { label: "Pendientes catalogo", value: String(catalogPending.length), detail: "Por validar en Repuestos" },
         canViewPartCost() && canViewPartCustomerPrice() ? { label: "Precios por revisar", value: String(priceIssues.length), detail: "Costo o precio invalido" } : null,
       ].filter(Boolean));
       statisticsGrid.innerHTML += `
@@ -3298,9 +3747,24 @@ async function loadStatisticsSection(sectionName = "dashboard", options = {}) {
       `;
       statisticsLists.innerHTML = [
         renderPartAlertList("Stock bajo", lowStockParts, "Sin repuestos con stock bajo."),
+        renderCatalogPendingHistory(catalogPending),
         renderPartAlertList("Sin existencia", zeroStockParts, "Sin repuestos agotados."),
         canViewPartCost() && canViewPartCustomerPrice() ? renderPartAlertList("Precios por revisar", priceIssues, "Sin precios problematicos.") : "",
       ].filter(Boolean).join("");
+      return;
+    }
+
+    if (sectionName === "catalogPending") {
+      statisticsSummary.textContent = `${catalogPending.length + pendingRepairs.length} pendientes`;
+      statisticsHint.textContent = "Catalogo y reparaciones por atender";
+      renderStatisticCards([
+        { label: "Reparaciones pendientes", value: String(pendingRepairs.length), detail: "Primeras 10 visibles abajo" },
+        { label: "Pendientes catalogo", value: String(catalogPending.length), detail: "Revisar en Repuestos" },
+      ]);
+      statisticsLists.innerHTML = [
+        renderPendingRepairHistory(repairs),
+        renderCatalogPendingHistory(catalogPending),
+      ].join("");
       return;
     }
 
@@ -3838,7 +4302,13 @@ colorModeToggle.addEventListener("click", () => {
 });
 
 notesToggle.addEventListener("click", openNotesPanel);
-openNotesFromAlert.addEventListener("click", openNotesPanel);
+openNotesFromAlert.addEventListener("click", () => {
+  if (pendingAlertMode === "repairs") {
+    openPendingRepairSummary();
+    return;
+  }
+  openNotesPanel();
+});
 closeNotesButton.addEventListener("click", closeNotesPanel);
 snoozePendingAlert.addEventListener("click", snoozeNotesAlert);
 
@@ -4119,10 +4589,12 @@ repairBrandInput.addEventListener("blur", syncKnownRepairBrandCase);
 repairBrandInput.addEventListener("change", syncKnownRepairBrandCase);
 repairBrandInput.addEventListener("input", () => {
   renderRepairModelOptions();
+  renderRepairTypeOptions();
   renderRepairPartPicker();
 });
 repairModelInput.addEventListener("input", () => {
   repairModelInput.value = repairModelInput.value.replace(/[^A-Za-z0-9 ]/g, "");
+  renderRepairTypeOptions();
   renderRepairPartPicker();
 });
 repairModelInput.addEventListener("blur", syncKnownRepairModelCase);
@@ -4444,6 +4916,24 @@ adminVoidForm.addEventListener("submit", async (event) => {
   }
 });
 
+catalogPendingList?.addEventListener("click", async (event) => {
+  const loadButton = event.target.closest("[data-load-catalog-pending]");
+  if (loadButton) {
+    const pending = catalogPendingCache.find((item) => getCatalogPendingRecordId(item) === loadButton.dataset.loadCatalogPending);
+    loadCatalogPendingIntoPartsForm(pending);
+    return;
+  }
+
+  const dismissButton = event.target.closest("[data-dismiss-catalog-pending]");
+  if (!dismissButton) return;
+  try {
+    await dismissCatalogPending(dismissButton.dataset.dismissCatalogPending);
+    quickPartsHint.textContent = "Pendiente descartado.";
+  } catch (error) {
+    quickPartsHint.textContent = `No se pudo descartar: ${error.message}`;
+  }
+});
+
 quickPartsForm.addEventListener("submit", async (event) => {
   event.preventDefault();
   if (!canManageParts()) {
@@ -4518,6 +5008,9 @@ quickPartsForm.addEventListener("submit", async (event) => {
   }
   ["name", "brand", "model", "supplier", "category"].forEach((field) => unmarkPartOptionDeleted(field, part[field]));
   saveParts(parts);
+  if (activeCatalogPendingId) {
+    await resolveCatalogPending(activeCatalogPendingId);
+  }
   quickPartsForm.reset();
   quickPartsHint.textContent = "Repuesto guardado correctamente.";
   await refreshQuickPartsView();
@@ -4575,6 +5068,7 @@ function openRepairInForm(repair, approval = null) {
   repairCreatedAtInput.value = formatRepairDateTimeInput(repair.createdAt);
   repairDeliveredAtInput.dataset.value = repair.deliveredAt || "";
   repairDeliveredAtInput.value = repair.deliveredAt ? formatRepairDateTimeInput(repair.deliveredAt) : "";
+  if (repairEstimatedDeliveryAtInput) repairEstimatedDeliveryAtInput.value = formatDateTimeLocalInput(repair.estimatedDeliveryAt || "");
   repairNumberInput.value = repair.repairNumber;
   repairsForm.dataset.editingId = getRepairRecordId(repair);
   updateRepairDeliveredAt();
@@ -4652,107 +5146,122 @@ repairsList.addEventListener("click", async (event) => {
 
 repairsForm.addEventListener("submit", async (event) => {
   event.preventDefault();
-  const formData = new FormData(repairsForm);
-  const repairs = loadRepairs();
-  const editingId = repairsForm.dataset.editingId;
-  const status = formData.get("status");
-  const createdAt = repairCreatedAtInput.dataset.value || new Date().toISOString();
-  const deliveredAt = status === "Entregado" ? repairDeliveredAtInput.dataset.value || new Date().toISOString() : "";
-  const rawBrand = normalizeSystemOption(formData.get("brand"));
-  const rawModel = normalizeSystemOption(formData.get("model"));
-  if (isKnownRepairModelForOtherBrand(rawBrand, rawModel)) {
-    repairsHint.textContent = `El modelo ${rawModel} ya esta ligado a otra marca. Revisa la marca antes de guardar.`;
-    return;
-  }
-  const brand = addRepairBrand(rawBrand);
-  const model = addRepairModel(rawModel);
-  const repairType = addRepairType(formData.get("repairType"));
-  const repairParts = normalizeRepairParts(selectedRepairParts);
-  if (!validateEmailInput(repairEmailInput, repairsHint)) return;
-
-  if (editingId) {
-    if (pendingEditApproval?.type !== "repair") {
-      repairsHint.textContent = "Necesitas autorizacion root o administrador para guardar esta edicion.";
+  try {
+    const formData = new FormData(repairsForm);
+    const repairs = loadRepairs();
+    const editingId = repairsForm.dataset.editingId;
+    const status = formData.get("status");
+    const createdAt = repairCreatedAtInput.dataset.value || new Date().toISOString();
+    const deliveredAt = status === "Entregado" ? repairDeliveredAtInput.dataset.value || new Date().toISOString() : "";
+    const estimatedDeliveryAt = parseDateTimeLocalInput(formData.get("estimatedDeliveryAt"));
+    const rawBrand = normalizeSystemOption(formData.get("brand"));
+    const rawModel = normalizeSystemOption(formData.get("model"));
+    if (isKnownRepairModelForOtherBrand(rawBrand, rawModel)) {
+      repairsHint.textContent = `El modelo ${rawModel} ya esta ligado a otra marca. Revisa la marca antes de guardar.`;
       return;
     }
-    const index = repairs.findIndex((repair) => getRepairRecordId(repair) === editingId);
-    const existingRepair = index !== -1 ? repairs[index] : {};
-    const updatedRepair = {
-      ...existingRepair,
-      id: existingRepair.id || editingId,
-      repairNumber: Number(repairNumberInput.value) || Number(existingRepair.repairNumber) || 0,
-      customer: formData.get("customer").trim(),
-      deviceType: formData.get("deviceType"),
-      phone: formData.get("phone").trim(),
-      email: formData.get("email").trim(),
-      brand, model, repairType, status, createdAt, deliveredAt,
-      repairPrice: Number(formData.get("repairPrice")) || 0,
-      abono: Number(formData.get("abono")) || 0,
-      repairParts,
-      notes: formData.get("notes").trim(),
-    };
+    const brand = addRepairBrand(rawBrand);
+    const model = addRepairModel(rawModel);
+    const repairType = addRepairType(formData.get("repairType"));
+    const repairParts = normalizeRepairParts(selectedRepairParts);
+    if (!validateEmailInput(repairEmailInput, repairsHint)) return;
+    const notesText = String(formData.get("notes") || "").trim();
+    if (!repairParts.length && !notesText) {
+      repairsHint.textContent = "Escribe una nota si no seleccionas repuesto.";
+      repairNotesInput?.focus();
+      return;
+    }
 
-    if (window.repairCloud?.isConfigured() && existingRepair._id) {
-      await window.repairCloud.updateRepair(existingRepair._id, normalizeRepairForCloud(updatedRepair));
+    if (editingId) {
+      if (pendingEditApproval?.type !== "repair") {
+        repairsHint.textContent = "Necesitas autorizacion root o administrador para guardar esta edicion.";
+        return;
+      }
+      const index = repairs.findIndex((repair) => getRepairRecordId(repair) === editingId);
+      const existingRepair = index !== -1 ? repairs[index] : {};
+      const updatedRepair = {
+        ...existingRepair,
+        id: existingRepair.id || editingId,
+        repairNumber: Number(repairNumberInput.value) || Number(existingRepair.repairNumber) || 0,
+        customer: formData.get("customer").trim(),
+        deviceType: formData.get("deviceType"),
+        phone: formData.get("phone").trim(),
+        email: formData.get("email").trim(),
+        brand, model, repairType, status, createdAt, deliveredAt, estimatedDeliveryAt,
+        repairPrice: Number(formData.get("repairPrice")) || 0,
+        abono: Number(formData.get("abono")) || 0,
+        repairParts,
+        notes: notesText,
+      };
+
+      if (window.repairCloud?.isConfigured() && existingRepair._id) {
+        await window.repairCloud.updateRepair(existingRepair._id, normalizeRepairForCloud(updatedRepair));
+      } else {
+        await applyRepairPartsStockChange(existingRepair.repairParts, repairParts);
+      }
+      await createCatalogPendingIfNeeded(updatedRepair);
+
+      if (index !== -1) {
+        repairs[index] = updatedRepair;
+      }
+      delete repairsForm.dataset.editingId;
+      document.querySelector("#submitRepairs").textContent = "Guardar reparacion";
+      repairsHint.textContent = "Reparacion actualizada correctamente.";
+      window.repairCloud?.registrarAuditoria(
+        "REPARACION_EDITADA",
+        `Reparacion #${updatedRepair.repairNumber} editada`,
+        pendingEditApproval.approvedBy || currentUser?.username,
+        JSON.stringify({
+          ...pendingEditApproval,
+          repairId: getRepairRecordId(updatedRepair),
+          repairNumber: updatedRepair.repairNumber,
+          customer: updatedRepair.customer,
+          repairPrice: Number(updatedRepair.repairPrice) || 0,
+          abono: Number(updatedRepair.abono) || 0,
+          editedAt: new Date().toISOString(),
+        }),
+      );
+      pendingEditApproval = null;
     } else {
-      await applyRepairPartsStockChange(existingRepair.repairParts, repairParts);
+      const nextRepairNumber = Number(repairNumberInput.value) || repairs.reduce((max, r) => Math.max(max, r.repairNumber), 0) + 1;
+      const repairData = {
+        id: crypto.randomUUID(),
+        repairNumber: nextRepairNumber,
+        customer: formData.get("customer").trim(),
+        deviceType: formData.get("deviceType"),
+        phone: formData.get("phone").trim(),
+        email: formData.get("email").trim(),
+        brand, model, repairType, status, createdAt, deliveredAt, estimatedDeliveryAt,
+        repairPrice: Number(formData.get("repairPrice")) || 0,
+        abono: Number(formData.get("abono")) || 0,
+        repairParts,
+        notes: notesText,
+      };
+
+      if (window.repairCloud?.isConfigured()) {
+        const cloudRepairId = await window.repairCloud.createRepair(normalizeRepairForCloud(repairData));
+        repairData._id = cloudRepairId;
+      } else {
+        await applyRepairPartsStockChange([], repairParts);
+        repairs.unshift(repairData);
+      }
+      await createCatalogPendingIfNeeded(repairData);
+      repairsHint.textContent = "Reparacion guardada correctamente.";
     }
 
-    if (index !== -1) {
-      repairs[index] = updatedRepair;
-    }
-    delete repairsForm.dataset.editingId;
-    document.querySelector("#submitRepairs").textContent = "Guardar reparacion";
-    repairsHint.textContent = "Reparacion actualizada correctamente.";
-    window.repairCloud?.registrarAuditoria(
-      "REPARACION_EDITADA",
-      `Reparacion #${updatedRepair.repairNumber} editada`,
-      pendingEditApproval.approvedBy || currentUser?.username,
-      JSON.stringify({
-        ...pendingEditApproval,
-        repairId: getRepairRecordId(updatedRepair),
-        repairNumber: updatedRepair.repairNumber,
-        customer: updatedRepair.customer,
-        repairPrice: Number(updatedRepair.repairPrice) || 0,
-        abono: Number(updatedRepair.abono) || 0,
-        editedAt: new Date().toISOString(),
-      }),
-    );
-    pendingEditApproval = null;
-  } else {
-    const nextRepairNumber = Number(repairNumberInput.value) || repairs.reduce((max, r) => Math.max(max, r.repairNumber), 0) + 1;
-    const repairData = {
-      id: crypto.randomUUID(),
-      repairNumber: nextRepairNumber,
-      customer: formData.get("customer").trim(),
-      deviceType: formData.get("deviceType"),
-      phone: formData.get("phone").trim(),
-      email: formData.get("email").trim(),
-      brand, model, repairType, status, createdAt, deliveredAt,
-      repairPrice: Number(formData.get("repairPrice")) || 0,
-      abono: Number(formData.get("abono")) || 0,
-      repairParts,
-      notes: formData.get("notes").trim(),
-    };
-
-    if (window.repairCloud?.isConfigured()) {
-      await window.repairCloud.createRepair(normalizeRepairForCloud(repairData));
-    } else {
-      await applyRepairPartsStockChange([], repairParts);
-      repairs.unshift(repairData);
-    }
-    repairsHint.textContent = "Reparacion guardada correctamente.";
+    if (!window.repairCloud?.isConfigured() || editingId) saveRepairs(repairs);
+    repairsForm.reset();
+    repairDeliveredAtInput.dataset.value = "";
+    resetRepairEstimatedDeliveryAt();
+    resetSelectedRepairParts();
+    setNextRepairNumber();
+    setRepairCreatedAt();
+    updateRepairDeliveredAt();
+    renderRepairs();
+    renderSideRepairs();
+  } catch (error) {
+    repairsHint.textContent = `No se pudo guardar reparacion: ${error.message}`;
   }
-
-  if (!window.repairCloud?.isConfigured() || editingId) saveRepairs(repairs);
-  repairsForm.reset();
-  repairDeliveredAtInput.dataset.value = "";
-  resetSelectedRepairParts();
-  setNextRepairNumber();
-  setRepairCreatedAt();
-  updateRepairDeliveredAt();
-  renderRepairs();
-  renderSideRepairs();
 });
 
 contactsForm?.addEventListener("submit", async (event) => {

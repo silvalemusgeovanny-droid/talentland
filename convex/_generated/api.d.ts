@@ -12,6 +12,7 @@ import type * as auditoria from "../auditoria.js";
 import type * as auth from "../auth.js";
 import type * as authorization from "../authorization.js";
 import type * as backups from "../backups.js";
+import type * as catalogoPendientes from "../catalogoPendientes.js";
 import type * as contactos from "../contactos.js";
 import type * as crons from "../crons.js";
 import type * as notas from "../notas.js";
@@ -31,6 +32,7 @@ declare const fullApi: ApiFromModules<{
   auth: typeof auth;
   authorization: typeof authorization;
   backups: typeof backups;
+  catalogoPendientes: typeof catalogoPendientes;
   contactos: typeof contactos;
   crons: typeof crons;
   notas: typeof notas;
