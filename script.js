@@ -4233,7 +4233,13 @@ function setModule(moduleName) {
 }
 
 tabButtons.forEach((button) => button.addEventListener("click", () => setTheme(button.dataset.theme)));
-moduleTabs.forEach((button) => button.addEventListener("click", () => setModule(button.dataset.module)));
+moduleTabs.forEach((button) => button.addEventListener("click", () => {
+  if (button.dataset.module === "parts") {
+    window.location.href = "repuestos.html";
+    return;
+  }
+  setModule(button.dataset.module);
+}));
 brandHomeButton?.addEventListener("click", () => {
   if (!sessionPanel.hidden && currentUser) {
     setModule("permissions");
@@ -5552,7 +5558,7 @@ if (!isBootRestoringSession) {
   renderProducts();
   renderSales();
   renderRepairs();
-  refreshQuickPartsView();
+  renderQuickParts();
   renderNotes();
 }
 restoreSession();
