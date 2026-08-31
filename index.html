@@ -15,7 +15,12 @@
         }
       } catch {}
     </script>
-    <link rel="stylesheet" href="styles.css?v=parts-icon-list-1" />
+    <script>
+      const appStyles = document.createElement("link");
+      appStyles.rel = "stylesheet";
+      appStyles.href = `styles.css?v=mobile-refresh-1-${Date.now()}`;
+      document.head.append(appStyles);
+    </script>
   </head>
   <body>
     <main class="app-shell">
