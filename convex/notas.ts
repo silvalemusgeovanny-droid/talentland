@@ -1,6 +1,6 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
-import { requireModuleWrite } from "./authorization";
+import { requireModuleRead, requireModuleWrite } from "./authorization";
 
 const noteFields = {
   sourceId: v.optional(v.string()),
@@ -13,8 +13,9 @@ const noteFields = {
 };
 
 export const list = query({
-  args: {},
-  handler: async (ctx) => {
+  args: { sessionToken: v.string() },
+  handler: async (ctx, args) => {
+    await requireModuleRead(ctx, args.sessionToken, "notes");
     return await ctx.db.query("notas").order("desc").take(500);
   },
 });
