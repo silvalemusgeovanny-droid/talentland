@@ -1,6 +1,6 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
-import { requireModuleWrite } from "./authorization";
+import { requireModuleRead, requireModuleWrite } from "./authorization";
 
 const contactArgs = {
   sourceId: v.optional(v.string()),
@@ -56,8 +56,9 @@ async function findExistingContact(ctx: any, contact: ReturnType<typeof normaliz
 }
 
 export const list = query({
-  args: {},
-  handler: async (ctx) => {
+  args: { sessionToken: v.string() },
+  handler: async (ctx, args) => {
+    await requireModuleRead(ctx, args.sessionToken, "contacts");
     const contacts = await ctx.db.query("contactos").take(1000);
     return contacts.sort((a, b) => a.name.localeCompare(b.name));
   },

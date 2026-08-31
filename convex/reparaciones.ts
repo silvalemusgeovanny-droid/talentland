@@ -1,6 +1,6 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
-import { requireModuleWrite } from "./authorization";
+import { requireModuleRead, requireModuleWrite } from "./authorization";
 
 const repairPartFields = {
   partId: v.string(),
@@ -103,10 +103,12 @@ function normalizeSearch(value: string) {
 
 export const list = query({
   args: {
+    sessionToken: v.string(),
     search: v.optional(v.string()),
     limit: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
+    await requireModuleRead(ctx, args.sessionToken, "repairs");
     const search = normalizeSearch((args.search || "").trim());
     const limit = args.limit || 50;
 

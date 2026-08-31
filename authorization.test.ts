@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { requireModuleWrite } from "./convex/authorization";
+import { requireModuleRead, requireModuleWrite } from "./convex/authorization";
 
 function mutationContextFor(user: Record<string, unknown>) {
   return {
@@ -42,6 +42,31 @@ describe("server-side module authorization", () => {
       .rejects.toThrow("No tienes permiso");
   });
 
+
+  it("rejects reads without the requested module", async () => {
+    const ctx = mutationContextFor({
+      active: true,
+      accountStatus: "active",
+      role: "user",
+      modules: ["notes"],
+    });
+
+    await expect(requireModuleRead(ctx, "valid-session", "contacts"))
+      .rejects.toThrow("No tienes permiso");
+  });
+
+  it("allows reads with the requested module", async () => {
+    const user = {
+      active: true,
+      accountStatus: "active",
+      role: "user",
+      modules: ["contacts"],
+    };
+    const ctx = mutationContextFor(user);
+
+    await expect(requireModuleRead(ctx, "valid-session", "contacts"))
+      .resolves.toBe(user);
+  });
   it("allows an active user with the requested module", async () => {
     const user = {
       active: true,
