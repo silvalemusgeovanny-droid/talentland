@@ -831,11 +831,17 @@ function getPartDisplayName(part) {
 
 function loadCatalogPending() {
   const saved = localStorage.getItem(catalogPendingStorageKey);
-  return saved ? JSON.parse(saved) : [];
+  const items = saved ? JSON.parse(saved) : [];
+  return Array.isArray(items) ? items.filter((item) => item?.status === "pending") : [];
 }
 
 function saveCatalogPending(items) {
-  localStorage.setItem(catalogPendingStorageKey, JSON.stringify(items));
+  const pendingItems = Array.isArray(items) ? items.filter((item) => item?.status === "pending") : [];
+  if (!pendingItems.length) {
+    localStorage.removeItem(catalogPendingStorageKey);
+    return;
+  }
+  localStorage.setItem(catalogPendingStorageKey, JSON.stringify(pendingItems));
 }
 
 function getCatalogPendingRecordId(item) {
@@ -869,11 +875,11 @@ function normalizeCatalogPending(pending) {
 async function loadCatalogPendingFromSource() {
   if (window.repairCloud?.isConfigured()) {
     const pending = await window.repairCloud.listCatalogPending();
-    catalogPendingCache = pending || [];
+    catalogPendingCache = Array.isArray(pending) ? pending.filter((item) => item?.status === "pending") : [];
     saveCatalogPending(catalogPendingCache);
     return catalogPendingCache;
   }
-  catalogPendingCache = loadCatalogPending().filter((item) => item.status === "pending");
+  catalogPendingCache = loadCatalogPending();
   return catalogPendingCache;
 }
 
@@ -919,9 +925,10 @@ async function resolveCatalogPending(id) {
     await window.repairCloud.resolveCatalogPending(id);
   } else {
     const now = new Date().toISOString();
-    saveCatalogPending(loadCatalogPending().map((item) =>
-      getCatalogPendingRecordId(item) === id ? { ...item, status: "resolved", resolvedAt: now, resolvedBy: currentUser?.username || "" } : item,
-    ));
+    const pendingItems = loadCatalogPending()
+      .filter((item) => getCatalogPendingRecordId(item) !== id)
+      .map((item) => ({ ...item, updatedAt: item.updatedAt || now }));
+    saveCatalogPending(pendingItems);
   }
   if (activeCatalogPendingId === id) activeCatalogPendingId = "";
   await refreshCatalogPendingIndicators();
@@ -933,9 +940,10 @@ async function dismissCatalogPending(id) {
     await window.repairCloud.dismissCatalogPending(id);
   } else {
     const now = new Date().toISOString();
-    saveCatalogPending(loadCatalogPending().map((item) =>
-      getCatalogPendingRecordId(item) === id ? { ...item, status: "dismissed", resolvedAt: now, resolvedBy: currentUser?.username || "" } : item,
-    ));
+    const pendingItems = loadCatalogPending()
+      .filter((item) => getCatalogPendingRecordId(item) !== id)
+      .map((item) => ({ ...item, updatedAt: item.updatedAt || now }));
+    saveCatalogPending(pendingItems);
   }
   await refreshCatalogPendingIndicators();
 }
@@ -1196,7 +1204,7 @@ function getOptionDuplicateMessage(field, value) {
 
 async function verifyRootCredentials(username, password) {
   if (window.repairCloud?.isConfigured()) {
-    await window.repairCloud.seedUsers();
+    await window.repairCloud.seedUsers().catch(() => null);
     return await window.repairCloud.verifyRoot(username, password);
   }
 
@@ -1549,7 +1557,8 @@ function snoozeNotesAlert() {
 
 function updateStatisticsPendingDot() {
   if (!statisticsPendingDot) return;
-  statisticsPendingDot.hidden = catalogPendingCache.length === 0 && repairStatusReminderCache.length === 0;
+  const activeCatalogPending = catalogPendingCache.filter((item) => item?.status === "pending");
+  statisticsPendingDot.hidden = activeCatalogPending.length === 0 && repairStatusReminderCache.length === 0;
 }
 
 function isReadyForDeliveryRepair(repair) {
@@ -2436,11 +2445,15 @@ function renderQuickParts() {
 function renderCatalogPendingPanel() {
   if (!catalogPendingPanel || !catalogPendingList) return;
   const canReview = canManageParts() && canViewPartCost() && canViewPartCustomerPrice();
-  catalogPendingPanel.hidden = !canReview || catalogPendingCache.length === 0;
+  const activeCatalogPending = catalogPendingCache.filter((item) => item?.status === "pending");
+  catalogPendingPanel.hidden = !canReview || activeCatalogPending.length === 0;
   updateStatisticsPendingDot();
-  if (!canReview || !catalogPendingCache.length) return;
-  catalogPendingTitle.textContent = `${catalogPendingCache.length} pendiente${catalogPendingCache.length === 1 ? "" : "s"} por validar`;
-  catalogPendingList.innerHTML = catalogPendingCache.map((item) => {
+  if (!canReview || !activeCatalogPending.length) {
+    catalogPendingList.innerHTML = "";
+    return;
+  }
+  catalogPendingTitle.textContent = `${activeCatalogPending.length} pendiente${activeCatalogPending.length === 1 ? "" : "s"} por validar`;
+  catalogPendingList.innerHTML = activeCatalogPending.map((item) => {
     const id = getCatalogPendingRecordId(item);
     return `
       <article class="compact-part-item catalog-pending-item">
@@ -2460,8 +2473,10 @@ async function refreshCatalogPendingIndicators() {
   try {
     catalogPendingCache = await loadCatalogPendingFromSource();
   } catch {
-    catalogPendingCache = loadCatalogPending().filter((item) => item.status === "pending");
+    catalogPendingCache = loadCatalogPending();
   }
+  catalogPendingCache = catalogPendingCache.filter((item) => item?.status === "pending");
+  saveCatalogPending(catalogPendingCache);
   renderCatalogPendingPanel();
 }
 

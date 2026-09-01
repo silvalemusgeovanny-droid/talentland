@@ -37,7 +37,7 @@
     updateRepair: (id, patch) => callConvex("mutation", "reparaciones:update", withSession({ id, patch })),
     removeRepair: (id) => callConvex("mutation", "reparaciones:remove", withSession({ id })),
     importRepairs: (repairs) => callConvex("mutation", "reparaciones:importBatch", withSession({ repairs })),
-    seedUsers: () => callConvex("mutation", "auth:seedDefaultUsers", {}),
+    seedUsers: (setupSecret = "") => callConvex("mutation", "auth:seedDefaultUsers", { setupSecret }),
     login: (username, password, sessionToken) =>
       callConvex("mutation", "auth:login", { username, password, sessionToken }),
     currentSession: (sessionToken) => callConvex("query", "auth:currentSession", { sessionToken }),
@@ -54,7 +54,7 @@
       callConvex("mutation", "auth:changeOwnPassword", { sessionToken, currentPassword, newPassword }),
     registrarAuditoria: (tipo, descripcion, usuario = "sistema", datos = "") =>
       callConvex("mutation", "auditoria:registrar", withSession({ tipo, descripcion, usuario, datos })),
-    obtenerAuditoria: () => callConvex("query", "auditoria:obtener", {}),
+    obtenerAuditoria: () => callConvex("query", "auditoria:obtener", withSession()),
     listNotes: () => callConvex("query", "notas:list", withSession({})),
     createNote: (note) => callConvex("mutation", "notas:create", withSession(note)),
     importNotes: (notes) => callConvex("mutation", "notas:importBatch", withSession({ notes })),
@@ -67,7 +67,7 @@
       callConvex("mutation", "repuestos:updateStockForSale", withSession({ id, quantityChange, updatedAt: new Date().toISOString() })),
     removePart: (id) => callConvex("mutation", "repuestos:remove", withSession({ id })),
     importParts: (parts) => callConvex("mutation", "repuestos:importBatch", withSession({ parts })),
-    listCatalogPending: () => callConvex("query", "catalogoPendientes:list", { status: "pending", limit: 100 }),
+    listCatalogPending: () => callConvex("query", "catalogoPendientes:list", withSession({ status: "pending", limit: 100 })),
     createCatalogPending: (pending) => callConvex("mutation", "catalogoPendientes:create", withSession(pending)),
     resolveCatalogPending: (id) =>
       callConvex("mutation", "catalogoPendientes:resolve", withSession({ id, resolvedAt: new Date().toISOString() })),

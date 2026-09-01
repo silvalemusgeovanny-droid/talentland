@@ -67,6 +67,19 @@ describe("server-side module authorization", () => {
     await expect(requireModuleRead(ctx, "valid-session", "contacts"))
       .resolves.toBe(user);
   });
+
+  it("rejects audit reads without statistics access", async () => {
+    const ctx = mutationContextFor({
+      active: true,
+      accountStatus: "active",
+      role: "user",
+      modules: ["parts"],
+    });
+
+    await expect(requireModuleRead(ctx, "valid-session", "statistics"))
+      .rejects.toThrow("No tienes permiso");
+  });
+
   it("allows an active user with the requested module", async () => {
     const user = {
       active: true,

@@ -1,6 +1,6 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
-import { requireModuleWrite } from "./authorization";
+import { requireModuleRead, requireModuleWrite } from "./authorization";
 
 export const registrar = mutation({
   args: {
@@ -11,11 +11,11 @@ export const registrar = mutation({
     datos: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    await requireModuleWrite(ctx, args.sessionToken, "products");
+    const user = await requireModuleWrite(ctx, args.sessionToken, "products");
     await ctx.db.insert("auditoria", {
       tipo: args.tipo,
       descripcion: args.descripcion,
-      usuario: args.usuario || "sistema",
+      usuario: user.username,
       datos: args.datos || "",
       fecha: new Date().toISOString(),
     });
@@ -23,7 +23,11 @@ export const registrar = mutation({
 });
 
 export const obtener = query({
-  handler: async (ctx) => {
+  args: {
+    sessionToken: v.string(),
+  },
+  handler: async (ctx, args) => {
+    await requireModuleRead(ctx, args.sessionToken, "statistics");
     return await ctx.db.query("auditoria").order("desc").take(100);
   },
 });

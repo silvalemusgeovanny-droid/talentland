@@ -6,7 +6,7 @@
     "test": "vitest"
   },
   "devDependencies": {
-    "convex": "^1.39.1",
+    "convex": "^1.44.0",
     "vitest": "^4.1.7"
   }
 }

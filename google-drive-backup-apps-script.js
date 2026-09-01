@@ -12,7 +12,8 @@ function doPost(e) {
     const cadenceFolder = ensureFolder(payload.cadenceFolder, rootFolder);
     const bytes = Utilities.base64Decode(payload.contentBase64);
     const fileName = sanitizeFileName(payload.fileName || "backup.json");
-    const file = cadenceFolder.createFile(Utilities.newBlob(bytes, "application/json", fileName));
+    const mimeType = fileName.endsWith(".enc") ? "application/octet-stream" : "application/json";
+    const file = cadenceFolder.createFile(Utilities.newBlob(bytes, mimeType, fileName));
 
     cleanupOldBackups(cadenceFolder, Number(payload.retentionCount || 0));
     sendBackupReadyEmail({
@@ -46,7 +47,7 @@ function cleanupOldBackups(folder, keep) {
   const iterator = folder.getFiles();
   while (iterator.hasNext()) {
     const file = iterator.next();
-    if (file.getMimeType() === "application/json" && file.getName().startsWith("backup-")) {
+    if (file.getName().startsWith("backup-") && (file.getName().endsWith(".json") || file.getName().endsWith(".json.enc"))) {
       files.push(file);
     }
   }
@@ -70,6 +71,7 @@ function sendBackupReadyEmail(details) {
   const subject = "Copia de seguridad lista";
   const body = [
     "La copia de seguridad del sistema ya esta lista.",
+    "El archivo esta protegido y requiere la clave BACKUP_ENCRYPTION_KEY para restaurarse.",
     "",
     "Tipo: " + cadenceLabel,
     "Carpeta: " + details.folderName,
