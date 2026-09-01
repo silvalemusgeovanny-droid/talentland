@@ -1,6 +1,6 @@
-import { action, mutation, query } from "./_generated/server";
+import { action, internalAction, internalMutation, internalQuery } from "./_generated/server";
 import { v } from "convex/values";
-import { api } from "./_generated/api";
+import { internal } from "./_generated/api";
 
 type Cadence = "daily" | "weekly" | "monthly";
 
@@ -22,6 +22,13 @@ function isoDate(date: Date) {
 
 function getTimezoneOffsetMinutes() {
   return Number(process.env.BACKUP_TIMEZONE_OFFSET_MINUTES || "-360");
+}
+
+function requireBackupSecret(secret: string) {
+  const expectedSecret = process.env.BACKUP_MANUAL_RUN_SECRET;
+  if (!expectedSecret || secret !== expectedSecret) {
+    throw new Error("No autorizado para ejecutar backups manuales.");
+  }
 }
 
 function toLocalShifted(date: Date) {
@@ -112,6 +119,32 @@ function base64Encode(bytes: Uint8Array) {
   return btoa(binary);
 }
 
+function randomBytes(length: number) {
+  const bytes = new Uint8Array(length);
+  crypto.getRandomValues(bytes);
+  return bytes;
+}
+
+async function encryptBackupContent(content: string) {
+  const encryptionKey = process.env.BACKUP_ENCRYPTION_KEY;
+  if (!encryptionKey || encryptionKey.length < 16) {
+    throw new Error("Falta BACKUP_ENCRYPTION_KEY de al menos 16 caracteres para proteger los backups.");
+  }
+
+  const keyDigest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(encryptionKey));
+  const key = await crypto.subtle.importKey("raw", keyDigest, { name: "AES-GCM" }, false, ["encrypt"]);
+  const iv = randomBytes(12);
+  const ciphertext = await crypto.subtle.encrypt({ name: "AES-GCM", iv }, key, new TextEncoder().encode(content));
+
+  return JSON.stringify({
+    format: "doctor-movil-backup-encrypted-v1",
+    algorithm: "AES-256-GCM",
+    exportedAt: new Date().toISOString(),
+    ivBase64: base64Encode(iv),
+    ciphertextBase64: base64Encode(new Uint8Array(ciphertext)),
+  }, null, 2);
+}
+
 async function sendBackupToAppsScript(args: {
   cadence: Cadence;
   cadenceFolder: string;
@@ -151,7 +184,7 @@ async function sendBackupToAppsScript(args: {
   };
 }
 
-export const exportSnapshot = query({
+export const exportSnapshot = internalQuery({
   args: {
     periodStart: v.string(),
     periodEnd: v.string(),
@@ -235,7 +268,7 @@ export const exportSnapshot = query({
   },
 });
 
-export const registerBackup = mutation({
+export const registerBackup = internalMutation({
   args: {
     cadence: v.string(),
     fileName: v.string(),
@@ -268,7 +301,7 @@ export const registerBackup = mutation({
   },
 });
 
-export const registerSkippedBackup = mutation({
+export const registerSkippedBackup = internalMutation({
   args: {
     cadence: v.string(),
     periodStart: v.string(),
@@ -286,7 +319,7 @@ export const registerSkippedBackup = mutation({
   },
 });
 
-export const listOldBackups = query({
+export const listOldBackups = internalQuery({
   args: {
     cadence: v.string(),
     keep: v.number(),
@@ -302,7 +335,7 @@ export const listOldBackups = query({
   },
 });
 
-export const removeBackupRecord = mutation({
+export const removeBackupRecord = internalMutation({
   args: {
     id: v.id("respaldos"),
   },
@@ -314,13 +347,13 @@ export const removeBackupRecord = mutation({
 async function runBackupCadence(ctx: any, cadence: Cadence, period: { start: Date; end: Date }) {
   const periodStart = period.start.toISOString();
   const periodEnd = period.end.toISOString();
-  const { snapshot, hasActivity, recordCount } = await ctx.runQuery(api.backups.exportSnapshot, {
+  const { snapshot, hasActivity, recordCount } = await ctx.runQuery(internal.backups.exportSnapshot, {
     periodStart,
     periodEnd,
   });
 
   if (!hasActivity) {
-    await ctx.runMutation(api.backups.registerSkippedBackup, {
+    await ctx.runMutation(internal.backups.registerSkippedBackup, {
       cadence,
       periodStart,
       periodEnd,
@@ -329,42 +362,43 @@ async function runBackupCadence(ctx: any, cadence: Cadence, period: { start: Dat
     return { cadence, skipped: true };
   }
 
-  const fileName = `backup-${cadence}-${localIsoDate(period.start)}-a-${localIsoDate(period.end)}.json`;
+  const fileName = `backup-${cadence}-${localIsoDate(period.start)}-a-${localIsoDate(period.end)}.json.enc`;
   const content = JSON.stringify({ cadence, folder: cadenceFolders[cadence], ...snapshot }, null, 2);
+  const protectedContent = await encryptBackupContent(content);
   const uploaded = await sendBackupToAppsScript({
     cadence,
     cadenceFolder: cadenceFolders[cadence],
     retentionCount: retentionByCadence[cadence],
     fileName,
-    content,
+    content: protectedContent,
     recordCount,
   });
   if (uploaded.disabled) {
     return { cadence, disabled: true };
   }
 
-  await ctx.runMutation(api.backups.registerBackup, {
+  await ctx.runMutation(internal.backups.registerBackup, {
     cadence,
     fileName,
     driveFileId: uploaded.driveFileId,
     folderId: uploaded.folderId,
     periodStart,
     periodEnd,
-    bytes: new TextEncoder().encode(content).length,
+    bytes: new TextEncoder().encode(protectedContent).length,
     recordCount,
   });
-  const oldBackups = await ctx.runQuery(api.backups.listOldBackups, {
+  const oldBackups = await ctx.runQuery(internal.backups.listOldBackups, {
     cadence,
     keep: retentionByCadence[cadence],
   });
   for (const oldBackup of oldBackups) {
-    await ctx.runMutation(api.backups.removeBackupRecord, { id: oldBackup._id });
+    await ctx.runMutation(internal.backups.removeBackupRecord, { id: oldBackup._id });
   }
 
   return { cadence, skipped: false, fileName };
 }
 
-export const runScheduled = action({
+export const runScheduled = internalAction({
   args: {},
   handler: async (ctx) => {
     const now = new Date();
@@ -384,8 +418,10 @@ export const runScheduled = action({
 export const runManual = action({
   args: {
     cadence: v.union(v.literal("daily"), v.literal("weekly"), v.literal("monthly")),
+    backupSecret: v.string(),
   },
   handler: async (ctx, args) => {
+    requireBackupSecret(args.backupSecret);
     const now = new Date();
     const periods = getPeriods(now);
     return runBackupCadence(ctx, args.cadence, periods[args.cadence]);
@@ -393,8 +429,11 @@ export const runManual = action({
 });
 
 export const runMonthlyManual = action({
-  args: {},
-  handler: async (ctx) => {
+  args: {
+    backupSecret: v.string(),
+  },
+  handler: async (ctx, args) => {
+    requireBackupSecret(args.backupSecret);
     const now = new Date();
     const periods = getPeriods(now);
     return runBackupCadence(ctx, "monthly", periods.monthly);

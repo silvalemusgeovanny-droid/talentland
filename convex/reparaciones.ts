@@ -86,6 +86,9 @@ async function applyRepairPartsStockDelta(ctx: any, previousParts: Array<{ partI
 
     const currentStock = Math.trunc(Number(part.stock) || 0);
     const nextStock = currentStock - delta;
+    if (nextStock < 0) {
+      throw new Error(`No hay suficiente stock de ${part.name || "este repuesto"}. Disponible: ${currentStock}.`);
+    }
 
     await ctx.db.patch(rawPartId as any, {
       stock: nextStock,

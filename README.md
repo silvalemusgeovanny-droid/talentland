@@ -132,7 +132,10 @@ usuario.
 
 ## Usuarios y roles
 
-La mutacion `auth:seedDefaultUsers` crea usuarios iniciales:
+La mutacion `auth:seedDefaultUsers` crea usuarios iniciales solo si se envia el
+secreto `SETUP_SEED_SECRET` configurado en Convex. Ese secreto es de
+inicializacion y no debe vivir en el navegador ni reutilizarse para otros
+procesos.
 
 | Rol | Usuario | Contrasena inicial | Alcance |
 | --- | --- | --- | --- |
@@ -141,8 +144,8 @@ La mutacion `auth:seedDefaultUsers` crea usuarios iniciales:
 | user | `usuario` | `user123` | Acceso operativo limitado. |
 | activador | `activador` | `activador123` | Solo consulta de repuestos. |
 
-Las contrasenas se guardan hasheadas en Convex como SHA-256 de
-`usuario:contrasena`.
+Las cuentas iniciales quedan marcadas con `mustChangePassword: true`. Las
+contrasenas se guardan hasheadas en Convex como SHA-256 de `usuario:contrasena`.
 
 El rol `activador` es especial: solo puede ver repuestos y no debe agregar,
 editar ni borrar. Esa restriccion existe tanto en el panel principal como en
@@ -179,8 +182,12 @@ Funciones relevantes:
 
 Reglas importantes:
 
+- `repuestos:list` requiere una sesion activa con modulo `parts`.
 - Los precios se manejan con `priceCents` y `customerPriceCents` para preservar
   montos exactos.
+- El costo interno solo se devuelve a `root` o usuarios con `partsCost`; el
+  precio a cliente solo se devuelve a `root` o usuarios con
+  `partsCustomerPrice`.
 - Se normalizan calidades como `GX`, `Original`, `Amoled`, `OLED`, `TFT`, `IPS`
   y `Generica`.
 - Se valida que modelo y proveedor no sean iguales.
@@ -219,6 +226,9 @@ Funciones relevantes:
 El formulario de venta calcula total, recibido y cambio, y puede generar una
 factura imprimible. La emision de factura de venta queda registrada en auditoria
 como `FACTURA_VENTA_EMITIDA`.
+
+`productos:list` requiere sesion activa con modulo `sales`. El costo proveedor
+solo se devuelve a `root` o usuarios con permiso `partsCost`.
 
 ## Contactos
 
@@ -267,6 +277,10 @@ Funciones relevantes:
 - `auditoria:registrar`
 - `auditoria:obtener`
 
+`auditoria:obtener` requiere permiso `statistics`. `auditoria:registrar` valida
+sesion y escribe como usuario real de la sesion; el cliente no decide el campo
+`usuario`.
+
 Eventos conocidos:
 
 - `FACTURA_EMITIDA`
@@ -299,21 +313,32 @@ Caracteristicas:
 - Carpeta raiz esperada: `copia de seguridad de sistema de ventas`.
 - Subcarpetas por cadencia: `Diarios`, `Semanales`, `Mensuales`.
 - Retencion: 7 diarios, 8 semanales y 12 mensuales.
-- Cron diario: `convex/crons.ts` ejecuta `backups:runScheduled` a las 00:00 UTC,
-  equivalente a 6:00 p.m. con offset `-360`.
+- Cron diario: `convex/crons.ts` ejecuta la accion interna
+  `backups:runScheduled` a las 00:00 UTC, equivalente a 6:00 p.m. con offset
+  `-360`.
+- El archivo subido a Drive es `.json.enc`. El JSON del backup se cifra antes de
+  salir de Convex con `BACKUP_ENCRYPTION_KEY`.
 - Si faltan `GOOGLE_DRIVE_BACKUP_WEBHOOK_URL` o `GOOGLE_DRIVE_BACKUP_SECRET`, el
   backup queda desactivado en modo seguro y no intenta subir.
+- Si falta `BACKUP_ENCRYPTION_KEY`, el backup no se genera porque no puede
+  proteger el contenido.
+- Las funciones auxiliares de snapshot, registro y limpieza son internas. Las
+  ejecuciones manuales publicas requieren `BACKUP_MANUAL_RUN_SECRET`.
 
 Variables esperadas en Convex:
 
 ```text
 GOOGLE_DRIVE_BACKUP_WEBHOOK_URL
-GOOGLE_DRIVE_BACKUP_SECRET
+GOOGLE_DRIVE_BACKUP_SECRET=clave_para_validar_el_webhook_de_apps_script
+BACKUP_ENCRYPTION_KEY=clave_para_cifrar_archivos_json_enc
+BACKUP_MANUAL_RUN_SECRET=clave_para_ejecutar_backups_manual
 BACKUP_TIMEZONE_OFFSET_MINUTES=-360
 ```
 
 El archivo `google-drive-backup-apps-script.js` se pega en Google Apps Script y
-recibe el contenido base64 del backup para guardarlo en Drive.
+recibe el contenido base64 del backup protegido para guardarlo en Drive y avisar
+por correo. Gmail no recibe datos planos del negocio, solo la notificacion y el
+enlace al archivo protegido.
 
 ## Bot de Telegram
 
@@ -450,4 +475,3 @@ Confirmar la rama remota antes de publicar, porque el sitio puede estar tomando
    automatica desde `localStorage`.
 10. Si se agregan tablas o funciones Convex, desplegar/sincronizar Convex antes
     de validar en la interfaz.
-
