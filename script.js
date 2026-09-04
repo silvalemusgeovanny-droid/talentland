@@ -3478,6 +3478,12 @@ function getAuditTypeLabel(type = "") {
     USUARIO_INHABILITADO: "Usuario inhabilitado",
     VENTA_EDITADA: "Venta editada",
     VENTA_ELIMINADA: "Venta eliminada",
+    BOT_CHAT_NO_AUTORIZADO: "Chat no autorizado",
+    BOT_CLIENTE_GUARDADO: "Caso de cliente guardado",
+    BOT_COMANDO: "Comando del bot",
+    BOT_ERROR_EXA: "Error de Exa",
+    BOT_ERROR_GEMINI: "Error de Gemini",
+    BOT_ERROR_TELEGRAM: "Error de Telegram",
   };
   return labels[type] || String(type || "Movimiento");
 }
@@ -3513,6 +3519,35 @@ function renderAuditMovementHistory(logs) {
             </article>
           `;
         }).join("") : `<p class="hint">Todavia no hay movimientos de auditoria.</p>`}
+      </div>
+    </section>
+  `;
+}
+
+function renderBotLogHistory(logs) {
+  const rows = logs.slice(0, 20);
+  return `
+    <section class="statistics-list-group">
+      <h3>Bitacora del bot</h3>
+      <div class="compact-list statistics-list statistics-list-tall">
+        ${rows.length ? rows.map((log) => {
+          const data = parseAuditData(log);
+          const details = [
+            data.command ? `Comando ${data.command}` : "",
+            data.caseType ? `Caso ${data.caseType}` : "",
+            Array.isArray(data.relatedRepairs) && data.relatedRepairs.length ? `Reparaciones ${data.relatedRepairs.map((item) => `#${item}`).join(", ")}` : "",
+            data.status ? `HTTP ${data.status}` : "",
+            data.error ? data.error : "",
+          ].filter(Boolean).join(" | ");
+          return `
+            <article class="compact-part-item">
+              <strong>${escapeHtml(getAuditTypeLabel(log.tipo))}</strong>
+              <span>${escapeHtml(formatRepairDateTimeInput(log.fecha))} | ${escapeHtml(log.usuario || "telegram-bot")}</span>
+              <span>${escapeHtml(log.descripcion || "Sin descripcion")}</span>
+              <span>${escapeHtml(details || getAuditDetail(log, data))}</span>
+            </article>
+          `;
+        }).join("") : `<p class="hint">Todavia no hay eventos del bot registrados.</p>`}
       </div>
     </section>
   `;
@@ -3559,7 +3594,7 @@ async function loadStatisticsSection(sectionName = "dashboard", options = {}) {
     const needsParts = needsAllStatistics || ["inventory", "alerts"].includes(sectionName);
     const needsRepairs = needsAllStatistics || ["repairs", "catalogPending"].includes(sectionName);
     const needsSales = needsAllStatistics || sectionName === "sales";
-    const needsAudit = needsAllStatistics || ["repairs", "sales", "users", "audit", "backups"].includes(sectionName);
+    const needsAudit = needsAllStatistics || ["repairs", "sales", "users", "bot", "audit", "backups"].includes(sectionName);
     const needsCatalogPending = needsAllStatistics || ["catalogPending", "alerts"].includes(sectionName);
     const [parts, repairs, sales, auditLogs, catalogPending] = await Promise.all([
       needsParts ? window.repairCloud.listParts() : Promise.resolve([]),
@@ -3590,6 +3625,10 @@ async function loadStatisticsSection(sectionName = "dashboard", options = {}) {
     const periodUserSecurityLogs = filterRecordsByPeriod(userSecurityLogs, periodConfig, "fecha");
     const blockedUserLogs = userSecurityLogs.filter((log) => log.tipo === "USUARIO_BLOQUEADO");
     const periodBlockedUserLogs = filterRecordsByPeriod(blockedUserLogs, periodConfig, "fecha");
+    const botLogs = auditLogs.filter((log) => String(log.tipo || "").startsWith("BOT_"));
+    const periodBotLogs = filterRecordsByPeriod(botLogs, periodConfig, "fecha");
+    const botErrorLogs = botLogs.filter((log) => String(log.tipo || "").startsWith("BOT_ERROR_"));
+    const periodBotErrorLogs = filterRecordsByPeriod(botErrorLogs, periodConfig, "fecha");
     const totalStock = periodParts.reduce((sum, part) => sum + getPartStock(part), 0);
     const inventoryCostCents = periodParts.reduce((sum, part) => sum + getMoneyCents(part, "price", "priceCents") * getPartStock(part), 0);
     const inventorySaleCents = periodParts.reduce((sum, part) => sum + getMoneyCents(part, "customerPrice", "customerPriceCents") * getPartStock(part), 0);
@@ -3626,6 +3665,7 @@ async function loadStatisticsSection(sectionName = "dashboard", options = {}) {
       { label: "Ediciones aprobadas", value: String(periodEditApprovalLogs.length), detail: `${editApprovalLogs.length} en auditoria` },
       { label: "Copias seguridad", value: String(periodCreatedBackupLogs.length), detail: `${backupLogs.length} eventos en auditoria` },
       { label: "Usuarios bloqueados", value: String(periodBlockedUserLogs.length), detail: `${blockedUserLogs.length} eventos historicos` },
+      { label: "Eventos bot", value: String(periodBotLogs.length), detail: `${botLogs.length} en bitacora` },
       { label: "Alertas", value: String(lowStockParts.length + zeroStockParts.length + catalogPending.length + (canViewPartCost() && canViewPartCustomerPrice() ? priceIssues.length : 0)), detail: "Stock, precios y catalogo" },
     ].filter(Boolean));
 
@@ -3721,6 +3761,18 @@ async function loadStatisticsSection(sectionName = "dashboard", options = {}) {
       return;
     }
 
+    if (sectionName === "bot") {
+      statisticsSummary.textContent = `${periodBotLogs.length} eventos del bot`;
+      statisticsHint.textContent = `Bitacora ${periodConfig.label.toLowerCase()}`;
+      renderStatisticCards([
+        { label: "Eventos del bot", value: String(periodBotLogs.length), detail: `${botLogs.length} historicos visibles` },
+        { label: "Errores", value: String(periodBotErrorLogs.length), detail: `${botErrorLogs.length} historicos visibles` },
+        { label: "Casos cliente", value: String(periodBotLogs.filter((log) => log.tipo === "BOT_CLIENTE_GUARDADO").length), detail: "Guardados por /cliente" },
+      ]);
+      statisticsLists.innerHTML = renderBotLogHistory(periodBotLogs.length ? periodBotLogs : botLogs);
+      return;
+    }
+
     if (sectionName === "audit") {
       const periodAuditLogs = filterRecordsByPeriod(auditLogs, periodConfig, "fecha");
       const deletionLogs = auditLogs.filter((log) => String(log.tipo || "").includes("ELIMINADA") || String(log.tipo || "").includes("ELIMINADO"));
@@ -3813,6 +3865,7 @@ async function loadStatisticsSection(sectionName = "dashboard", options = {}) {
     `;
     statisticsLists.innerHTML = [
       renderUserSecurityHistory(periodUserSecurityLogs.length ? periodUserSecurityLogs : userSecurityLogs),
+      renderBotLogHistory(periodBotLogs.length ? periodBotLogs : botLogs),
       renderBackupHistory(periodBackupLogs.length ? periodBackupLogs : backupLogs),
       renderSaleInvoiceHistory(saleInvoiceLogs),
       renderEditApprovalHistory(editApprovalLogs),

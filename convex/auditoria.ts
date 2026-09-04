@@ -22,6 +22,25 @@ export const registrar = mutation({
   },
 });
 
+export const registrarBot = mutation({
+  args: {
+    sessionToken: v.string(),
+    tipo: v.string(),
+    descripcion: v.string(),
+    datos: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    await requireModuleWrite(ctx, args.sessionToken, "notes");
+    await ctx.db.insert("auditoria", {
+      tipo: args.tipo,
+      descripcion: args.descripcion,
+      usuario: "telegram-bot",
+      datos: args.datos || "",
+      fecha: new Date().toISOString(),
+    });
+  },
+});
+
 export const obtener = query({
   args: {
     sessionToken: v.string(),
