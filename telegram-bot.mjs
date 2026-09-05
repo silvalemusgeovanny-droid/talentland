@@ -1,3 +1,4 @@
+import { canAccess, userModules, availableCommands } from './bot-access.js';
 import { readFileSync, existsSync } from "node:fs";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
@@ -23,7 +24,6 @@ const EXA_FETCH_TIMEOUT_MS = Number(process.env.EXA_FETCH_TIMEOUT_MS || 12000);
 const REQUIRE_AUTH = process.env.TELEGRAM_REQUIRE_AUTH !== "false";
 const SILENT_UNAUTHORIZED = process.env.TELEGRAM_SILENT_UNAUTHORIZED !== "false";
 const CONVERSATION_MEMORY_LIMIT = Number(process.env.CONVERSATION_MEMORY_LIMIT || 8);
-const ONLY_PARTS_MODE = process.env.TELEGRAM_ONLY_PARTS !== "false";
 const TELEGRAM_APP_USERNAME = process.env.TELEGRAM_APP_USERNAME;
 const TELEGRAM_APP_PASSWORD = process.env.TELEGRAM_APP_PASSWORD;
 const KNOWN_BRANDS = new Map([
@@ -60,19 +60,8 @@ if (!CONVEX_URL) {
 
 const convex = new ConvexHttpClient(CONVEX_URL);
 const telegramApi = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}`;
-const mainMenuReplyMarkup = {
-  keyboard: [
-    [{ text: "/repuestos" }, { text: "/precio" }],
-    [{ text: "/stock_bajo" }, { text: "/resumen" }],
-    [{ text: "/pendientes" }, { text: "/cliente" }],
-    [{ text: "/ia" }, { text: "/mi_usuario" }],
-    [{ text: "/estado" }, { text: "/ayuda" }],
-    [{ text: "/cancelar" }],
-  ],
-  resize_keyboard: true,
-  one_time_keyboard: false,
-  input_field_placeholder: "Elige una opcion o escribe tu consulta",
-};
+
+
 const forceReplyMarkup = {
   force_reply: true,
   input_field_placeholder: "Escribe aqui la informacion solicitada",
@@ -98,15 +87,10 @@ const BUSINESS_CONTEXT = [
   "El inventario relevante para el bot son piezas y refacciones: pantallas, baterias, displays, modulos y categorias similares.",
   "Los precios internos y datos operativos deben tratarse como informacion restringida segun permisos de usuario.",
 ];
-const ACTIVE_BOT_SCOPE = ONLY_PARTS_MODE
-  ? [
-      "Alcance activo del bot: consultas de repuestos, inventario, stock, precio a cliente final cuando haya permisos, resumenes y pendientes para usuarios autorizados.",
-      "Los flujos de reparaciones, notas y atencion a clientes estan preparados parcialmente, pero pueden requerir revision manual o permisos administrativos.",
-    ]
-  : [
-      "Alcance activo del bot: consultas de repuestos, inventario, stock, precio a cliente final, reparaciones, notas, resumenes y pendientes segun permisos.",
-      "La atencion a clientes todavia debe escalarse si requiere decisiones, garantias, quejas o informacion no registrada.",
-    ];
+const ACTIVE_BOT_SCOPE = [
+  "El acceso depende de los modulos del usuario conectado. No sugieras comandos fuera de su lista autorizada.",
+  "La atencion a clientes requiere revision humana para decisiones de garantias y quejas.",
+];
 const BOT_MESSAGES = {
   unknownCommand: "No reconozco ese comando. Usa /ayuda para ver las opciones disponibles.",
   missingContext: "No entiendo completamente el contexto de tu solicitud. Por favor proporciona mas detalles.",
@@ -276,10 +260,14 @@ async function handleUpdate(update) {
     return;
   }
 
+  if (message.chat.type !== 'private') {
+    await sendMessage(chatId, 'Para usar tu sesion del sistema, abre un chat privado con el bot.');
+    return;
+  }
   try {
-    recordBotAuditEvent("BOT_COMANDO", `Comando recibido: ${command}`, {
+    recordBotAuditEvent("BOT_COMANDO", `Comando recibido: ${text.startsWith("/") ? command : "texto"}`, {
       chatId,
-      command,
+      command: text.startsWith("/") ? command : "texto",
       hasArgs: Boolean(args),
     });
     const pendingIntent = pendingIntentByChat.get(String(chatId));
@@ -357,14 +345,13 @@ async function handleUpdate(update) {
       case "/reparacion":
       case "/notas":
       case "/nota":
-        if (ONLY_PARTS_MODE) {
-          await sendOnlyPartsMessage(chatId);
-          break;
-        }
         if (command === "/reparaciones") await searchRepairs(chatId, args);
         if (command === "/reparacion") await searchRepairByNumber(chatId, args);
         if (command === "/notas") await listNotes(chatId);
-        if (command === "/nota") await createNote(chatId, message.from, args);
+        if (command === "/nota") {
+          if (args) await createNote(chatId, message.from, args);
+          else await listNotes(chatId);
+        }
         break;
       case "/repuestos":
       case "/inventario":
@@ -399,7 +386,7 @@ async function handleUpdate(update) {
         await routeNaturalMessage(chatId, text);
     }
   } catch (error) {
-    logError("telegram", `Error atendiendo ${command}.`, error, { chatId });
+    logError("telegram", `Error atendiendo ${text.startsWith('/') ? command : 'texto'}.`, error, { chatId });
     if (error.code === "MISSING_BOT_CREDENTIALS") {
       await sendMessage(
         chatId,
@@ -411,6 +398,10 @@ async function handleUpdate(update) {
       await sendMessage(chatId, BOT_MESSAGES.loginRequired);
       return;
     }
+    if (error.code === 'MODULE_REQUIRED') {
+      await sendMessage(chatId, error.message);
+      return;
+    }
     if (error.code === "ADMIN_REQUIRED") {
       await sendMessage(chatId, BOT_MESSAGES.adminRequired);
       return;
@@ -419,84 +410,19 @@ async function handleUpdate(update) {
   }
 }
 
-async function sendHelp(chatId) {
-  await sendMessage(
-    chatId,
-    formatTemplate({
-      title: "Bot Doctor Movil",
-      subtitle: "Asistente tecnico para consultas de inventario y soporte operativo.",
-      sections: [
-        {
-          title: "Comandos",
-          lines: [
-            "/menu - muestra botones para no recordar comandos",
-            "/buscar texto - busca repuestos por nombre, marca, modelo o categoria",
-            "/repuestos texto - busca repuestos por nombre, marca, modelo o categoria",
-            "/stock texto - igual que repuestos, pero solo con existencia",
-            "/stock_bajo - lista repuestos agotados o con poca existencia",
-            "/precio texto - muestra el precio a cliente final",
-            "/resumen - muestra un resumen operativo del dia",
-            "/pendientes - lista reparaciones listas, por vencer y catalogo pendiente",
-            "/cliente texto - prepara un caso para atencion a clientes o revision manual",
-            "/estado - muestra configuracion activa sin revelar secretos",
-            "/login - inicia sesion con tu usuario del sistema",
-            "/logout - cierra la sesion de este chat",
-            "/mi_usuario - muestra con que usuario estas conectado",
-            "/ia pregunta - responde con IA usando Convex y referencias web si EXA_API_KEY esta configurado",
-            "/web pregunta - fuerza busqueda externa con Exa",
-            "/investigar pregunta - igual que /web",
-            "/mi_chat_id - muestra el ID para autorizar este chat",
-            "/reset - borra la memoria conversacional del chat",
-          ],
-        },
-        {
-          title: "Ejemplos",
-          lines: ["/buscar samsung a12", "/repuestos iphone 11", "/stock pantalla motorola", "/precio samsung a12", "/resumen", "/pendientes"],
-        },
-        {
-          title: "Criterios de respuesta",
-          lines: [
-            "- No inventa precios, productos ni disponibilidad.",
-            "- Si falta informacion, solicita una aclaracion concreta.",
-            "- Si un dato no esta registrado, lo indica sin asumir.",
-            "- Usa Convex como fuente principal para inventario y precios.",
-          ],
-        },
-      ],
-      footer: "Tambien puedes escribir una pregunta normal sobre repuestos o inventario.",
-    }),
-    { reply_markup: mainMenuReplyMarkup },
-  );
-}
-
+async function sendHelp(chatId) { await sendMenu(chatId); }
 async function sendMenu(chatId) {
-  await sendMessage(
-    chatId,
-    formatTemplate({
-      title: "Menu principal",
-      subtitle: "Doctor Movil - asistente operativo",
-      sections: [
-        {
-          title: "Selecciona una opcion del teclado",
-          lines: [
-            "/repuestos - buscar una pieza por marca, modelo o categoria",
-            "/precio - consultar precio a cliente final",
-            "/stock_bajo - ver piezas agotadas o con poca existencia",
-            "/resumen - ver resumen operativo del dia",
-            "/pendientes - revisar pendientes operativos",
-            "/cliente - preparar caso de atencion a clientes",
-            "/ia - hacer una consulta tecnica con contexto del inventario",
-            "/web - investigar con referencias externas",
-            "/mi_usuario - ver tu sesion actual",
-            "/estado - revisar configuracion activa del bot",
-            "/ayuda - ver la lista completa de comandos",
-          ],
-        },
-      ],
-      footer: "Tambien puedes escribir directamente algo como: pantalla iPhone 11.",
-    }),
-    { reply_markup: mainMenuReplyMarkup },
-  );
+  const session = await getActiveChatSession(chatId);
+  const commands = availableCommands(session?.user);
+  const keyboard = [];
+  for (let i = 0; i < commands.length; i += 2) keyboard.push(commands.slice(i, i + 2).map(text => ({ text })));
+  await sendMessage(chatId, [
+    'Menu del bot',
+    session ? 'Usuario: ' + session.user.username + ' | Rol: ' + session.user.role : 'Inicia sesion con /login para consultar datos del sistema.',
+    session ? 'Modulos del sistema (' + userModules(session.user).length + '): ' + userModules(session.user).join(', ') : '',
+    'Comandos disponibles:', ...commands,
+    'Los modulos sin comandos propios se consultan desde la web.',
+  ].filter(Boolean).join('\n'), { reply_markup: { keyboard, resize_keyboard: true } });
 }
 
 async function sendOnlyPartsMessage(chatId) {
@@ -549,6 +475,7 @@ async function routeNaturalMessage(chatId, text) {
 }
 
 async function handleCustomerSupportRequest(chatId, text, from) {
+  const session = await requireChatModule(chatId, 'notes', true);
   if (!text) {
     pendingIntentByChat.set(String(chatId), { type: "customer_support" });
     await sendMessage(chatId, BOT_MESSAGES.customerSupportPrompt, { reply_markup: forceReplyMarkup });
@@ -556,7 +483,7 @@ async function handleCustomerSupportRequest(chatId, text, from) {
   }
 
   await sendChatAction(chatId, "typing");
-  const relatedRepairs = await findCustomerSupportRepairs(text).catch((error) => {
+  const relatedRepairs = await (canAccess(session.user, 'repairs') ? findCustomerSupportRepairs(chatId, text) : Promise.resolve([])).catch((error) => {
     logError("convex", "No se pudieron consultar reparaciones para /cliente.", error, { chatId });
     return [];
   });
@@ -577,10 +504,10 @@ async function createCustomerSupportNote({ chatId, from, text, caseType, related
     .map((repair) => `#${repair.repairNumber}`)
     .join(", ");
 
-  await ensureConvexSession();
+  const session = await requireChatModule(chatId, 'notes', true);
 
   await convex.mutation(api.notas.create, {
-    sessionToken: convexSessionToken,
+    sessionToken: session.sessionToken,
     sourceId: `telegram:cliente:${chatId}:${now}`,
     text: [
       `[Cliente] ${caseType}`,
@@ -605,12 +532,13 @@ async function createCustomerSupportNote({ chatId, from, text, caseType, related
 }
 
 async function searchRepairs(chatId, search) {
+  await requireChatModule(chatId, 'repairs');
   if (!search) {
     await sendMessage(chatId, BOT_MESSAGES.repairSearchQualifier);
     return;
   }
 
-  const repairs = await listRepairsForBot({ search, limit: 20 });
+  const repairs = await listRepairsForBot(chatId, { search, limit: 20 });
 
   if (repairs.length === 0) {
     await sendMessage(chatId, BOT_MESSAGES.noRepairsFound);
@@ -621,13 +549,14 @@ async function searchRepairs(chatId, search) {
 }
 
 async function searchRepairByNumber(chatId, repairNumber) {
+  await requireChatModule(chatId, 'repairs');
   const normalized = repairNumber.trim();
   if (!/^\d+$/.test(normalized)) {
     await sendMessage(chatId, BOT_MESSAGES.repairNumberQualifier);
     return;
   }
 
-  const repairs = await listRepairsForBot({ search: normalized, limit: 20 });
+  const repairs = await listRepairsForBot(chatId, { search: normalized, limit: 20 });
   const exact = repairs.filter((repair) => String(repair.repairNumber) === normalized);
 
   if (exact.length === 0) {
@@ -638,93 +567,31 @@ async function searchRepairByNumber(chatId, repairNumber) {
   await sendMessage(chatId, formatRepairs(exact.slice(0, MAX_RESULTS)));
 }
 
-async function sendDailySummary(chatId) {
-  await requireRootOrAdminChat(chatId);
-  await sendChatAction(chatId, "typing");
-
-  const [parts, repairs, pendingCatalog, notes] = await Promise.all([
-    listPartsForBot(chatId),
-    listRepairsForBot({ limit: 1000 }),
-    listCatalogPendingForBot(),
-    listNotesForBot().catch(() => []),
-  ]);
-
-  const now = new Date();
-  const todayRepairs = repairs.filter((repair) => isSameLocalDay(repair.createdAt, now));
-  const deliveredToday = repairs.filter((repair) => isSameLocalDay(repair.deliveredAt, now));
-  const readyRepairs = getReadyRepairs(repairs);
-  const dueRepairs = getDueRepairAlerts(repairs);
-  const lowStockParts = getLowStockParts(parts);
-  const pendingNotes = notes.filter((note) => !note.done);
-  const todayIncome = todayRepairs.reduce((total, repair) => total + Number(repair.repairPrice || 0), 0);
-
-  await sendMessage(
-    chatId,
-    [
-      "Resumen de hoy",
-      "",
-      `Reparaciones ingresadas: ${todayRepairs.length}`,
-      `Reparaciones entregadas: ${deliveredToday.length}`,
-      `Ingreso potencial de reparaciones nuevas: ${formatCurrency(todayIncome)}`,
-      `Listas para entregar: ${readyRepairs.length}`,
-      `Por vencer o vencidas: ${dueRepairs.length}`,
-      `Pendientes de catalogo: ${pendingCatalog.length}`,
-      `Notas pendientes: ${pendingNotes.length}`,
-      `Repuestos con stock bajo: ${lowStockParts.length}`,
-      "",
-      formatShortRepairList("Listas para entregar", readyRepairs.slice(0, SUMMARY_RESULTS), { total: readyRepairs.length }),
-      formatShortRepairList("Por vencer o vencidas", dueRepairs.slice(0, SUMMARY_RESULTS), { total: dueRepairs.length }),
-      formatShortPartList("Stock bajo", lowStockParts.slice(0, SUMMARY_RESULTS), { total: lowStockParts.length }),
-    ]
-      .filter(Boolean)
-      .join("\n"),
-  );
+async function operationalReport(chatId, summary = false) {
+  const session = await requireChatModule(chatId, summary ? 'statistics' : undefined);
+  const user = session.user;
+  const sections = [];
+  if (canAccess(user, 'repairs')) {
+    const repairs = await listRepairsForBot(chatId, { limit: 1000 });
+    sections.push(formatShortRepairList('Listas para entregar', getReadyRepairs(repairs).slice(0, MAX_RESULTS)));
+    sections.push(formatShortRepairList('Por vencer o vencidas', getDueRepairAlerts(repairs).slice(0, MAX_RESULTS)));
+    if (summary) {
+      const today = repairs.filter(r => isSameLocalDay(r.createdAt, new Date()));
+      sections.push('Reparaciones ingresadas hoy: ' + today.length);
+      sections.push('Reparaciones entregadas hoy: ' + repairs.filter(r => isSameLocalDay(r.deliveredAt, new Date())).length);
+      sections.push('Ingreso potencial de reparaciones nuevas: ' + formatCurrency(today.reduce((sum, r) => sum + Number(r.repairPrice || 0), 0)));
+    }
+  }
+  if (canAccess(user, 'parts')) sections.push(formatShortPartList('Stock bajo', getLowStockParts(await listPartsForBot(chatId)).slice(0, MAX_RESULTS)));
+  if (canAccess(user, 'statistics')) sections.push(formatCatalogPending((await listCatalogPendingForBot(chatId)).slice(0, MAX_RESULTS)));
+  if (canAccess(user, 'notes')) sections.push('Notas pendientes: ' + (await listNotesForBot(chatId)).filter(n => !n.done).length);
+  await sendMessage(chatId, [summary ? 'Resumen de hoy' : 'Pendientes operativos', 'Solo se incluyen tus modulos autorizados.', ...sections.filter(Boolean), sections.length ? '' : 'No tienes modulos operativos disponibles.'].filter(Boolean).join('\n\n'));
 }
-
+async function sendDailySummary(chatId) { await operationalReport(chatId, true); }
+async function sendOperationalAlerts(chatId) { await operationalReport(chatId); }
 async function sendLowStock(chatId) {
-  await requireRootOrAdminChat(chatId);
-  const parts = await listPartsForBot(chatId);
-  const lowStockParts = getLowStockParts(parts).slice(0, MAX_RESULTS);
-
-  if (lowStockParts.length === 0) {
-    await sendMessage(chatId, `No encontre repuestos con stock de ${LOW_STOCK_THRESHOLD} o menos.`);
-    return;
-  }
-
-  await sendMessage(chatId, formatShortPartList(`Stock bajo (${LOW_STOCK_THRESHOLD} o menos)`, lowStockParts));
-}
-
-async function sendOperationalAlerts(chatId) {
-  await requireRootOrAdminChat(chatId);
-  await sendChatAction(chatId, "typing");
-
-  const [repairs, pendingCatalog, parts] = await Promise.all([
-    listRepairsForBot({ limit: 1000 }),
-    listCatalogPendingForBot(),
-    listPartsForBot(chatId),
-  ]);
-  const readyRepairs = getReadyRepairs(repairs).slice(0, MAX_RESULTS);
-  const dueRepairs = getDueRepairAlerts(repairs).slice(0, MAX_RESULTS);
-  const lowStockParts = getLowStockParts(parts).slice(0, MAX_RESULTS);
-
-  if (!readyRepairs.length && !dueRepairs.length && !pendingCatalog.length && !lowStockParts.length) {
-    await sendMessage(chatId, BOT_MESSAGES.noOperationalAlerts);
-    return;
-  }
-
-  await sendMessage(
-    chatId,
-    [
-      "Pendientes operativos",
-      "",
-      formatShortRepairList("Listas para entregar", readyRepairs),
-      formatShortRepairList("Por vencer o vencidas", dueRepairs),
-      formatCatalogPending(pendingCatalog.slice(0, MAX_RESULTS)),
-      formatShortPartList("Stock bajo", lowStockParts),
-    ]
-      .filter(Boolean)
-      .join("\n\n"),
-  );
+  const parts = getLowStockParts(await listPartsForBot(chatId)).slice(0, MAX_RESULTS);
+  await sendMessage(chatId, parts.length ? formatShortPartList('Stock bajo', parts) : 'No hay repuestos con stock bajo.');
 }
 
 async function loginChatUser(chatId, args) {
@@ -757,9 +624,11 @@ async function completeChatLogin(chatId, username, password) {
     sessionToken,
   });
 
+  conversationHistoryByChat.delete(String(chatId));
   userSessionByChat.set(String(chatId), { sessionToken, user });
   pendingIntentByChat.delete(String(chatId));
   await sendMessage(chatId, `Sesion iniciada como ${user.username}. Si necesitas ayuda usa /menu.`);
+  await sendMenu(chatId);
 }
 
 async function logoutChatUser(chatId) {
@@ -770,7 +639,9 @@ async function logoutChatUser(chatId) {
 
   userSessionByChat.delete(String(chatId));
   pendingIntentByChat.delete(String(chatId));
+  conversationHistoryByChat.delete(String(chatId));
   await sendMessage(chatId, BOT_MESSAGES.loggedOut);
+  await sendMenu(chatId);
 }
 
 async function sendBotStatus(chatId) {
@@ -792,7 +663,7 @@ async function sendBotStatus(chatId) {
         {
           title: "Modo operativo",
           lines: [
-            `Solo repuestos: ${ONLY_PARTS_MODE ? "si" : "no"}`,
+            `Acceso: segun los modulos del usuario conectado`,
             `Resultados maximos: ${MAX_RESULTS}`,
             `Resumenes maximos: ${SUMMARY_RESULTS}`,
             `Stock bajo: ${LOW_STOCK_THRESHOLD} o menos`,
@@ -817,7 +688,7 @@ async function sendCurrentChatUser(chatId) {
     return;
   }
 
-  const modules = Array.isArray(session.user.modules) ? session.user.modules : [];
+  const modules = userModules(session.user);
   await sendMessage(
     chatId,
     [`Estas conectado como ${session.user.username}.`, `Rol: ${session.user.role}`, modules.length ? `Permisos: ${modules.join(", ")}` : null]
@@ -827,6 +698,7 @@ async function sendCurrentChatUser(chatId) {
 }
 
 async function searchParts(chatId, search, options = {}) {
+  await getPartsSessionToken(chatId, { requirePrices: options.priceOnly });
   if (needsPartQualifier(search)) {
     pendingIntentByChat.set(String(chatId), {
       type: "parts_search",
@@ -866,23 +738,27 @@ async function searchParts(chatId, search, options = {}) {
 }
 
 async function listNotes(chatId) {
-  const notes = await listNotesForBot();
-  const pendingNotes = notes.filter((note) => !note.done).slice(0, MAX_RESULTS);
+  const session = await requireChatModule(chatId, 'notes');
+  const notes = await listNotesForBot(chatId);
+  const visibleNotes = notes.slice(0, MAX_RESULTS);
 
-  if (pendingNotes.length === 0) {
-    await sendMessage(chatId, BOT_MESSAGES.noNotes);
+  if (visibleNotes.length === 0) {
+    await sendMessage(chatId, session.user.role === 'root' ? 'No hay notas registradas.' : 'No tienes notas registradas con tu usuario.');
     return;
   }
 
   await sendMessage(
     chatId,
-    pendingNotes
-      .map((note, index) => `${index + 1}. ${note.text}\nPor: ${note.authorName || note.authorUsername}`)
-      .join("\n\n"),
+    [session.user.role === 'root' ? 'Notas de todos los usuarios' : `Mis notas (${session.user.username})`,
+      `Mostrando ${visibleNotes.length} de ${notes.length}${notes.length === 500 ? ' o mas' : ''}.`,
+      ...visibleNotes.map((note, index) => `${index + 1}. [${note.done ? 'Completada' : 'Pendiente'}] ${note.text}\nPor: ${note.authorName || note.authorUsername}`),
+      'Para crear una nota: /nota texto de la nota',
+    ].join("\n\n"),
   );
 }
 
 async function createNote(chatId, from, text) {
+  await requireChatModule(chatId, 'notes', true);
   if (!text) {
     await sendMessage(chatId, BOT_MESSAGES.noteQualifier);
     return;
@@ -892,10 +768,10 @@ async function createNote(chatId, from, text) {
   const authorUsername = from?.username ? `@${from.username}` : String(from?.id || "telegram");
   const now = new Date().toISOString();
 
-  await ensureConvexSession();
+  const session = await requireChatModule(chatId, 'notes', true);
 
   await convex.mutation(api.notas.create, {
-    sessionToken: convexSessionToken,
+    sessionToken: session.sessionToken,
     sourceId: `telegram:${from?.id || "unknown"}:${now}`,
     text,
     authorName,
@@ -909,6 +785,7 @@ async function createNote(chatId, from, text) {
 }
 
 async function answerWithAi(chatId, question, options = {}) {
+  const session = await requireChatModule(chatId);
   if (!GOOGLE_AI_API_KEY) {
     await sendMessage(chatId, BOT_MESSAGES.aiNotConfigured);
     return;
@@ -943,7 +820,7 @@ async function answerWithAi(chatId, question, options = {}) {
 
   await sendChatAction(chatId, "typing");
 
-  const contextResult = await buildBusinessContext(question, options);
+  const contextResult = await buildBusinessContext(chatId, question, options);
   const context = contextResult.text;
   const history = getConversationHistory(chatId);
   const prompt = [
@@ -954,6 +831,7 @@ async function answerWithAi(chatId, question, options = {}) {
     "",
     "Alcance actual:",
     ...ACTIVE_BOT_SCOPE,
+    `Comandos autorizados: ${availableCommands(session.user).join(', ')}`,
     "Usa el contexto interno de Convex como fuente principal para stock, precios e inventario real.",
     "Usa las referencias web solo como informacion externa de apoyo.",
     "Distingue claramente entre inventario interno y referencias de internet.",
@@ -977,8 +855,9 @@ async function answerWithAi(chatId, question, options = {}) {
   await sendMessage(chatId, appendExternalReferenceStatus(answer, contextResult.web));
 }
 
-async function buildBusinessContext(question, options = {}) {
-  const parts = await listPartsForBot(null).catch(() => []);
+async function buildBusinessContext(chatId, question, options = {}) {
+  const session = await requireChatModule(chatId);
+  const parts = canAccess(session.user, 'parts') ? await listPartsForBot(chatId) : [];
   const matchingParts = findMatchingParts(parts, question).slice(0, 12);
   const lowStockParts = parts.filter((part) => Number(part.stock) <= 2).slice(0, 12);
   const shouldUseWeb = shouldUseWebReferences(question, matchingParts, options);
@@ -1058,70 +937,59 @@ async function getActiveChatSession(chatId) {
   const user = await convex.query(api.auth.currentSession, { sessionToken: session.sessionToken }).catch(() => null);
   if (!user) {
     userSessionByChat.delete(String(chatId));
+    conversationHistoryByChat.delete(String(chatId));
+    pendingIntentByChat.delete(String(chatId));
     return null;
   }
 
+  if (JSON.stringify(session.user) !== JSON.stringify(user)) conversationHistoryByChat.delete(String(chatId));
   session.user = user;
   userSessionByChat.set(String(chatId), session);
   return session;
 }
 
-async function requireRootOrAdminChat(chatId) {
+async function requireChatModule(chatId, module, write = false) {
   const session = await getActiveChatSession(chatId);
-  if (!session) {
-    const error = new Error("Sesion requerida.");
-    error.code = "LOGIN_REQUIRED";
-    throw error;
+  if (!session) throw Object.assign(new Error(BOT_MESSAGES.loginRequired), { code: 'LOGIN_REQUIRED' });
+  if (module && !canAccess(session.user, module, write)) {
+    throw Object.assign(new Error('Tu usuario no tiene permiso ' + (write ? 'de escritura' : 'de lectura') + ' en el modulo ' + module + '.'), { code: 'MODULE_REQUIRED' });
   }
-
-  if (!["root", "admin", "administrador"].includes(normalize(session.user.role))) {
-    const error = new Error("Solo root o administrador pueden ver estos datos.");
-    error.code = "ADMIN_REQUIRED";
-    throw error;
-  }
-
   return session;
 }
-
 async function getPartsSessionToken(chatId, options = {}) {
-  const chatSession = await getActiveChatSession(chatId);
-  if (chatSession?.sessionToken) return chatSession.sessionToken;
-
-  if (!TELEGRAM_APP_USERNAME || !TELEGRAM_APP_PASSWORD) {
-    if (options.requirePrices) {
-      const error = new Error("Faltan credenciales para mostrar precios.");
-      error.code = "MISSING_BOT_CREDENTIALS";
-      throw error;
-    }
-    return "";
-  }
-
-  await ensureConvexSession();
-  return convexSessionToken;
+  const session = await requireChatModule(chatId, 'parts');
+  if (options.requirePrices) await requireChatModule(chatId, 'partsCustomerPrice');
+  return session.sessionToken;
 }
-
 async function listPartsForBot(chatId, options = {}) {
   const sessionToken = await getPartsSessionToken(chatId, options);
-  return await convex.query(api.repuestos.list, sessionToken ? { sessionToken } : {});
-}
-
-async function listRepairsForBot(options = {}) {
-  await ensureConvexSession();
-  return await convex.query(api.reparaciones.list, {
-    sessionToken: convexSessionToken,
-    search: options.search,
-    limit: options.limit || 1000,
+  const session = await requireChatModule(chatId, 'parts');
+  const parts = await convex.query(api.repuestos.list, { sessionToken });
+  return parts.map(part => {
+    const result = { ...part };
+    if (!canAccess(session.user, 'partsCustomerPrice')) {
+      delete result.customerPrice;
+      delete result.customerPriceCents;
+    }
+    if (!canAccess(session.user, 'partsCost')) {
+      delete result.price;
+      delete result.priceCents;
+    }
+    return result;
   });
 }
-
-async function listNotesForBot() {
-  await ensureConvexSession();
-  return await convex.query(api.notas.list, { sessionToken: convexSessionToken });
+async function listRepairsForBot(chatId, options = {}) {
+  const session = await requireChatModule(chatId, 'repairs');
+  return convex.query(api.reparaciones.list, { sessionToken: session.sessionToken, ...options });
 }
-
-async function listCatalogPendingForBot() {
-  await ensureConvexSession();
-  return await convex.query(api.catalogoPendientes.list, { sessionToken: convexSessionToken, status: "pending", limit: 100 });
+async function listNotesForBot(chatId) {
+  const session = await requireChatModule(chatId, 'notes');
+  const notes = await convex.query(api.notas.listForBot, { sessionToken: session.sessionToken });
+  return session.user.role === 'root' ? notes : notes.filter(note => note.authorUsername === session.user.username);
+}
+async function listCatalogPendingForBot(chatId) {
+  const session = await requireChatModule(chatId, 'statistics');
+  return convex.query(api.catalogoPendientes.list, { sessionToken: session.sessionToken, status: 'pending', limit: 100 });
 }
 
 async function askGemini(prompt) {
@@ -1184,7 +1052,7 @@ function formatParts(parts, options = {}) {
         `${part.brand} ${part.model} - ${part.category}`,
         `Calidad: ${part.quality}`,
         `Stock: ${part.stock}`,
-        `Cliente: ${formatCustomerPriceLabel(part)}`,
+        part.customerPrice !== undefined || part.customerPriceCents !== undefined ? `Cliente: ${formatCustomerPriceLabel(part)}` : null,
         part.supplier ? `Proveedor: ${part.supplier}` : null,
       ]
         .filter(Boolean)
@@ -1323,8 +1191,8 @@ function detectCustomerSupportCaseType(value) {
   return "atencion a clientes";
 }
 
-async function findCustomerSupportRepairs(text) {
-  const repairs = await listRepairsForBot({ limit: 1000 });
+async function findCustomerSupportRepairs(chatId, text) {
+  const repairs = await listRepairsForBot(chatId, { limit: 1000 });
   return repairs
     .map((repair) => ({ repair, score: scoreCustomerSupportRepair(repair, text) }))
     .filter(({ score }) => score > 0)
@@ -2109,6 +1977,8 @@ function recordBotAuditEvent(tipo, descripcion, datos = {}) {
 }
 
 export {
+  handleUpdate,
+  buildBusinessContext,
   INTENT_TYPES,
   appendExternalReferenceStatus,
   detectCustomerSupportCaseType,

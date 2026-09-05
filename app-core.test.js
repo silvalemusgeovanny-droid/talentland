@@ -28,6 +28,26 @@ beforeEach(() => {
 });
 
 describe("shared application core", () => {
+  it("signs in through Convex without seeding users or requiring a setup secret", async () => {
+    const user = { username: 'ana', role: 'user' };
+    window.repairCloud = {
+      isConfigured: () => true,
+      seedUsers: vi.fn().mockRejectedValue(new Error('setupSecret requerido')),
+      login: vi.fn().mockResolvedValue(user),
+    };
+    await expect(session.signIn('ana', 'password')).resolves.toEqual(user);
+    expect(window.repairCloud.seedUsers).not.toHaveBeenCalled();
+    expect(window.repairCloud.login).toHaveBeenCalledWith('ana', 'password', expect.any(String));
+    expect(session.getAuthMode()).toBe('convex');
+  });
+  it("does not create a session when Convex rejects credentials", async () => {
+    window.repairCloud = {
+      isConfigured: () => true,
+      login: vi.fn().mockRejectedValue(new Error('Credenciales incorrectas')),
+    };
+    await expect(session.signIn('ana', 'wrong')).rejects.toThrow('Credenciales incorrectas');
+    expect(session.getToken()).toBeNull();
+  });
   it("keeps activador read-only in Repuestos", () => {
     const user = { role: "activador", modules: ["parts"] };
     expect(permissions.canAccess(user, "parts")).toBe(true);
