@@ -3533,6 +3533,8 @@ function renderBotLogHistory(logs) {
           const data = parseAuditData(log);
           const details = [
             data.command ? `Comando ${data.command}` : "",
+            data.telegramUsername ? `Ejecutado por ${data.telegramUsername}` : (data.telegramName ? `Ejecutado por ${data.telegramName}` : ""),
+            data.telegramUserId ? `ID ${data.telegramUserId}` : "",
             data.caseType ? `Caso ${data.caseType}` : "",
             Array.isArray(data.relatedRepairs) && data.relatedRepairs.length ? `Reparaciones ${data.relatedRepairs.map((item) => `#${item}`).join(", ")}` : "",
             data.status ? `HTTP ${data.status}` : "",

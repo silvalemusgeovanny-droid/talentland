@@ -270,6 +270,9 @@ async function handleUpdate(update) {
       chatId,
       command: text.startsWith("/") ? command : "texto",
       hasArgs: Boolean(args),
+      telegramUserId: message.from?.id,
+      telegramUsername: message.from?.username ? `@${message.from.username}` : "",
+      telegramName: [message.from?.first_name, message.from?.last_name].filter(Boolean).join(" "),
     });
     const pendingIntent = pendingIntentByChat.get(String(chatId));
     if (pendingIntent && pendingIntent.type === "login_username" && !text.startsWith("/")) {
