@@ -1973,6 +1973,7 @@ function recordBotAuditEvent(tipo, descripcion, datos = {}) {
         sessionToken: convexSessionToken,
         tipo,
         descripcion,
+        usuario: datos.telegramUsername || datos.telegramName || (datos.telegramUserId ? `telegram:${datos.telegramUserId}` : "telegram-bot"),
         datos: JSON.stringify(redactLogDetails(datos)),
       }))
       .catch((error) => {

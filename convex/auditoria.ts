@@ -27,6 +27,7 @@ export const registrarBot = mutation({
     sessionToken: v.string(),
     tipo: v.string(),
     descripcion: v.string(),
+    usuario: v.optional(v.string()),
     datos: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
@@ -34,7 +35,7 @@ export const registrarBot = mutation({
     await ctx.db.insert("auditoria", {
       tipo: args.tipo,
       descripcion: args.descripcion,
-      usuario: "telegram-bot",
+      usuario: args.usuario || "telegram-bot",
       datos: args.datos || "",
       fecha: new Date().toISOString(),
     });
