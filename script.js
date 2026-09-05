@@ -3761,9 +3761,12 @@ async function loadStatisticsSection(sectionName = "dashboard", options = {}) {
     }
 
     if (sectionName === "bot") {
+      const latestBotLog = botLogs[0];
+      const botOnline = latestBotLog?.tipo === "BOT_INICIO";
       statisticsSummary.textContent = `${periodBotLogs.length} eventos del bot`;
       statisticsHint.textContent = `Bitacora ${periodConfig.label.toLowerCase()}`;
       renderStatisticCards([
+        { label: "Estado del bot", value: botOnline ? "En linea" : "Detenido", detail: latestBotLog ? `Ultimo evento: ${latestBotLog.tipo}` : "Sin eventos registrados" },
         { label: "Eventos del bot", value: String(periodBotLogs.length), detail: `${botLogs.length} historicos visibles` },
         { label: "Errores", value: String(periodBotErrorLogs.length), detail: `${botErrorLogs.length} historicos visibles` },
         { label: "Casos cliente", value: String(periodBotLogs.filter((log) => log.tipo === "BOT_CLIENTE_GUARDADO").length), detail: "Guardados por /cliente" },
