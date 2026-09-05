@@ -203,6 +203,7 @@ if (isDirectRun && process.argv.includes("--self-test")) {
 
 async function main() {
   logInfo("telegram", "Bot de Telegram iniciado.");
+  recordBotAuditEvent("BOT_INICIO", "Bot de Telegram iniciado.", { pid: process.pid });
   if (ALLOWED_CHAT_IDS.size === 0) {
     logWarn("telegram", "TELEGRAM_ALLOWED_CHAT_IDS no esta definido: solo /mi_chat_id estara disponible.");
   }
@@ -985,7 +986,8 @@ async function listRepairsForBot(chatId, options = {}) {
 async function listNotesForBot(chatId) {
   const session = await requireChatModule(chatId, 'notes');
   const notes = await convex.query(api.notas.listForBot, { sessionToken: session.sessionToken });
-  return session.user.role === 'root' ? notes : notes.filter(note => note.authorUsername === session.user.username);
+  const pendingNotes = notes.filter(note => !note.done);
+  return session.user.role === 'root' ? pendingNotes : pendingNotes.filter(note => note.authorUsername === session.user.username);
 }
 async function listCatalogPendingForBot(chatId) {
   const session = await requireChatModule(chatId, 'statistics');
@@ -1902,8 +1904,9 @@ function sleep(ms) {
   return new Promise((resolveSleep) => setTimeout(resolveSleep, ms));
 }
 
-function shutdown(signal) {
+async function shutdown(signal) {
   logInfo("telegram", `Bot detenido por ${signal}.`);
+  await recordBotAuditEvent("BOT_DORMIDO", "Bot de Telegram detenido.", { signal, pid: process.pid });
   process.exit(0);
 }
 
@@ -1962,8 +1965,7 @@ function redactLogDetails(value) {
 
 function recordBotAuditEvent(tipo, descripcion, datos = {}) {
   if (!convexSessionReady && !TELEGRAM_APP_USERNAME) return;
-  setTimeout(() => {
-    ensureConvexSession()
+  return ensureConvexSession()
       .then(() => convex.mutation(api.auditoria.registrarBot, {
         sessionToken: convexSessionToken,
         tipo,
@@ -1973,7 +1975,6 @@ function recordBotAuditEvent(tipo, descripcion, datos = {}) {
       .catch((error) => {
         console.warn(formatLogEntry("warn", "convex", "No se pudo registrar bitacora del bot.", formatErrorDetails(error)));
       });
-  }, 0);
 }
 
 export {

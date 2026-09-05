@@ -27,9 +27,7 @@ export const listForBot = query({
     const user = await requireModuleRead(ctx, args.sessionToken, "notes");
     const notes = ctx.db.query("notas").order("desc");
     if (user.role === "root") return await notes.take(500);
-    return await notes
-      .filter((q) => q.eq(q.field("authorUsername"), user.username))
-      .take(500);
+    return await notes.filter((q) => q.eq(q.field("authorUsername"), user.username)).take(500);
   },
 });
 
