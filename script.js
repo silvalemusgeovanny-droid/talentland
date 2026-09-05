@@ -347,9 +347,9 @@ const starterParts = [
 function setTheme(themeName) {
   const theme = themes[themeName];
   stage.className = `login-stage ${themeName}`;
-  themeLabel.textContent = theme.label;
-  themeTitle.textContent = theme.title;
-  themeCopy.textContent = theme.copy;
+  if (themeLabel) themeLabel.textContent = theme.label;
+  if (themeTitle) themeTitle.textContent = theme.title;
+  if (themeCopy) themeCopy.textContent = theme.copy;
   tabButtons.forEach((button) => {
     button.classList.toggle("active", button.dataset.theme === themeName);
   });
