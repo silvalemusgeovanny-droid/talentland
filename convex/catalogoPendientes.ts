@@ -1,6 +1,6 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
-import { requireModuleWrite } from "./authorization";
+import { requireModuleRead, requireModuleWrite } from "./authorization";
 
 const pendingFields = {
   sourceId: v.optional(v.string()),
@@ -28,10 +28,12 @@ function normalizePendingKey(value = "") {
 
 export const list = query({
   args: {
+    sessionToken: v.string(),
     status: v.optional(v.string()),
     limit: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
+    await requireModuleRead(ctx, args.sessionToken, "statistics");
     const status = args.status || "pending";
     const limit = args.limit || 100;
     return await ctx.db

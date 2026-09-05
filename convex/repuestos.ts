@@ -1,6 +1,6 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
-import { requireModuleWrite } from "./authorization";
+import { requireModuleRead, requireModuleWrite } from "./authorization";
 
 const partFields = {
   sourceId: v.optional(v.string()),
@@ -101,14 +101,6 @@ function centsToMoney(cents: number) {
   return cents / 100;
 }
 
-async function sha256(value: string) {
-  const bytes = new TextEncoder().encode(value);
-  const digest = await crypto.subtle.digest("SHA-256", bytes);
-  return Array.from(new Uint8Array(digest))
-    .map((byte) => byte.toString(16).padStart(2, "0"))
-    .join("");
-}
-
 function getMoneyCents(part: any, moneyField: string, centsField: string) {
   const cents = Number(part?.[centsField]);
   if (Number.isInteger(cents)) return cents;
@@ -132,19 +124,6 @@ function normalizeStockQuantity(value: unknown) {
     throw new Error("La existencia debe ser una cantidad entera, sin decimales.");
   }
   return stock;
-}
-
-async function getSessionUser(ctx: any, sessionToken = "") {
-  if (!sessionToken) return null;
-  const tokenHash = await sha256(sessionToken);
-  const session = await ctx.db
-    .query("sesiones")
-    .withIndex("by_token_hash", (q: any) => q.eq("tokenHash", tokenHash))
-    .unique();
-  if (!session || session.expiresAt < Date.now()) return null;
-  const user = await ctx.db.get(session.userId);
-  if (!user || !user.active || (user.accountStatus && user.accountStatus !== "active")) return null;
-  return user;
 }
 
 function userCanViewPartCost(user: any) {
@@ -176,9 +155,9 @@ function requirePartPriceWrite(user: any) {
 }
 
 export const list = query({
-  args: { sessionToken: v.optional(v.string()) },
+  args: { sessionToken: v.string() },
   handler: async (ctx, args) => {
-    const user = await getSessionUser(ctx, args.sessionToken || "");
+    const user = await requireModuleRead(ctx, args.sessionToken, "parts");
     const parts = await ctx.db.query("repuestos").order("desc").take(2000);
     return parts.map((part: any) => sanitizePartForUser(part, user));
   },

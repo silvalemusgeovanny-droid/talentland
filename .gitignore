@@ -2,3 +2,8 @@
 
 .env.local
 node_modules/ 
+.telegram-bot.pid
+telegram-bot.*.log
+output/
+tmp/
+backup-reparaciones-entregadas-*.json

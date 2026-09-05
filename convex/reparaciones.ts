@@ -1,6 +1,6 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
-import { requireModuleWrite } from "./authorization";
+import { requireModuleRead, requireModuleWrite } from "./authorization";
 
 const repairPartFields = {
   partId: v.string(),
@@ -86,6 +86,9 @@ async function applyRepairPartsStockDelta(ctx: any, previousParts: Array<{ partI
 
     const currentStock = Math.trunc(Number(part.stock) || 0);
     const nextStock = currentStock - delta;
+    if (nextStock < 0) {
+      throw new Error(`No hay suficiente stock de ${part.name || "este repuesto"}. Disponible: ${currentStock}.`);
+    }
 
     await ctx.db.patch(rawPartId as any, {
       stock: nextStock,
@@ -103,10 +106,12 @@ function normalizeSearch(value: string) {
 
 export const list = query({
   args: {
+    sessionToken: v.string(),
     search: v.optional(v.string()),
     limit: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
+    await requireModuleRead(ctx, args.sessionToken, "repairs");
     const search = normalizeSearch((args.search || "").trim());
     const limit = args.limit || 50;
 
