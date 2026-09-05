@@ -728,7 +728,7 @@ async function restoreSession() {
     } else if (restored.status === "expired") {
       showLoggedOutView("Tu sesion expiro. Inicia sesion nuevamente.");
     } else {
-      showLoggedOutView(restored.source === "local" ? "Modo local | Inicia sesion con tu usuario." : "Modo Convex | Inicia sesion con tu usuario.");
+      showLoggedOutView(restored.source === "local" ? "Modo local | Inicia sesion con tu usuario." : "Conectado a internet | Inicia sesion con tu usuario.");
     }
   } catch (error) {
     showLoggedOutView(getFriendlyErrorMessage(error));
@@ -749,7 +749,7 @@ async function warnIfLocalSessionCanUseConvex() {
 }
 
 function setLoginDemo() {
-  const authMode = window.repairCloud?.isConfigured() ? "Modo Convex" : "Modo local";
+  const authMode = window.repairCloud?.isConfigured() ? "Conectado a internet" : "Modo local";
   credentialHint.textContent = `${authMode} | Ingresa con tu usuario interno autorizado.`;
 }
 
