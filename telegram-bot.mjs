@@ -269,13 +269,16 @@ async function handleUpdate(update) {
     const telegramActor = message.from?.username
       ? `@${message.from.username}`
       : ([message.from?.first_name, message.from?.last_name].filter(Boolean).join(" ") || `telegram:${message.from?.id || chatId}`);
-    recordBotAuditEvent("BOT_COMANDO", `Comando recibido: ${text.startsWith("/") ? command : "texto"} por ${telegramActor}`, {
+    const systemSession = userSessionByChat.get(String(chatId));
+    const systemActor = systemSession?.user?.username || "sin sesión";
+    recordBotAuditEvent("BOT_COMANDO", `Comando recibido: ${text.startsWith("/") ? command : "texto"} por ${telegramActor} | usuario interno: ${systemActor}`, {
       chatId,
       command: text.startsWith("/") ? command : "texto",
       hasArgs: Boolean(args),
       telegramUserId: message.from?.id,
       telegramUsername: message.from?.username ? `@${message.from.username}` : "",
       telegramName: [message.from?.first_name, message.from?.last_name].filter(Boolean).join(" "),
+      systemUsername: systemActor,
     });
     const pendingIntent = pendingIntentByChat.get(String(chatId));
     if (pendingIntent && pendingIntent.type === "login_username" && !text.startsWith("/")) {
