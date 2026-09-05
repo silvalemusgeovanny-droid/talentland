@@ -55,7 +55,7 @@
     registrarAuditoria: (tipo, descripcion, usuario = "sistema", datos = "") =>
       callConvex("mutation", "auditoria:registrar", withSession({ tipo, descripcion, usuario, datos })),
     obtenerAuditoria: () => callConvex("query", "auditoria:obtener", {}),
-    listNotes: () => callConvex("query", "notas:list", {}),
+    listNotes: () => callConvex("query", "notas:list", withSession({})),
     createNote: (note) => callConvex("mutation", "notas:create", withSession(note)),
     importNotes: (notes) => callConvex("mutation", "notas:importBatch", withSession({ notes })),
     toggleNote: (id, done) => callConvex("mutation", "notas:toggle", withSession({ id, done, updatedAt: new Date().toISOString() })),
