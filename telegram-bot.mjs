@@ -266,7 +266,10 @@ async function handleUpdate(update) {
     return;
   }
   try {
-    recordBotAuditEvent("BOT_COMANDO", `Comando recibido: ${text.startsWith("/") ? command : "texto"}`, {
+    const telegramActor = message.from?.username
+      ? `@${message.from.username}`
+      : ([message.from?.first_name, message.from?.last_name].filter(Boolean).join(" ") || `telegram:${message.from?.id || chatId}`);
+    recordBotAuditEvent("BOT_COMANDO", `Comando recibido: ${text.startsWith("/") ? command : "texto"} por ${telegramActor}`, {
       chatId,
       command: text.startsWith("/") ? command : "texto",
       hasArgs: Boolean(args),
