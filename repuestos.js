@@ -217,6 +217,7 @@ function setPartsFormMode(mode) {
 function openPartsForm(mode = "create") {
   if (isPartsReadOnlyMode() || !canEditPartPrices()) return;
   setPartsFormMode(mode);
+  if (mode === "create") renderCategoryOptions("Telefono");
   partsFormOverlay.hidden = false;
   document.body.classList.add("parts-form-modal-open");
   setTimeout(() => partNameSelect.focus(), 0);
