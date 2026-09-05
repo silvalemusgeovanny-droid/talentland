@@ -1,6 +1,6 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
-import { requireModuleWrite } from "./authorization";
+import { requireModuleRead, requireModuleWrite } from "./authorization";
 
 const productFields = {
   sourceId: v.optional(v.string()),
@@ -36,27 +36,6 @@ function normalizeSearch(value: string) {
     .toLowerCase();
 }
 
-async function sha256(value: string) {
-  const bytes = new TextEncoder().encode(value);
-  const digest = await crypto.subtle.digest("SHA-256", bytes);
-  return Array.from(new Uint8Array(digest))
-    .map((byte) => byte.toString(16).padStart(2, "0"))
-    .join("");
-}
-
-async function getSessionUser(ctx: any, sessionToken = "") {
-  if (!sessionToken) return null;
-  const tokenHash = await sha256(sessionToken);
-  const session = await ctx.db
-    .query("sesiones")
-    .withIndex("by_token_hash", (q: any) => q.eq("tokenHash", tokenHash))
-    .unique();
-  if (!session || session.expiresAt < Date.now()) return null;
-  const user = await ctx.db.get(session.userId);
-  if (!user || !user.active || (user.accountStatus && user.accountStatus !== "active")) return null;
-  return user;
-}
-
 function userCanViewInternalCost(user: any) {
   return user?.role === "root" || (Array.isArray(user?.modules) && user.modules.includes("partsCost"));
 }
@@ -75,9 +54,9 @@ function requireInternalCostPermission(user: any) {
 }
 
 export const list = query({
-  args: { sessionToken: v.optional(v.string()) },
+  args: { sessionToken: v.string() },
   handler: async (ctx, args) => {
-    const user = await getSessionUser(ctx, args.sessionToken || "");
+    const user = await requireModuleRead(ctx, args.sessionToken, "sales");
     const products = await ctx.db.query("productos").order("desc").take(1000);
     return products.sort((a, b) =>
       (Number(a.productNumber) || Number.MAX_SAFE_INTEGER) - (Number(b.productNumber) || Number.MAX_SAFE_INTEGER) ||

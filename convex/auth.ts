@@ -114,8 +114,15 @@ async function getActivePresence(ctx: any) {
 }
 
 export const seedDefaultUsers = mutation({
-  args: {},
-  handler: async (ctx) => {
+  args: {
+    setupSecret: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const expectedSecret = process.env.SETUP_SEED_SECRET;
+    if (!expectedSecret || args.setupSecret !== expectedSecret) {
+      throw new Error("No autorizado para crear usuarios iniciales.");
+    }
+
     const now = new Date().toISOString();
     const defaults = [
       { username: "root", password: "root123", name: "Root", role: "root", modules: ["permissions", "sales", "products", "parts", "partsCost", "partsCustomerPrice", "repairs", "contacts", "notes", "statistics", "database", "users"] },
@@ -143,7 +150,7 @@ export const seedDefaultUsers = mutation({
         accountStatus: "active",
         failedLoginCount: 0,
         lockedUntil: 0,
-        mustChangePassword: false,
+        mustChangePassword: true,
         createdAt: now,
         updatedAt: now,
       });
@@ -344,23 +351,70 @@ export const logout = mutation({
   },
 });
 
+async function verifyPrivilegedPassword(ctx: any, username: string, password: string, allowedRoles: string[]) {
+  const cleanUsername = username.trim().toLowerCase();
+  if (!cleanUsername || !password) return false;
+
+  const user = await ctx.db
+    .query("usuarios")
+    .withIndex("by_username", (q: any) => q.eq("username", cleanUsername))
+    .unique();
+
+  if (!user || !user.active || !allowedRoles.includes(user.role)) return false;
+
+  const status = getAccountStatus(user);
+  if (status === "disabled" || status === "pending_root" || (status === "locked" && Number(user.lockedUntil || 0) > Date.now())) {
+    await registerAudit(ctx, "VERIFICACION_PRIVILEGIADA_BLOQUEADA", `Intento con cuenta no activa ${user.username}`, "sistema", {
+      username: user.username,
+      role: user.role,
+      status,
+    });
+    return false;
+  }
+
+  const passwordHash = await sha256(`${cleanUsername}:${password}`);
+  if (passwordHash === user.passwordHash) {
+    await ctx.db.patch(user._id, {
+      failedLoginCount: 0,
+      lockedUntil: 0,
+      updatedAt: new Date().toISOString(),
+    });
+    return true;
+  }
+
+  const failedLoginCount = Number(user.failedLoginCount || 0) + 1;
+  const now = new Date();
+  const patch: Record<string, unknown> = {
+    failedLoginCount,
+    lastFailedLoginAt: now.toISOString(),
+    updatedAt: now.toISOString(),
+  };
+
+  await registerAudit(ctx, "VERIFICACION_PRIVILEGIADA_FALLIDA", `Intento privilegiado fallido para ${user.username}`, "sistema", {
+    username: user.username,
+    role: user.role,
+    failedLoginCount,
+  });
+
+  if (failedLoginCount >= maxFailedLoginAttempts) {
+    patch.accountStatus = "pending_root";
+    patch.lockedUntil = now.getTime() + lockDurationMs;
+    await registerAudit(ctx, "USUARIO_BLOQUEADO", `Usuario ${user.username} bloqueado por intentos privilegiados fallidos`, "sistema", {
+      username: user.username,
+      failedLoginCount,
+    });
+  }
+
+  await ctx.db.patch(user._id, patch);
+  return false;
+}
 export const verifyAdmin = mutation({
   args: {
     username: v.string(),
     password: v.string(),
   },
   handler: async (ctx, args) => {
-    const username = args.username.trim().toLowerCase();
-    const user = await ctx.db
-      .query("usuarios")
-      .withIndex("by_username", (q) => q.eq("username", username))
-      .unique();
-
-    if (!user || !user.active || getAccountStatus(user) !== "active" || !["root", "admin"].includes(user.role)) {
-      return false;
-    }
-
-    return (await sha256(`${username}:${args.password}`)) === user.passwordHash;
+    return await verifyPrivilegedPassword(ctx, args.username, args.password, ["root", "admin"]);
   },
 });
 
@@ -370,17 +424,7 @@ export const verifyRoot = mutation({
     password: v.string(),
   },
   handler: async (ctx, args) => {
-    const username = args.username.trim().toLowerCase();
-    const user = await ctx.db
-      .query("usuarios")
-      .withIndex("by_username", (q) => q.eq("username", username))
-      .unique();
-
-    if (!user || !user.active || getAccountStatus(user) !== "active" || user.role !== "root") {
-      return false;
-    }
-
-    return (await sha256(`${username}:${args.password}`)) === user.passwordHash;
+    return await verifyPrivilegedPassword(ctx, args.username, args.password, ["root"]);
   },
 });
 
@@ -494,7 +538,7 @@ export const removeUser = mutation({
     id: v.id("usuarios"),
   },
   handler: async (ctx, args) => {
-    await requireRootSession(ctx, args.sessionToken);
+    const root = await requireRootSession(ctx, args.sessionToken);
     const user = await ctx.db.get(args.id);
     if (!user) throw new Error("Usuario no encontrado.");
     if (user.role === "root") throw new Error("El usuario root no se puede borrar.");

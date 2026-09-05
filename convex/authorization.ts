@@ -1,4 +1,4 @@
-import type { MutationCtx } from "./_generated/server";
+import type { MutationCtx, QueryCtx } from "./_generated/server";
 
 const permissionDeniedMessage = "No tienes permiso para realizar esta operacion.";
 const expiredSessionMessage = "Sesion expirada. Inicia sesion nuevamente.";
@@ -18,10 +18,9 @@ async function sha256(value: string) {
     .join("");
 }
 
-export async function requireModuleWrite(
-  ctx: MutationCtx,
+async function requireActiveSession(
+  ctx: MutationCtx | QueryCtx,
   sessionToken: string,
-  moduleName: string,
 ) {
   if (!sessionToken) throw new Error(expiredSessionMessage);
 
@@ -42,6 +41,30 @@ export async function requireModuleWrite(
 
   const roleModules = defaultModulesByRole[user.role];
   if (!roleModules) throw new Error(permissionDeniedMessage);
+
+  return { user, roleModules };
+}
+
+export async function requireModuleRead(
+  ctx: QueryCtx,
+  sessionToken: string,
+  moduleName: string,
+) {
+  const { user, roleModules } = await requireActiveSession(ctx, sessionToken);
+  if (user.role === "root") return user;
+
+  const modules = Array.isArray(user.modules) ? user.modules : roleModules;
+  if (!modules.includes(moduleName)) throw new Error(permissionDeniedMessage);
+
+  return user;
+}
+
+export async function requireModuleWrite(
+  ctx: MutationCtx,
+  sessionToken: string,
+  moduleName: string,
+) {
+  const { user, roleModules } = await requireActiveSession(ctx, sessionToken);
 
   // Root conserva acceso total. Activador nunca puede mutar datos, aunque se
   // alteren sus permisos desde el cliente o se invoque Convex directamente.
