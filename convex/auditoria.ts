@@ -1,6 +1,6 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
-import { requireActiveSession, requireModuleWrite } from "./authorization";
+import { requireModuleRead, requireModuleWrite } from "./authorization";
 
 export const registrar = mutation({
   args: {
@@ -46,10 +46,7 @@ export const obtener = query({
     sessionToken: v.string(),
   },
   handler: async (ctx, args) => {
-    const user = await requireActiveSession(ctx, args.sessionToken);
-    if (user.role !== "root" && user.username !== "root") {
-      throw new Error("Solo root puede consultar la bitacora.");
-    }
+    await requireModuleRead(ctx, args.sessionToken, "statistics");
     return await ctx.db.query("auditoria").order("desc").take(100);
   },
 });
