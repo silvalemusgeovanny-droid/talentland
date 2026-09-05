@@ -1,17 +1,17 @@
 const themes = {
   admin: {
     label: "Propuesta 1",
-    title: "Bienvenido usuario",
+    title: "Bienvenido Usuario",
     copy: "Panel limpio para control general del negocio.",
   },
   technical: {
     label: "Propuesta 2",
-    title: "Bienvenido usuario",
+    title: "Bienvenido Usuario",
     copy: "Entrada practica para administrador, vendedor y tecnico.",
   },
   visual: {
     label: "Propuesta 3",
-    title: "Bienvenido usuario",
+    title: "Bienvenido Usuario",
     copy: "Pantalla visual para una experiencia mas comercial.",
   },
 };
