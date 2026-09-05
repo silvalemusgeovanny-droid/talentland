@@ -89,7 +89,6 @@
     },
     async signIn(username, password, localUsers = []) {
       if (window.repairCloud?.isConfigured()) {
-        await window.repairCloud.seedUsers();
         const token = this.generateToken();
         const user = await window.repairCloud.login(username, password, token);
         this.saveToken(token);
