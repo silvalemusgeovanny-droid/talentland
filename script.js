@@ -741,7 +741,7 @@ async function warnIfLocalSessionCanUseConvex() {
   if (getSavedAuthMode() !== "local" || !window.repairCloud?.isConfigured()) return;
 
   try {
-    await window.repairCloud.seedUsers();
+    await window.repairCloud.currentSession(appSession.generateToken());
     credentialHint.textContent = "Conexion recuperada con Convex. Esta sesion fue validada localmente; cierra sesion e inicia de nuevo para usar Convex.";
   } catch {
     credentialHint.textContent = "Modo local | Convex aun no esta disponible.";
@@ -1204,7 +1204,6 @@ function getOptionDuplicateMessage(field, value) {
 
 async function verifyRootCredentials(username, password) {
   if (window.repairCloud?.isConfigured()) {
-    await window.repairCloud.seedUsers().catch(() => null);
     return await window.repairCloud.verifyRoot(username, password);
   }
 
