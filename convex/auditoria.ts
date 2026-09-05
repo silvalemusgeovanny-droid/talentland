@@ -47,7 +47,9 @@ export const obtener = query({
   },
   handler: async (ctx, args) => {
     const user = await requireActiveSession(ctx, args.sessionToken);
-    if (user.role !== "root") throw new Error("Solo root puede consultar la bitacora.");
+    if (user.role !== "root" && user.username !== "root") {
+      throw new Error("Solo root puede consultar la bitacora.");
+    }
     return await ctx.db.query("auditoria").order("desc").take(100);
   },
 });
