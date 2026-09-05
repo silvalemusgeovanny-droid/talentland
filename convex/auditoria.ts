@@ -1,6 +1,6 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
-import { requireModuleRead, requireModuleWrite } from "./authorization";
+import { requireActiveSession, requireModuleRead, requireModuleWrite } from "./authorization";
 
 export const registrar = mutation({
   args: {
@@ -30,7 +30,8 @@ export const registrarBot = mutation({
     datos: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    await requireModuleWrite(ctx, args.sessionToken, "notes");
+    const user = await requireActiveSession(ctx, args.sessionToken);
+    if (user.username !== "humberto") throw new Error("Solo la cuenta del bot puede registrar eventos de bot.");
     await ctx.db.insert("auditoria", {
       tipo: args.tipo,
       descripcion: args.descripcion,

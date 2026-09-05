@@ -18,7 +18,7 @@ async function sha256(value: string) {
     .join("");
 }
 
-async function requireActiveSession(
+export async function requireActiveSession(
   ctx: MutationCtx | QueryCtx,
   sessionToken: string,
 ) {
