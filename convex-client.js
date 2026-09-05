@@ -7,6 +7,28 @@
     const baseUrl = getConvexUrl();
     if (!baseUrl) return null;
 
+    // Todas las funciones protegidas comparten la sesion del navegador. Esto
+    // evita que un apartado olvide agregar `sessionToken` y Convex rechace el
+    // objeto antes de llegar a la validacion de permisos.
+    const protectedAuthPaths = new Set([
+      "auth:currentSession",
+      "auth:heartbeatPresence",
+      "auth:logout",
+      "auth:listUsers",
+      "auth:createUser",
+      "auth:updateUser",
+      "auth:removeUser",
+      "auth:unlockUser",
+      "auth:changeOwnPassword",
+    ]);
+    const protectedPath = !path.startsWith("auth:login") &&
+      !path.startsWith("auth:verify") &&
+      !path.startsWith("auth:seedDefaultUsers");
+    if (protectedPath || protectedAuthPaths.has(path)) {
+      const storedToken = window.repairApp?.session?.getToken?.() || "";
+      args = { ...(args || {}), sessionToken: args?.sessionToken || storedToken };
+    }
+
     const response = await fetch(`${baseUrl}/api/${kind}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
