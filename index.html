@@ -258,7 +258,7 @@
             <div class="catalog-pending-panel" id="catalogPendingPanel" hidden>
               <div class="users-form-heading">
                 <span class="panel-kicker">Pendientes</span>
-                <strong id="catalogPendingTitle">Validacion de catalogo</strong>
+                <strong id="catalogPendingTitle">Validacion pendiente</strong>
               </div>
               <div class="compact-list catalog-pending-list" id="catalogPendingList"></div>
             </div>
@@ -390,6 +390,18 @@
               <select id="repairType" name="repairType" required>
                 <option value="">Selecciona tipo de reparacion</option>
               </select>
+              <input id="repairTypeNew" class="manual-option-field" name="newRepairType" type="text" placeholder="Escribe el tipo de reparacion nuevo" hidden />
+
+              <div class="field-grid">
+                <div>
+                  <label for="repairImei">IMEI</label>
+                  <input id="repairImei" name="imei" type="text" inputmode="numeric" maxlength="15" pattern="[0-9]{0,15}" placeholder="Hasta 15 digitos" />
+                </div>
+                <div>
+                  <label for="repairDui">DUI</label>
+                  <input id="repairDui" name="dui" type="text" inputmode="numeric" maxlength="15" pattern="[0-9]{0,15}" placeholder="Hasta 15 digitos" />
+                </div>
+              </div>
 
               <div class="field-grid">
                 <div>

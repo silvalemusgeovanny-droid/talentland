@@ -29,6 +29,8 @@ const repairFields = {
   brand: v.string(),
   model: v.string(),
   repairType: v.string(),
+  imei: v.optional(v.string()),
+  dui: v.optional(v.string()),
   status: v.string(),
   createdAt: v.string(),
   deliveredAt: v.string(),
@@ -49,6 +51,8 @@ const repairPatchFields = {
   brand: v.optional(v.string()),
   model: v.optional(v.string()),
   repairType: v.optional(v.string()),
+  imei: v.optional(v.string()),
+  dui: v.optional(v.string()),
   status: v.optional(v.string()),
   createdAt: v.optional(v.string()),
   deliveredAt: v.optional(v.string()),
@@ -104,6 +108,11 @@ function normalizeSearch(value: string) {
     .toLowerCase();
 }
 
+function normalizeIdentifier(value: string | undefined) {
+  const digits = String(value || "").replace(/\D/g, "").slice(0, 15);
+  return digits || "000000000000000";
+}
+
 export const list = query({
   args: {
     sessionToken: v.string(),
@@ -129,6 +138,8 @@ export const list = query({
         repair.brand,
         repair.model,
         repair.repairType,
+        repair.imei,
+        repair.dui,
         repair.status,
         repair.notes,
         String(repair.repairNumber),
@@ -143,7 +154,11 @@ export const create = mutation({
     await requireModuleWrite(ctx, args.sessionToken, "repairs");
     const { sessionToken: _sessionToken, ...repair } = args;
     await applyRepairPartsStockDelta(ctx, [], repair.repairParts);
-    return await ctx.db.insert("reparaciones", repair);
+    return await ctx.db.insert("reparaciones", {
+      ...repair,
+      imei: normalizeIdentifier(repair.imei),
+      dui: normalizeIdentifier(repair.dui),
+    });
   },
 });
 
@@ -162,7 +177,11 @@ export const update = mutation({
     if (Object.prototype.hasOwnProperty.call(args.patch, "repairParts")) {
       await applyRepairPartsStockDelta(ctx, existing.repairParts, args.patch.repairParts);
     }
-    await ctx.db.patch(args.id, args.patch);
+    await ctx.db.patch(args.id, {
+      ...args.patch,
+      ...(Object.prototype.hasOwnProperty.call(args.patch, "imei") ? { imei: normalizeIdentifier(args.patch.imei) } : {}),
+      ...(Object.prototype.hasOwnProperty.call(args.patch, "dui") ? { dui: normalizeIdentifier(args.patch.dui) } : {}),
+    });
     return args.id;
   },
 });
@@ -207,7 +226,11 @@ export const importBatch = mutation({
         continue;
       }
 
-      await ctx.db.insert("reparaciones", repair);
+      await ctx.db.insert("reparaciones", {
+        ...repair,
+        imei: normalizeIdentifier(repair.imei),
+        dui: normalizeIdentifier(repair.dui),
+      });
       inserted += 1;
     }
 
