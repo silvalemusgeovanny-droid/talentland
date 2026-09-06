@@ -95,6 +95,13 @@
       callConvex("mutation", "catalogoPendientes:resolve", withSession({ id, resolvedAt: new Date().toISOString() })),
     dismissCatalogPending: (id) =>
       callConvex("mutation", "catalogoPendientes:dismiss", withSession({ id, resolvedAt: new Date().toISOString() })),
+    listApprovedRepairTypes: () => callConvex("query", "tiposReparacion:listApproved", withSession({})),
+    listPendingRepairTypes: () => callConvex("query", "tiposReparacion:listPending", withSession({})),
+    requestRepairType: (name) => callConvex("mutation", "tiposReparacion:request", withSession({ name })),
+    approveRepairType: (id) =>
+      callConvex("mutation", "tiposReparacion:approve", withSession({ id, resolvedAt: new Date().toISOString() })),
+    dismissRepairType: (id) =>
+      callConvex("mutation", "tiposReparacion:dismiss", withSession({ id, resolvedAt: new Date().toISOString() })),
     listContacts: () => callConvex("query", "contactos:list", withSession({})),
     createContact: (contact) => callConvex("mutation", "contactos:create", withSession(contact)),
     updateContact: (id, patch) => callConvex("mutation", "contactos:update", withSession({ id, patch })),
