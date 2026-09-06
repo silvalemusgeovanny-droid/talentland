@@ -48,6 +48,8 @@ export default defineSchema({
     brand: v.string(),
     model: v.string(),
     repairType: v.string(),
+    imei: v.optional(v.string()),
+    dui: v.optional(v.string()),
     status: v.string(),
     createdAt: v.string(),
     deliveredAt: v.string(),
@@ -190,6 +192,20 @@ export default defineSchema({
     brand: v.string(),
     model: v.string(),
     partName: v.string(),
+    status: v.string(),
+    createdBy: v.string(),
+    createdAt: v.string(),
+    updatedAt: v.string(),
+    resolvedBy: v.optional(v.string()),
+    resolvedAt: v.optional(v.string()),
+  })
+    .index("by_source_id", ["sourceId"])
+    .index("by_status", ["status"])
+    .index("by_created_at", ["createdAt"]),
+
+  tiposReparacion: defineTable({
+    sourceId: v.optional(v.string()),
+    name: v.string(),
     status: v.string(),
     createdBy: v.string(),
     createdAt: v.string(),
