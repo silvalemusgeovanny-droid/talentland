@@ -188,6 +188,7 @@ const dailySalesTotal = document.querySelector("#dailySalesTotal");
 const dailySalesCount = document.querySelector("#dailySalesCount");
 const repairsStorageKey = "inventoryRepairs";
 const catalogPendingStorageKey = "catalogPending";
+const repairTypesPendingStorageKey = "repairTypesPending";
 const contactsStorageKey = "customerContacts";
 const repairBrandsStorageKey = "inventoryRepairBrands";
 const repairModelsStorageKey = "inventoryRepairModels";
@@ -203,6 +204,9 @@ const repairBrandOptions = document.querySelector("#repairBrandOptions");
 const repairModelInput = document.querySelector("#repairModel");
 const repairModelOptions = document.querySelector("#repairModelOptions");
 const repairTypeInput = document.querySelector("#repairType");
+const repairTypeNewInput = document.querySelector("#repairTypeNew");
+const repairImeiInput = document.querySelector("#repairImei");
+const repairDuiInput = document.querySelector("#repairDui");
 const repairPriceInput = document.querySelector("#repairPrice");
 const repairAbonoInput = document.querySelector("#repairAbono");
 const repairStatusInput = document.querySelector("#repairStatus");
@@ -295,6 +299,7 @@ let contactRepairSearchTimer = null;
 let repairContactSuggestions = [];
 let selectedRepairParts = [];
 let catalogPendingCache = [];
+let repairTypePendingCache = [];
 let activeCatalogPendingId = "";
 let repairStatusReminderCache = [];
 let pendingNotesCache = [];
@@ -870,6 +875,122 @@ function normalizeCatalogPending(pending) {
     createdAt: pending.createdAt || now,
     updatedAt: pending.updatedAt || now,
   };
+}
+
+function loadRepairTypePending() {
+  const saved = localStorage.getItem(repairTypesPendingStorageKey);
+  const items = saved ? JSON.parse(saved) : [];
+  return Array.isArray(items) ? items.filter((item) => item?.status === "pending") : [];
+}
+
+function saveRepairTypePending(items) {
+  const pendingItems = Array.isArray(items) ? items.filter((item) => item?.status === "pending") : [];
+  if (!pendingItems.length) {
+    localStorage.removeItem(repairTypesPendingStorageKey);
+    return;
+  }
+  localStorage.setItem(repairTypesPendingStorageKey, JSON.stringify(pendingItems));
+}
+
+function getRepairTypePendingRecordId(item) {
+  return item?._id || item?.id || item?.sourceId || "";
+}
+
+function normalizeRepairTypePending(item) {
+  const now = new Date().toISOString();
+  const name = normalizeSystemOption(item.name || "");
+  return {
+    id: item.id || crypto.randomUUID(),
+    sourceId: item.sourceId || normalizePartSearch(name),
+    name,
+    status: item.status || "pending",
+    createdBy: item.createdBy || currentUser?.username || "sistema",
+    createdAt: item.createdAt || now,
+    updatedAt: item.updatedAt || now,
+  };
+}
+
+async function refreshRepairTypeOptions() {
+  if (window.repairCloud?.isConfigured()) {
+    const approved = await window.repairCloud.listApprovedRepairTypes();
+    saveRepairOptions(repairTypesStorageKey, [
+      ...loadRepairOptions(repairTypesStorageKey, "repairType"),
+      ...approved.map((item) => item.name),
+    ]);
+  }
+  renderRepairTypeOptions();
+}
+
+async function loadRepairTypePendingFromSource() {
+  if (window.repairCloud?.isConfigured()) {
+    repairTypePendingCache = await window.repairCloud.listPendingRepairTypes();
+    saveRepairTypePending(repairTypePendingCache);
+    return repairTypePendingCache;
+  }
+  repairTypePendingCache = loadRepairTypePending();
+  return repairTypePendingCache;
+}
+
+async function requestNewRepairType(rawName) {
+  const name = normalizeSystemOption(rawName);
+  if (!name) {
+    repairsHint.textContent = "Escribe un tipo de reparacion valido.";
+    return;
+  }
+  if (getRepairTypeOptionsForEquipment().includes(name)) {
+    repairTypeInput.value = name;
+    repairsHint.textContent = "Ese tipo de reparacion ya esta disponible.";
+    return;
+  }
+
+  try {
+    if (window.repairCloud?.isConfigured()) {
+      await window.repairCloud.requestRepairType(name);
+    } else {
+      const pending = normalizeRepairTypePending({ name });
+      const items = loadRepairTypePending();
+      if (!items.some((item) => item.sourceId === pending.sourceId)) {
+        items.unshift(pending);
+        saveRepairTypePending(items);
+      }
+    }
+    await refreshCatalogPendingIndicators();
+    repairsHint.textContent = `"${name}" fue enviado a Pendientes para su validacion.`;
+  } catch (error) {
+    repairsHint.textContent = `No se pudo enviar el tipo: ${error.message}`;
+  }
+}
+
+async function approveRepairTypePending(id) {
+  const pending = repairTypePendingCache.find((item) => getRepairTypePendingRecordId(item) === id);
+  if (!pending) return;
+  try {
+    if (window.repairCloud?.isConfigured()) {
+      await window.repairCloud.approveRepairType(id);
+    } else {
+      saveRepairTypePending(loadRepairTypePending().filter((item) => getRepairTypePendingRecordId(item) !== id));
+    }
+    addRepairType(pending.name);
+    await refreshCatalogPendingIndicators();
+    quickPartsHint.textContent = `Tipo de reparacion "${pending.name}" aprobado.`;
+  } catch (error) {
+    quickPartsHint.textContent = `No se pudo aprobar el tipo: ${error.message}`;
+  }
+}
+
+async function dismissRepairTypePending(id) {
+  if (!id) return;
+  try {
+    if (window.repairCloud?.isConfigured()) {
+      await window.repairCloud.dismissRepairType(id);
+    } else {
+      saveRepairTypePending(loadRepairTypePending().filter((item) => getRepairTypePendingRecordId(item) !== id));
+    }
+    await refreshCatalogPendingIndicators();
+    quickPartsHint.textContent = "Tipo de reparacion descartado.";
+  } catch (error) {
+    quickPartsHint.textContent = `No se pudo descartar el tipo: ${error.message}`;
+  }
 }
 
 async function loadCatalogPendingFromSource() {
@@ -1557,7 +1678,8 @@ function snoozeNotesAlert() {
 function updateStatisticsPendingDot() {
   if (!statisticsPendingDot) return;
   const activeCatalogPending = catalogPendingCache.filter((item) => item?.status === "pending");
-  statisticsPendingDot.hidden = activeCatalogPending.length === 0 && repairStatusReminderCache.length === 0;
+  const activeRepairTypePending = repairTypePendingCache.filter((item) => item?.status === "pending");
+  statisticsPendingDot.hidden = activeCatalogPending.length === 0 && activeRepairTypePending.length === 0 && repairStatusReminderCache.length === 0;
 }
 
 function isReadyForDeliveryRepair(repair) {
@@ -1958,6 +2080,11 @@ async function loadContactsFromSource(search = "") {
   );
 }
 
+function normalizeRepairIdentifier(value) {
+  const digits = String(value || "").replace(/\D/g, "").slice(0, 15);
+  return digits || "000000000000000";
+}
+
 function normalizeRepairForCloud(repair) {
   return {
     sourceId: repair.sourceId || repair.id,
@@ -1969,6 +2096,8 @@ function normalizeRepairForCloud(repair) {
     brand: repair.brand || "",
     model: repair.model || "Sin modelo",
     repairType: repair.repairType || "Reparacion",
+    imei: normalizeRepairIdentifier(repair.imei),
+    dui: normalizeRepairIdentifier(repair.dui),
     status: repair.status || "En proceso",
     createdAt: repair.createdAt || new Date().toISOString(),
     deliveredAt: repair.deliveredAt || "",
@@ -2060,7 +2189,8 @@ function getRepairTypeOptionsForEquipment() {
   const partTypes = loadParts()
     .filter((part) => isPartLikelyForRepairEquipment(part, repairBrandInput.value, repairModelInput.value))
     .map((part) => part.name);
-  return [...new Set(partTypes.map(normalizeSystemOption).filter(Boolean))].sort();
+  const approvedTypes = loadRepairOptions(repairTypesStorageKey, "repairType");
+  return [...new Set([...partTypes, ...approvedTypes].map(normalizeSystemOption).filter(Boolean))].sort();
 }
 
 function getRepairModelsForBrand(brandValue = "") {
@@ -2093,21 +2223,35 @@ function renderRepairModelOptions() {
     .join("");
 }
 function renderRepairTypeOptions() {
-  const selectedValue = normalizeSystemOption(repairTypeInput?.value || "");
+  const isAddingNewType = repairTypeInput?.value === newOptionValue;
+  const selectedValue = isAddingNewType ? "" : normalizeSystemOption(repairTypeInput?.value || "");
   const options = getRepairTypeOptionsForEquipment();
   if (selectedValue && !options.includes(selectedValue)) options.push(selectedValue);
   if (!options.length) options.push("PENDIENTE POR ASIGNAR");
   repairTypeInput.innerHTML = [
     `<option value="">Selecciona tipo de reparacion</option>`,
     ...options.sort().map((option) => `<option value="${escapeHtml(option)}">${escapeHtml(option)}</option>`),
+    `<option value="${newOptionValue}">Agregar nuevo</option>`,
   ].join("");
-  repairTypeInput.value = selectedValue || (options.length === 1 && options[0] === "PENDIENTE POR ASIGNAR" ? options[0] : "");
+  repairTypeInput.value = isAddingNewType
+    ? newOptionValue
+    : selectedValue || (options.length === 1 && options[0] === "PENDIENTE POR ASIGNAR" ? options[0] : "");
+  syncNewRepairTypeField();
 }
 
 function syncKnownRepairTypeCase() {
+  if (repairTypeInput.value === newOptionValue) return;
   const typedValue = normalizeSystemOption(repairTypeInput.value);
   const knownValue = getRepairTypeOptionsForEquipment().find((option) => option === typedValue);
   if (knownValue) repairTypeInput.value = knownValue;
+}
+
+function syncNewRepairTypeField() {
+  const isNew = repairTypeInput.value === newOptionValue;
+  repairTypeNewInput.hidden = !isNew;
+  repairTypeNewInput.required = isNew;
+  if (!isNew) repairTypeNewInput.value = "";
+  if (isNew) repairTypeNewInput.focus();
 }
 
 function addRepairBrand(brand) { return addRepairOption(brand, repairBrandsStorageKey, "brand", renderRepairBrandOptions); }
@@ -2217,6 +2361,8 @@ function buildRepairInvoiceHtml(repair, options = {}) {
     brand: repair.brand || "",
     model: repair.model || "",
     repairType: repair.repairType || "",
+    imei: normalizeRepairIdentifier(repair.imei),
+    dui: normalizeRepairIdentifier(repair.dui),
     status: repair.status || "",
     total,
     abono,
@@ -2309,7 +2455,8 @@ function buildRepairInvoiceHtml(repair, options = {}) {
       <section class="box">
         <div class="line"><span class="label" data-template-lock="true">FECHA:</span><span class="value" contenteditable="true">${escapeHtml(date)}</span></div>
         <div class="line"><span class="label" data-template-lock="true">CLIENTE:</span><span class="value" contenteditable="true">${escapeHtml(repair.customer || "")}</span></div>
-        <div class="line"><span class="label" data-template-lock="true">ESN/IMEI:</span><span class="value" contenteditable="true"></span></div>
+        <div class="line"><span class="label" data-template-lock="true">ESN/IMEI:</span><span class="value" contenteditable="true">${escapeHtml(normalizeRepairIdentifier(repair.imei))}</span></div>
+        <div class="line"><span class="label" data-template-lock="true">DUI:</span><span class="value" contenteditable="true">${escapeHtml(normalizeRepairIdentifier(repair.dui))}</span></div>
         <div class="line two"><span class="label" data-template-lock="true">MARCA:</span><span class="value" contenteditable="true">${escapeHtml(repair.brand || "")}</span><span class="label" data-template-lock="true">MODELO:</span><span class="value" contenteditable="true">${escapeHtml(repair.model || "")}</span></div>
         <div class="line long-label"><span class="label" data-template-lock="true">ACCESORIOS:</span><span class="value" contenteditable="true"></span></div>
         <div class="line"><span class="label" data-template-lock="true">TELEFONO:</span><span class="value" contenteditable="true">${escapeHtml(repair.phone || "")}</span></div>
@@ -2445,14 +2592,29 @@ function renderCatalogPendingPanel() {
   if (!catalogPendingPanel || !catalogPendingList) return;
   const canReview = canManageParts() && canViewPartCost() && canViewPartCustomerPrice();
   const activeCatalogPending = catalogPendingCache.filter((item) => item?.status === "pending");
-  catalogPendingPanel.hidden = !canReview || activeCatalogPending.length === 0;
+  const activeRepairTypePending = repairTypePendingCache.filter((item) => item?.status === "pending");
+  const pendingCount = activeCatalogPending.length + activeRepairTypePending.length;
+  catalogPendingPanel.hidden = !canReview || pendingCount === 0;
   updateStatisticsPendingDot();
-  if (!canReview || !activeCatalogPending.length) {
+  if (!canReview || !pendingCount) {
     catalogPendingList.innerHTML = "";
     return;
   }
-  catalogPendingTitle.textContent = `${activeCatalogPending.length} pendiente${activeCatalogPending.length === 1 ? "" : "s"} por validar`;
-  catalogPendingList.innerHTML = activeCatalogPending.map((item) => {
+  catalogPendingTitle.textContent = `${pendingCount} pendiente${pendingCount === 1 ? "" : "s"} por validar`;
+  const repairTypeItems = activeRepairTypePending.map((item) => {
+    const id = getRepairTypePendingRecordId(item);
+    return `
+      <article class="compact-part-item catalog-pending-item">
+        <strong>Tipo de reparacion | ${escapeHtml(item.name || "Sin nombre")}</strong>
+        <span>Propuesto por ${escapeHtml(item.createdBy || "sistema")} | ${escapeHtml(formatRepairDateTimeInput(item.createdAt))}</span>
+        <div class="table-action-icons">
+          <button class="edit-button" type="button" data-approve-repair-type="${escapeHtml(id)}">Aprobar</button>
+          <button class="delete-button" type="button" data-dismiss-repair-type="${escapeHtml(id)}">Descartar</button>
+        </div>
+      </article>
+    `;
+  });
+  const catalogItems = activeCatalogPending.map((item) => {
     const id = getCatalogPendingRecordId(item);
     return `
       <article class="compact-part-item catalog-pending-item">
@@ -2465,17 +2627,29 @@ function renderCatalogPendingPanel() {
         </div>
       </article>
     `;
-  }).join("");
+  });
+  catalogPendingList.innerHTML = [...repairTypeItems, ...catalogItems].join("");
 }
 
 async function refreshCatalogPendingIndicators() {
   try {
+    await refreshRepairTypeOptions();
+  } catch {
+    renderRepairTypeOptions();
+  }
+  try {
     catalogPendingCache = await loadCatalogPendingFromSource();
+    repairTypePendingCache = canManageParts()
+      ? await loadRepairTypePendingFromSource()
+      : [];
   } catch {
     catalogPendingCache = loadCatalogPending();
+    repairTypePendingCache = loadRepairTypePending();
   }
   catalogPendingCache = catalogPendingCache.filter((item) => item?.status === "pending");
+  repairTypePendingCache = repairTypePendingCache.filter((item) => item?.status === "pending");
   saveCatalogPending(catalogPendingCache);
+  saveRepairTypePending(repairTypePendingCache);
   renderCatalogPendingPanel();
 }
 
@@ -4675,6 +4849,12 @@ productCatalogList?.addEventListener("click", async (event) => {
 repairPhoneInput.addEventListener("input", () => {
   repairPhoneInput.value = repairPhoneInput.value.replace(/\D/g, "").slice(0, 11);
 });
+repairImeiInput.addEventListener("input", () => {
+  repairImeiInput.value = repairImeiInput.value.replace(/\D/g, "").slice(0, 15);
+});
+repairDuiInput.addEventListener("input", () => {
+  repairDuiInput.value = repairDuiInput.value.replace(/\D/g, "").slice(0, 15);
+});
 repairBrandInput.addEventListener("blur", syncKnownRepairBrandCase);
 repairBrandInput.addEventListener("change", syncKnownRepairBrandCase);
 repairBrandInput.addEventListener("input", () => {
@@ -4690,7 +4870,13 @@ repairModelInput.addEventListener("input", () => {
 repairModelInput.addEventListener("blur", syncKnownRepairModelCase);
 repairModelInput.addEventListener("change", syncKnownRepairModelCase);
 repairTypeInput.addEventListener("blur", syncKnownRepairTypeCase);
-repairTypeInput.addEventListener("change", syncKnownRepairTypeCase);
+repairTypeInput.addEventListener("change", () => {
+  syncNewRepairTypeField();
+  syncKnownRepairTypeCase();
+});
+repairTypeNewInput.addEventListener("blur", () => {
+  repairTypeNewInput.value = normalizeSystemOption(repairTypeNewInput.value);
+});
 repairStatusInput.addEventListener("change", updateRepairDeliveredAt);
 importRepairsDatabaseButton?.addEventListener("click", async () => {
   try {
@@ -4988,6 +5174,16 @@ adminVoidForm.addEventListener("submit", async (event) => {
 });
 
 catalogPendingList?.addEventListener("click", async (event) => {
+  const approveRepairTypeButton = event.target.closest("[data-approve-repair-type]");
+  if (approveRepairTypeButton) {
+    await approveRepairTypePending(approveRepairTypeButton.dataset.approveRepairType);
+    return;
+  }
+  const dismissRepairTypeButton = event.target.closest("[data-dismiss-repair-type]");
+  if (dismissRepairTypeButton) {
+    await dismissRepairTypePending(dismissRepairTypeButton.dataset.dismissRepairType);
+    return;
+  }
   const loadButton = event.target.closest("[data-load-catalog-pending]");
   if (loadButton) {
     const pending = catalogPendingCache.find((item) => getCatalogPendingRecordId(item) === loadButton.dataset.loadCatalogPending);
@@ -5121,6 +5317,8 @@ function openRepairInForm(repair, approval = null) {
   repairBrandInput.value = repair.brand;
   repairModelInput.value = repair.model;
   repairTypeInput.value = repair.repairType;
+  repairImeiInput.value = normalizeRepairIdentifier(repair.imei);
+  repairDuiInput.value = normalizeRepairIdentifier(repair.dui);
   repairPriceInput.value = repair.repairPrice ?? "";
   repairAbonoInput.value = repair.abono ?? "";
   repairStatusInput.value = repair.status;
@@ -5224,7 +5422,16 @@ repairsForm.addEventListener("submit", async (event) => {
     }
     const brand = addRepairBrand(rawBrand);
     const model = addRepairModel(rawModel);
-    const repairType = addRepairType(formData.get("repairType"));
+    const selectedRepairType = formData.get("repairType");
+    if (selectedRepairType === newOptionValue) {
+      await requestNewRepairType(formData.get("newRepairType"));
+      return;
+    }
+    const repairType = normalizeSystemOption(selectedRepairType);
+    if (!getRepairTypeOptionsForEquipment().includes(repairType)) {
+      repairsHint.textContent = "Selecciona un tipo aprobado o solicita uno nuevo para validacion.";
+      return;
+    }
     const repairParts = normalizeRepairParts(selectedRepairParts);
     if (!validateEmailInput(repairEmailInput, repairsHint)) return;
     const notesText = String(formData.get("notes") || "").trim();
@@ -5248,7 +5455,7 @@ repairsForm.addEventListener("submit", async (event) => {
         deviceType: formData.get("deviceType"),
         phone: formData.get("phone").trim(),
         email: formData.get("email").trim(),
-        brand, model, repairType, status, createdAt, deliveredAt, estimatedDeliveryAt,
+        brand, model, repairType, imei: normalizeRepairIdentifier(formData.get("imei")), dui: normalizeRepairIdentifier(formData.get("dui")), status, createdAt, deliveredAt, estimatedDeliveryAt,
         repairPrice: Number(formData.get("repairPrice")) || 0,
         abono: Number(formData.get("abono")) || 0,
         repairParts,
@@ -5292,7 +5499,7 @@ repairsForm.addEventListener("submit", async (event) => {
         deviceType: formData.get("deviceType"),
         phone: formData.get("phone").trim(),
         email: formData.get("email").trim(),
-        brand, model, repairType, status, createdAt, deliveredAt, estimatedDeliveryAt,
+        brand, model, repairType, imei: normalizeRepairIdentifier(formData.get("imei")), dui: normalizeRepairIdentifier(formData.get("dui")), status, createdAt, deliveredAt, estimatedDeliveryAt,
         repairPrice: Number(formData.get("repairPrice")) || 0,
         abono: Number(formData.get("abono")) || 0,
         repairParts,

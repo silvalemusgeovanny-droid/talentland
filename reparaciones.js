@@ -83,7 +83,7 @@ function getFilteredRepairs(repairs, search = repairSearch.value) {
   const term = search.trim().toLowerCase();
   if (!term) return repairs;
   return repairs.filter((repair) =>
-    [repair.customer, repair.deviceType, repair.brand, repair.model, repair.repairType, repair.status, repair.notes]
+    [repair.customer, repair.deviceType, repair.brand, repair.model, repair.repairType, repair.imei, repair.dui, repair.status, repair.notes]
       .some((field) => String(field || "").toLowerCase().includes(term)),
   );
 }
