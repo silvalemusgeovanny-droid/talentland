@@ -6,6 +6,7 @@
     <meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate" />
     <meta http-equiv="Pragma" content="no-cache" />
     <meta http-equiv="Expires" content="0" />
+    <link rel="icon" type="image/png" href="favicon.png?v=drmovil-1" />
     <title>Login | Inventario y Reparaciones</title>
     <script>
       try {
@@ -413,6 +414,27 @@
                 </div>
               </div>
 
+              <div class="repair-used-parts">
+                <div class="users-form-heading">
+                  <span class="panel-kicker">Repuesto</span>
+                  <strong>Seleccionar repuesto</strong>
+                </div>
+                <div class="repair-parts-picker">
+                  <select id="repairPartSelect" aria-label="Seleccionar repuesto">
+                    <option value="">Cargando repuestos...</option>
+                  </select>
+                  <input id="repairPartQuantity" type="number" min="1" step="1" value="1" aria-label="Cantidad de repuesto" />
+                  <button class="secondary-button" type="button" id="addRepairPart">Agregar</button>
+                </div>
+                <div class="repair-parts-list" id="repairPartsList">
+                  <p class="hint">Sin repuesto seleccionado.</p>
+                </div>
+                <div class="repair-parts-total">
+                  <span>Total repuestos</span>
+                  <strong id="repairPartsTotal">$0.00</strong>
+                </div>
+              </div>
+
               <div class="field-grid">
                 <div>
                   <label for="repairStatus">Estado</label>
@@ -438,33 +460,16 @@
                   <input id="repairPrice" name="repairPrice" type="number" min="0" step="0.01" placeholder="0.00" required />
                 </div>
                 <div>
+                  <label for="repairDiscount">Descuento</label>
+                  <input id="repairDiscount" name="discount" type="number" min="0" step="0.01" placeholder="0.00" />
+                </div>
+                <div>
                   <label for="repairAbono">Abono</label>
                   <input id="repairAbono" name="abono" type="number" min="0" step="0.01" placeholder="0.00" />
                 </div>
                 <div>
                   <label for="repairRemaining">Restante</label>
                   <input id="repairRemaining" type="number" min="0" step="0.01" value="0.00" readonly aria-readonly="true" />
-                </div>
-              </div>
-
-              <div class="repair-used-parts">
-                <div class="users-form-heading">
-                  <span class="panel-kicker">Repuesto</span>
-                  <strong>Seleccionar repuesto</strong>
-                </div>
-                <div class="repair-parts-picker">
-                  <select id="repairPartSelect" aria-label="Seleccionar repuesto">
-                    <option value="">Cargando repuestos...</option>
-                  </select>
-                  <input id="repairPartQuantity" type="number" min="1" step="1" value="1" aria-label="Cantidad de repuesto" />
-                  <button class="secondary-button" type="button" id="addRepairPart">Agregar</button>
-                </div>
-                <div class="repair-parts-list" id="repairPartsList">
-                  <p class="hint">Sin repuesto seleccionado.</p>
-                </div>
-                <div class="repair-parts-total">
-                  <span>Total repuestos</span>
-                  <strong id="repairPartsTotal">$0.00</strong>
                 </div>
               </div>
 

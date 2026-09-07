@@ -224,6 +224,7 @@ const repairTypeNewInput = document.querySelector("#repairTypeNew");
 const repairImeiInput = document.querySelector("#repairImei");
 const repairDuiInput = document.querySelector("#repairDui");
 const repairPriceInput = document.querySelector("#repairPrice");
+const repairDiscountInput = document.querySelector("#repairDiscount");
 const repairAbonoInput = document.querySelector("#repairAbono");
 const repairRemainingInput = document.querySelector("#repairRemaining");
 const repairStatusInput = document.querySelector("#repairStatus");
@@ -1199,8 +1200,9 @@ function updateRepairRemaining() {
   if (!repairRemainingInput) return;
   const repairPrice = Math.max(0, Number(repairPriceInput?.value) || 0);
   const partsTotal = centsToMoney(getRepairPartsTotalCents());
+  const discount = Math.max(0, Number(repairDiscountInput?.value) || 0);
   const abono = Math.max(0, Number(repairAbonoInput?.value) || 0);
-  const remaining = Math.max(0, repairPrice + partsTotal - abono);
+  const remaining = Math.max(0, repairPrice + partsTotal - discount - abono);
   repairRemainingInput.value = remaining.toFixed(2);
 }
 
@@ -2251,6 +2253,7 @@ function normalizeRepairForCloud(repair) {
     deliveredAt: repair.deliveredAt || "",
     estimatedDeliveryAt: repair.estimatedDeliveryAt || "",
     repairPrice: Number(repair.repairPrice) || 0,
+    discount: Number(repair.discount) || 0,
     abono: Number(repair.abono) || 0,
     repairParts: normalizeRepairParts(repair.repairParts),
     notes: repair.notes || "",
@@ -2540,7 +2543,8 @@ function getRepairInvoiceType(repair) {
 function buildRepairInvoiceHtml(repair, options = {}) {
   const repairParts = normalizeRepairParts(repair.repairParts);
   const partsTotal = centsToMoney(getRepairPartsTotalCents(repairParts));
-  const total = (Number(repair.repairPrice) || 0) + partsTotal;
+  const discount = Math.max(0, Number(repair.discount) || 0);
+  const total = Math.max(0, (Number(repair.repairPrice) || 0) + partsTotal - discount);
   const abono = Math.max(0, Number(repair.abono) || 0);
   const resta = Math.max(0, total - abono);
   const date = formatInvoiceDate(repair.createdAt);
@@ -2561,6 +2565,7 @@ function buildRepairInvoiceHtml(repair, options = {}) {
     dui: normalizeRepairIdentifier(repair.dui),
     status: repair.status || "",
     total,
+    discount,
     abono,
     resta,
   };
@@ -2614,7 +2619,7 @@ function buildRepairInvoiceHtml(repair, options = {}) {
     .comments { margin-top: 6px; }
     .diagnosis { min-height: 0; padding-top: 24px; }
     .diagnosis-line { margin-top: 0; }
-    .costs { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-top: 12px; }
+    .costs { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-top: 12px; }
     .costs div { display: grid; grid-template-columns: auto 1fr; gap: 5px; align-items: end; border-bottom: 1.4px solid #18245b; }
     .costs span { font-size: 15px; font-weight: 800; }
     .costs b { color: #111; font-size: 16px; }
@@ -2668,6 +2673,7 @@ function buildRepairInvoiceHtml(repair, options = {}) {
         <div class="line diagnosis-line"><span class="label" data-template-lock="true">DIAGNOSTICO:</span><span class="value" contenteditable="true">${escapeHtml(repair.repairType || "")}</span></div>
         <div class="costs">
           <div><span data-template-lock="true">Costo Total $</span><b contenteditable="true">${total.toFixed(2)}</b></div>
+          <div><span data-template-lock="true">Descuento $</span><b contenteditable="true">${discount > 0 ? discount.toFixed(2) : ""}</b></div>
           <div><span data-template-lock="true">Abono $</span><b contenteditable="true">${abono.toFixed(2)}</b></div>
           <div><span data-template-lock="true">Restante $</span><b>${resta.toFixed(2)}</b></div>
         </div>
@@ -3205,7 +3211,7 @@ function renderRepairsList(repairs) {
     const repairId = getRepairRecordId(repair);
     const repairParts = normalizeRepairParts(repair.repairParts);
     const partsTotalCents = getRepairPartsTotalCents(repairParts);
-    const finalTotal = (Number(repair.repairPrice) || 0) + centsToMoney(partsTotalCents);
+    const finalTotal = Math.max(0, (Number(repair.repairPrice) || 0) + centsToMoney(partsTotalCents) - (Number(repair.discount) || 0));
     const actions = repairId ? `
           <div class="table-action-icons repair-action-icons">
             <button class="edit-button icon-action-button icon-edit-button" type="button" data-repair-id="${escapeHtml(repairId)}" aria-label="Editar reparacion #${escapeHtml(repair.repairNumber || "")}" title="Editar">Editar</button>
@@ -3223,7 +3229,7 @@ function renderRepairsList(repairs) {
         <span>${escapeHtml(repair.deviceType)} ${repair.brand ? `${escapeHtml(repair.brand)} ` : ""}${escapeHtml(repair.model)} | ${escapeHtml(repair.status)}</span>
         <span>${escapeHtml(repair.repairType)} | Cel. ${escapeHtml(repair.phone)}</span>
         ${repair.email ? `<span>Correo ${escapeHtml(repair.email)}</span>` : ""}
-        <span>Mano de obra ${formatCurrency(Number(repair.repairPrice) || 0)} | Repuestos ${formatCurrencyCents(partsTotalCents)} | Total ${formatCurrency(finalTotal)}</span>
+        <span>Mano de obra ${formatCurrency(Number(repair.repairPrice) || 0)} | Repuestos ${formatCurrencyCents(partsTotalCents)} | Descuento ${formatCurrency(Number(repair.discount) || 0)} | Total ${formatCurrency(finalTotal)}</span>
         ${repairParts.length ? `<span>${escapeHtml(repairParts.map((line) => `${line.quantity} ${line.name}`).join(" | "))}</span>` : ""}
         <span>Abono ${formatCurrency(Number(repair.abono) || 0)} | Resta ${formatCurrency(Math.max(0, finalTotal - (Number(repair.abono) || 0)))}</span>
         <span>Ingreso ${formatRepairDateTimeInput(repair.createdAt)} | ${estimatedDeliveryLabel} | ${deliveredLabel}</span>
@@ -5142,6 +5148,7 @@ repairDuiInput.addEventListener("input", () => {
   repairDuiInput.value = repairDuiInput.value.replace(/\D/g, "").slice(0, 15);
 });
 repairPriceInput.addEventListener("input", updateRepairRemaining);
+repairDiscountInput.addEventListener("input", updateRepairRemaining);
 repairAbonoInput.addEventListener("input", updateRepairRemaining);
 repairBrandInput.addEventListener("blur", syncKnownRepairBrandCase);
 repairBrandInput.addEventListener("change", () => { syncRepairBrandManualField(); syncKnownRepairBrandCase(); });
@@ -5668,6 +5675,7 @@ function openRepairInForm(repair, approval = null) {
   repairImeiInput.value = normalizeRepairIdentifier(repair.imei);
   repairDuiInput.value = normalizeRepairIdentifier(repair.dui);
   repairPriceInput.value = repair.repairPrice ?? "";
+  repairDiscountInput.value = Number(repair.discount) > 0 ? repair.discount : "";
   repairAbonoInput.value = repair.abono ?? "";
   repairStatusInput.value = repair.status;
   resetSelectedRepairParts(repair.repairParts);
@@ -5819,6 +5827,7 @@ repairsForm.addEventListener("submit", async (event) => {
         email: formData.get("email").trim(),
         brand, model, repairType, imei: normalizeRepairIdentifier(formData.get("imei")), dui: normalizeRepairIdentifier(formData.get("dui")), status, createdAt, deliveredAt, estimatedDeliveryAt,
         repairPrice: Number(formData.get("repairPrice")) || 0,
+        discount: Math.max(0, Number(formData.get("discount")) || 0),
         abono: Number(formData.get("abono")) || 0,
         repairParts,
         notes: notesText,
@@ -5866,6 +5875,7 @@ repairsForm.addEventListener("submit", async (event) => {
         email: formData.get("email").trim(),
         brand, model, repairType, imei: normalizeRepairIdentifier(formData.get("imei")), dui: normalizeRepairIdentifier(formData.get("dui")), status, createdAt, deliveredAt, estimatedDeliveryAt,
         repairPrice: Number(formData.get("repairPrice")) || 0,
+        discount: Math.max(0, Number(formData.get("discount")) || 0),
         abono: Number(formData.get("abono")) || 0,
         repairParts,
         notes: notesText,

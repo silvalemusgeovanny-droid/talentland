@@ -63,6 +63,16 @@ function formatRepairDate(value) {
   }).format(date);
 }
 
+function getRepairDateKey(value) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "sin-fecha";
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+}
+
+function getRepairStatusLabel(status) {
+  return status === "Entregado no Reparado" ? "E. no reparado" : (status || "En proceso");
+}
+
 function updateDateTime() {
   const now = new Date();
   currentDate.textContent = new Intl.DateTimeFormat("es-MX", { day: "2-digit", month: "short", year: "numeric" }).format(now);
@@ -116,7 +126,9 @@ async function renderRepairs() {
     return;
   }
 
-  const filteredRepairs = (window.repairCloud?.isConfigured() ? repairs : getFilteredRepairs(repairs, search)).slice(0, 50);
+  const filteredRepairs = (window.repairCloud?.isConfigured() ? repairs : getFilteredRepairs(repairs, search))
+    .sort((left, right) => new Date(right.createdAt || 0).getTime() - new Date(left.createdAt || 0).getTime())
+    .slice(0, 50);
   renderedRepairs = filteredRepairs;
   const repairValue = repairs.reduce((sum, repair) => sum + (Number(repair.repairPrice) || 0), 0);
   const deliveredCount = repairs.filter((repair) => repair.status === "Entregado").length;
@@ -130,7 +142,14 @@ async function renderRepairs() {
     return;
   }
 
-  repairsTable.innerHTML = filteredRepairs.map((repair) => `
+  let previousDateKey = "";
+  repairsTable.innerHTML = filteredRepairs.map((repair) => {
+    const dateKey = getRepairDateKey(repair.createdAt);
+    const dateSeparator = dateKey !== previousDateKey
+      ? `<tr class="repair-date-separator"><td colspan="9">${escapeHtml(formatRepairDate(repair.createdAt))}</td></tr>`
+      : "";
+    previousDateKey = dateKey;
+    return `${dateSeparator}
     <tr>
       <td>${repair.repairNumber || ""}</td>
       <td><strong>${escapeHtml(repair.customer || "Sin nombre")}</strong></td>
@@ -138,11 +157,11 @@ async function renderRepairs() {
       <td>${escapeHtml([repair.brand, repair.model].filter(Boolean).join(" "))}</td>
       <td>${escapeHtml(repair.repairType || "")}</td>
       <td>${formatCurrency(Number(repair.repairPrice) || 0)}</td>
-      <td><span class="quality-pill">${escapeHtml(repair.status || "En proceso")}</span></td>
+      <td><span class="quality-pill">${escapeHtml(getRepairStatusLabel(repair.status))}</span></td>
       <td>${formatRepairDate(repair.createdAt)}</td>
       <td>${renderRepairActions(repair)}</td>
-    </tr>
-  `).join("");
+    </tr>`;
+  }).join("");
 }
 
 repairSearch.addEventListener("input", renderRepairs);

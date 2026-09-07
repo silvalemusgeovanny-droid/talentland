@@ -3160,6 +3160,22 @@ table {
   width: 92px;
 }
 
+.repairs-table th:nth-child(7),
+.repairs-table td:nth-child(7) {
+  width: 122px;
+  white-space: nowrap;
+}
+
+.repairs-table .repair-date-separator td {
+  padding: 7px 10px;
+  background: rgb(23 107 135 / 15%);
+  color: var(--accent);
+  font-size: 0.74rem;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
 .repairs-table th:nth-child(9),
 .repairs-table td:nth-child(9) {
   width: 96px;

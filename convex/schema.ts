@@ -55,6 +55,7 @@ export default defineSchema({
     deliveredAt: v.string(),
     estimatedDeliveryAt: v.optional(v.string()),
     repairPrice: v.number(),
+    discount: v.optional(v.number()),
     abono: v.optional(v.number()),
     repairParts: v.optional(v.array(v.object({
       partId: v.string(),
