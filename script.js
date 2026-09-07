@@ -4739,6 +4739,11 @@ moduleTabs.forEach((button) => button.addEventListener("click", () => {
     window.location.href = "ventas.html";
     return;
   }
+  if (button.dataset.module === "repairs") {
+    saveActiveModule("repairs");
+    window.location.href = "reparaciones.html";
+    return;
+  }
   setModule(button.dataset.module);
 }));
 brandHomeButton?.addEventListener("click", () => {
