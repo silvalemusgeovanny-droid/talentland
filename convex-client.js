@@ -52,13 +52,18 @@
     return { ...args, sessionToken };
   }
 
+  function normalizeRepairCloudPayload(repair = {}) {
+    const { imei: _imei, dui: _dui, ...supportedFields } = repair;
+    return supportedFields;
+  }
+
   window.repairCloud = {
     isConfigured: () => Boolean(getConvexUrl()),
     listRepairs: (args = {}) => callConvex("query", "reparaciones:list", withSession(args)),
-    createRepair: (repair) => callConvex("mutation", "reparaciones:create", withSession(repair)),
-    updateRepair: (id, patch) => callConvex("mutation", "reparaciones:update", withSession({ id, patch })),
+    createRepair: (repair) => callConvex("mutation", "reparaciones:create", withSession(normalizeRepairCloudPayload(repair))),
+    updateRepair: (id, patch) => callConvex("mutation", "reparaciones:update", withSession({ id, patch: normalizeRepairCloudPayload(patch) })),
     removeRepair: (id) => callConvex("mutation", "reparaciones:remove", withSession({ id })),
-    importRepairs: (repairs) => callConvex("mutation", "reparaciones:importBatch", withSession({ repairs })),
+    importRepairs: (repairs) => callConvex("mutation", "reparaciones:importBatch", withSession({ repairs: repairs.map(normalizeRepairCloudPayload) })),
     seedUsers: (setupSecret = "") => callConvex("mutation", "auth:seedDefaultUsers", { setupSecret }),
     login: (username, password, sessionToken) =>
       callConvex("mutation", "auth:login", { username, password, sessionToken }),
