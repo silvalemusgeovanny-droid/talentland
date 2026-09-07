@@ -192,6 +192,7 @@ export default defineSchema({
     brand: v.string(),
     model: v.string(),
     partName: v.string(),
+    repairPrice: v.optional(v.number()),
     pendingType: v.optional(v.string()),
     sourceModule: v.optional(v.string()),
     sourceRecordId: v.optional(v.string()),

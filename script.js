@@ -140,6 +140,7 @@ const quickModelSelect = document.querySelector("#quickModelSelect");
 const quickModelInput = document.querySelector("#quickModel");
 const quickSupplierSelect = document.querySelector("#quickSupplierSelect");
 const quickSupplierInput = document.querySelector("#quickSupplier");
+const quickCustomerPriceInput = document.querySelector("#quickCustomerPrice");
 const quickCategoryInput = document.querySelector("#quickCategory");
 const partsStorageKey = "inventoryParts";
 const salePartIdPrefix = "part:";
@@ -316,6 +317,7 @@ let repairContactSuggestions = [];
 let selectedRepairParts = [];
 let catalogPendingCache = [];
 let approvedCatalogCache = [];
+let approvedRepairCatalogCache = [];
 let repairTypePendingCache = [];
 let activeCatalogPendingId = "";
 let repairStatusReminderCache = [];
@@ -888,6 +890,7 @@ function normalizeCatalogPending(pending) {
     brand: normalizeSystemOption(pending.brand || ""),
     model: normalizeSystemOption(pending.model || ""),
     partName: normalizeSystemOption(pending.partName || ""),
+    repairPrice: Number(pending.repairPrice) || 0,
     pendingType: pending.pendingType || "part",
     sourceModule: pending.sourceModule || "repairs",
     sourceRecordId: pending.sourceRecordId || "",
@@ -1080,12 +1083,22 @@ async function createCatalogPendingIfNeeded(repair) {
   );
   if (exists) return;
 
+  const historicallyApproved = approvedRepairCatalogCache.some((item) =>
+    item?.pendingType !== "brand_model" &&
+    normalizePartSearch(item.brand) === normalizePartSearch(brand) &&
+    normalizePartSearch(item.model) === normalizePartSearch(model) &&
+    normalizePartSearch(item.partName) === normalizePartSearch(partName) &&
+    item.status === "resolved"
+  );
+  if (historicallyApproved) return;
+
   const pending = normalizeCatalogPending({
     repairId: getRepairRecordId(repair),
     repairNumber: repair.repairNumber,
     brand,
     model,
     partName,
+    repairPrice: Number(repair.repairPrice) || 0,
   });
 
   if (window.repairCloud?.isConfigured()) {
@@ -2813,9 +2826,11 @@ async function refreshCatalogPendingIndicators() {
   }
   try {
     catalogPendingCache = await loadCatalogPendingFromSource();
-    approvedCatalogCache = window.repairCloud?.isConfigured()
-      ? (await window.repairCloud.listApprovedCatalog()).filter((item) => item?.pendingType === "brand_model")
-      : approvedCatalogCache;
+    if (window.repairCloud?.isConfigured()) {
+      const approvedCatalog = await window.repairCloud.listApprovedCatalog();
+      approvedRepairCatalogCache = Array.isArray(approvedCatalog) ? approvedCatalog : [];
+      approvedCatalogCache = approvedRepairCatalogCache.filter((item) => item?.pendingType === "brand_model");
+    }
     repairTypePendingCache = canManageParts()
       ? await loadRepairTypePendingFromSource()
       : [];
@@ -2845,6 +2860,10 @@ function loadCatalogPendingIntoPartsForm(pending) {
   setManagedSelectValue(quickBrandSelect, quickBrandInput, pending.brand);
   renderQuickModelOptions();
   setManagedSelectValue(quickModelSelect, quickModelInput, pending.model);
+  setManagedSelectValue(quickSupplierSelect, quickSupplierInput, "DR MOVIL");
+  if (quickCustomerPriceInput && pending.repairPrice > 0) {
+    quickCustomerPriceInput.value = pending.repairPrice.toFixed(2);
+  }
   quickPartsHint.textContent = `Validando pendiente de reparacion #${pending.repairNumber || ""}. Completa proveedor, precios y existencia.`;
   quickPartsForm.scrollIntoView({ behavior: "smooth", block: "start" });
 }
