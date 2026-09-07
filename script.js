@@ -2456,7 +2456,7 @@ function buildRepairInvoiceHtml(repair, options = {}) {
     }
   </style>
 </head>
-<body data-invoice-version="invoice-layout-lock-4">
+<body data-invoice-version="invoice-layout-lock-5-payment-status">
   <div class="toolbar no-print">
     <button type="button" id="printInvoiceButton">Imprimir / Guardar PDF</button>
     <span id="invoiceStatus"></span>
@@ -2494,7 +2494,7 @@ function buildRepairInvoiceHtml(repair, options = {}) {
         <div class="costs">
           <div><span data-template-lock="true">Costo Total $</span><b contenteditable="true">${total.toFixed(2)}</b></div>
           <div><span data-template-lock="true">Abono $</span><b contenteditable="true">${abono.toFixed(2)}</b></div>
-          <div><span data-template-lock="true">Resta $</span><b contenteditable="true">${resta.toFixed(2)}</b></div>
+          <div><span data-template-lock="true">Restante $</span><b>${resta.toFixed(2)}</b></div>
         </div>
         <div class="signatures"><div data-template-lock="true">Tecnico: ${escapeHtml(technicianName)}</div><div data-template-lock="true">Bajo Riesgo del Cliente</div></div>
       </section>
