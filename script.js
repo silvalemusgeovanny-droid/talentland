@@ -5649,8 +5649,11 @@ function openRepairInForm(repair, approval = null) {
   repairPhoneInput.value = repair.phone;
   repairEmailInput.value = repair.email || "";
   repairBrandInput.value = repair.brand;
+  renderRepairBrandOptions();
   repairModelInput.value = repair.model;
+  renderRepairModelOptions();
   repairTypeInput.value = repair.repairType;
+  renderRepairTypeOptions();
   repairImeiInput.value = normalizeRepairIdentifier(repair.imei);
   repairDuiInput.value = normalizeRepairIdentifier(repair.dui);
   repairPriceInput.value = repair.repairPrice ?? "";
