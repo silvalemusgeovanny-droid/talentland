@@ -3194,6 +3194,8 @@ table {
 
 .sales-register-table th:nth-child(1),
 .sales-register-table td:nth-child(1) { width: 64px; }
+.sales-register-table th:nth-child(3),
+.sales-register-table td:nth-child(3) { width: 220px; }
 .sales-register-table th:nth-child(5),
 .sales-register-table td:nth-child(5) { width: 78px; text-align: center; }
 .sales-register-table th:nth-child(6),
