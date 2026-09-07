@@ -2086,6 +2086,9 @@ function normalizeRepairIdentifier(value) {
 }
 
 function normalizeRepairForCloud(repair) {
+  // El backend publicado aun valida reparaciones sin `dui`.
+  // Conservamos `dui` en el estado local, pero no lo enviamos a Convex
+  // hasta que el despliegue del servidor quede alineado con el esquema local.
   return {
     sourceId: repair.sourceId || repair.id,
     repairNumber: Number(repair.repairNumber) || 0,
@@ -2097,7 +2100,6 @@ function normalizeRepairForCloud(repair) {
     model: repair.model || "Sin modelo",
     repairType: repair.repairType || "Reparacion",
     imei: normalizeRepairIdentifier(repair.imei),
-    dui: normalizeRepairIdentifier(repair.dui),
     status: repair.status || "En proceso",
     createdAt: repair.createdAt || new Date().toISOString(),
     deliveredAt: repair.deliveredAt || "",
