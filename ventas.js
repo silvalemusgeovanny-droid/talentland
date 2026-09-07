@@ -3,6 +3,10 @@ const saleSearch = document.querySelector("#saleSearch");
 const totalSales = document.querySelector("#totalSales");
 const totalSalesValue = document.querySelector("#totalSalesValue");
 const totalSaleUnits = document.querySelector("#totalSaleUnits");
+const currentDate = document.querySelector("#currentDate");
+const currentTime = document.querySelector("#currentTime");
+const colorModeToggle = document.querySelector("#colorModeToggle");
+const logoutButton = document.querySelector("#logoutButton");
 
 function escapeHtml(value) {
   return String(value ?? "").replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#039;");
@@ -10,6 +14,21 @@ function escapeHtml(value) {
 
 function formatCurrency(value) {
   return new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN" }).format(Number(value) || 0);
+}
+
+function updateDateTime() {
+  const now = new Date();
+  currentDate.textContent = new Intl.DateTimeFormat("es-MX", { day: "2-digit", month: "short", year: "numeric" }).format(now);
+  currentTime.textContent = new Intl.DateTimeFormat("es-MX", { hour: "2-digit", minute: "2-digit" }).format(now);
+}
+
+function setColorMode(mode) {
+  const isDarkMode = mode === "dark";
+  document.documentElement.classList.toggle("login-dark", isDarkMode);
+  document.body.classList.toggle("login-dark", isDarkMode);
+  colorModeToggle?.setAttribute("aria-label", isDarkMode ? "Cambiar a modo dia" : "Cambiar a modo noche");
+  colorModeToggle?.setAttribute("aria-pressed", String(isDarkMode));
+  localStorage.setItem("loginColorMode", mode);
 }
 
 function formatSaleDate(value) {
@@ -88,4 +107,12 @@ async function refreshSales() {
 }
 
 saleSearch.addEventListener("input", refreshSales);
+colorModeToggle?.addEventListener("click", () => setColorMode(document.body.classList.contains("login-dark") ? "light" : "dark"));
+logoutButton?.addEventListener("click", async () => {
+  await window.repairApp.session.logout();
+  window.location.href = "index.html";
+});
+setColorMode(localStorage.getItem("loginColorMode") || "light");
+updateDateTime();
+setInterval(updateDateTime, 1000);
 refreshSales();

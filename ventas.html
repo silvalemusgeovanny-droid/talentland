@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <link rel="icon" type="image/svg+xml" href="favicon.svg?v=drmovil-2" />
     <title>Ventas | Inventario y Reparaciones</title>
-    <link rel="stylesheet" href="styles.css?v=sales-register-1" />
+    <link rel="stylesheet" href="styles.css?v=sales-register-2" />
   </head>
   <body class="parts-page">
     <main class="parts-shell">
@@ -40,10 +40,22 @@
         </div>
       </section>
     </main>
+    <div class="date-time" aria-label="Fecha y hora actual">
+      <span id="currentDate">--/--/----</span>
+      <span id="currentTime">--:--</span>
+    </div>
+    <button class="color-mode-toggle" type="button" id="colorModeToggle" aria-label="Cambiar a modo noche" aria-pressed="false" title="Cambiar a modo noche">
+      <svg class="mode-icon moon-icon" aria-hidden="true" viewBox="0 0 24 24"><path d="M20.3 15.4A8.2 8.2 0 0 1 8.6 3.7a8.9 8.9 0 1 0 11.7 11.7Z" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.4" /></svg>
+      <svg class="mode-icon sun-icon" aria-hidden="true" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4.2" fill="none" stroke="currentColor" stroke-width="2.4" /><path d="M12 2.2v2.2M12 19.6v2.2M4.4 4.4 6 6M18 18l1.6 1.6M2.2 12h2.2M19.6 12h2.2M4.4 19.6 6 18M18 6l1.6-1.6" fill="none" stroke="currentColor" stroke-linecap="round" stroke-width="2.4" /></svg>
+    </button>
+    <button class="logout-toggle" type="button" id="logoutButton" aria-label="Cerrar sesion" title="Cerrar sesion">
+      <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M10 4H6.5A2.5 2.5 0 0 0 4 6.5v11A2.5 2.5 0 0 0 6.5 20H10" fill="none" stroke="currentColor" stroke-linecap="round" stroke-width="2.2" /><path d="m14 8 4 4-4 4M18 12H9" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" /></svg>
+    </button>
     <script src="convex-config.js?v=parts-model-1"></script>
     <script src="app-core.js?v=login-no-seed-20260905"></script>
     <script src="convex-client.js?v=notes-session-20260509"></script>
+    <script src="pending-notes.js?v=shared-session-1"></script>
     <script src="page-nav.js?v=single-navigation-1"></script>
-    <script src="ventas.js?v=sales-register-1"></script>
+    <script src="ventas.js?v=sales-register-2"></script>
   </body>
 </html>
