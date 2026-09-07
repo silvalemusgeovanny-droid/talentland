@@ -3166,7 +3166,16 @@ async function renderSales() {
   }).join("");
 }
 
+function sortRepairsPendingFirst(repairs = []) {
+  return [...repairs].sort((left, right) => {
+    const pendingDifference = Number(isPendingRepair(right)) - Number(isPendingRepair(left));
+    if (pendingDifference) return pendingDifference;
+    return new Date(right.createdAt || 0).getTime() - new Date(left.createdAt || 0).getTime();
+  });
+}
+
 function renderRepairsList(repairs) {
+  repairs = sortRepairsPendingFirst(repairs);
   if (repairsCount) repairsCount.textContent = `${repairs.length} registro${repairs.length === 1 ? "" : "s"}`;
   if (importRepairsDatabaseButton) {
     const importCount = Array.isArray(window.repairExcelDatabase) ? window.repairExcelDatabase.length : 0;
@@ -3219,7 +3228,7 @@ async function renderRepairs() {
   const hasRenderedRepairs = repairsList.children.length > 0;
 
   if (!hasRenderedRepairs) {
-    renderRepairsList(getRecentRepairs(loadRepairs(), 50));
+    renderRepairsList(sortRepairsPendingFirst(loadRepairs()).slice(0, 50));
   }
 
   try {
@@ -3267,7 +3276,7 @@ async function renderSideRepairs() {
   const search = sideRepairSearch.value.trim();
 
   try {
-    repairs = await loadRepairsFromSource(search ? 10000 : 50, search);
+    repairs = await loadRepairsFromSource(search ? 10000 : 10000, search);
   } catch (error) {
     sideRepairsList.innerHTML = `<p class="hint">${escapeHtml(error.message)}</p>`;
     return;
@@ -3282,7 +3291,8 @@ async function renderSideRepairs() {
     ? `<p class="hint">${repairs.length} coincidencia${repairs.length === 1 ? "" : "s"}.</p>`
     : "";
 
-  sideRepairsList.innerHTML = resultSummary + repairs.map((repair) => `
+  repairs = sortRepairsPendingFirst(repairs);
+  sideRepairsList.innerHTML = resultSummary + repairs.slice(0, search ? repairs.length : 50).map((repair) => `
     <article class="side-repair-item">
       <strong>#${repair.repairNumber || ""} ${escapeHtml(repair.customer || "Sin nombre")}</strong>
       <span>${escapeHtml([repair.brand, repair.model].filter(Boolean).join(" ") || repair.deviceType || "Equipo")}</span>
