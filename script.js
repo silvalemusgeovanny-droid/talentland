@@ -4735,6 +4735,7 @@ moduleTabs.forEach((button) => button.addEventListener("click", () => {
     return;
   }
   if (button.dataset.module === "sales") {
+    saveActiveModule("sales");
     window.location.href = "ventas.html";
     return;
   }

@@ -1,7 +1,6 @@
 (function () {
   const activeModuleStorageKey = "repairActiveModule";
-  const panelLink = document.querySelector("[data-return-module]");
-  const currentModule = panelLink?.dataset.returnModule || "permissions";
+  const panelLinks = document.querySelectorAll("[data-return-module]");
 
   function rememberModule(moduleName) {
     try {
@@ -9,5 +8,7 @@
     } catch {}
   }
 
-  panelLink?.addEventListener("click", () => rememberModule(currentModule));
+  panelLinks.forEach((link) => {
+    link.addEventListener("click", () => rememberModule(link.dataset.returnModule || "permissions"));
+  });
 })();
