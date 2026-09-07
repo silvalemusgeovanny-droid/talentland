@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" type="image/svg+xml" href="favicon.svg?v=drmovil-2" />
+    <title>Ventas | Inventario y Reparaciones</title>
+    <link rel="stylesheet" href="styles.css?v=sales-register-1" />
+  </head>
+  <body class="parts-page">
+    <main class="parts-shell">
+      <header class="parts-header">
+        <div>
+          <span class="panel-kicker">Ventas</span>
+          <h1>Registro de ventas</h1>
+          <p>Consulta todas las ventas agrupadas por fecha.</p>
+        </div>
+        <a class="back-link header-panel-link" href="index.html" data-return-module="sales">Panel</a>
+      </header>
+
+      <section class="parts-summary" aria-label="Resumen de ventas">
+        <article><span>Total ventas</span><strong id="totalSales">0</strong></article>
+        <article><span>Valor vendido</span><strong id="totalSalesValue">$0.00</strong></article>
+        <article><span>Unidades</span><strong id="totalSaleUnits">0</strong></article>
+      </section>
+
+      <section class="parts-table-card repairs-table-card">
+        <div class="table-toolbar">
+          <div>
+            <span class="panel-kicker">Consulta</span>
+            <h2>Registros de ventas</h2>
+          </div>
+          <input id="saleSearch" type="search" placeholder="Buscar cliente, producto o venta" />
+        </div>
+        <div class="table-wrap">
+          <table class="repairs-table sales-register-table">
+            <thead><tr><th>No.</th><th>Cliente</th><th>Producto</th><th>Modelo</th><th>Cantidad</th><th>Total</th><th>Recibido</th><th>Ingreso</th></tr></thead>
+            <tbody id="salesTable"></tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+    <script src="convex-config.js?v=parts-model-1"></script>
+    <script src="app-core.js?v=login-no-seed-20260905"></script>
+    <script src="convex-client.js?v=notes-session-20260509"></script>
+    <script src="page-nav.js?v=single-navigation-1"></script>
+    <script src="ventas.js?v=sales-register-1"></script>
+  </body>
+</html>

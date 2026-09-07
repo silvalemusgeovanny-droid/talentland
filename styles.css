@@ -3192,6 +3192,17 @@ table {
   min-height: 34px;
 }
 
+.sales-register-table th:nth-child(1),
+.sales-register-table td:nth-child(1) { width: 64px; }
+.sales-register-table th:nth-child(5),
+.sales-register-table td:nth-child(5) { width: 78px; text-align: center; }
+.sales-register-table th:nth-child(6),
+.sales-register-table td:nth-child(6),
+.sales-register-table th:nth-child(7),
+.sales-register-table td:nth-child(7),
+.sales-register-table th:nth-child(8),
+.sales-register-table td:nth-child(8) { width: 104px; white-space: nowrap; }
+
 :is(body.login-dark, html.login-dark body) table {
   background: #111c24;
 }
