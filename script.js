@@ -212,9 +212,7 @@ const repairCustomerInput = document.querySelector("#repairCustomer");
 const repairPhoneInput = document.querySelector("#repairPhone");
 const repairEmailInput = document.querySelector("#repairEmail");
 const repairBrandInput = document.querySelector("#repairBrand");
-const repairBrandOptions = document.querySelector("#repairBrandOptions");
 const repairModelInput = document.querySelector("#repairModel");
-const repairModelOptions = document.querySelector("#repairModelOptions");
 const repairTypeInput = document.querySelector("#repairType");
 const repairTypeNewInput = document.querySelector("#repairTypeNew");
 const repairImeiInput = document.querySelector("#repairImei");
@@ -2214,7 +2212,13 @@ function getRepairTypeOptionsForEquipment() {
 
 function getRepairModelsForBrand(brandValue = "") {
   const brandKey = normalizePartSearch(brandValue);
-  return getPartFieldOptions("model", (part) => !brandKey || normalizePartSearch(part.brand) === brandKey);
+  const partModels = loadParts()
+    .filter((part) => !brandKey || normalizePartSearch(part.brand) === brandKey)
+    .map((part) => part.model);
+  const repairModels = loadRepairs()
+    .filter((repair) => !brandKey || normalizePartSearch(repair.brand) === brandKey)
+    .map((repair) => repair.model);
+  return [...new Set([...partModels, ...repairModels].map((value) => normalizeSystemOption(value || "")).filter(Boolean))].sort();
 }
 
 function isKnownRepairModelForOtherBrand(brandValue, modelValue) {
@@ -2232,14 +2236,24 @@ function syncKnownRepairOptionCase(input, storageKey, repairField) {
 }
 
 function renderRepairBrandOptions() {
-  repairBrandOptions.innerHTML = getPartFieldOptions("brand")
-    .map((option) => `<option value="${escapeHtml(option)}"></option>`)
-    .join("");
+  const selectedValue = normalizeSystemOption(repairBrandInput?.value || "");
+  const options = loadRepairOptions(repairBrandsStorageKey, "brand");
+  if (selectedValue && !options.includes(selectedValue)) options.push(selectedValue);
+  repairBrandInput.innerHTML = [
+    `<option value="">Selecciona una marca</option>`,
+    ...options.sort().map((option) => `<option value="${escapeHtml(option)}">${escapeHtml(option)}</option>`),
+  ].join("");
+  repairBrandInput.value = selectedValue;
 }
 function renderRepairModelOptions() {
-  repairModelOptions.innerHTML = getRepairModelsForBrand(repairBrandInput.value)
-    .map((option) => `<option value="${escapeHtml(option)}"></option>`)
-    .join("");
+  const selectedValue = normalizeSystemOption(repairModelInput?.value || "");
+  const options = getRepairModelsForBrand(repairBrandInput.value);
+  if (selectedValue && !options.includes(selectedValue)) options.push(selectedValue);
+  repairModelInput.innerHTML = [
+    `<option value="">${repairBrandInput.value ? "Selecciona un modelo" : "Selecciona primero una marca"}</option>`,
+    ...options.sort().map((option) => `<option value="${escapeHtml(option)}">${escapeHtml(option)}</option>`),
+  ].join("");
+  repairModelInput.value = selectedValue;
 }
 function renderRepairTypeOptions() {
   const selectedValue = normalizeSystemOption(repairTypeInput?.value || "");

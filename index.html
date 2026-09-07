@@ -377,12 +377,14 @@
               </div>
 
               <label for="repairBrand">Marca</label>
-              <input id="repairBrand" name="brand" type="text" list="repairBrandOptions" placeholder="Samsung, Apple, HP..." required />
-              <datalist id="repairBrandOptions"></datalist>
+              <select id="repairBrand" name="brand" required>
+                <option value="">Selecciona una marca</option>
+              </select>
 
               <label for="repairModel">Modelo</label>
-              <input id="repairModel" name="model" type="text" list="repairModelOptions" pattern="[A-Za-z0-9 ]+" placeholder="Letras y numeros" required />
-              <datalist id="repairModelOptions"></datalist>
+              <select id="repairModel" name="model" required>
+                <option value="">Selecciona primero una marca</option>
+              </select>
 
               <label for="repairType">Tipo de reparacion</label>
               <select id="repairType" name="repairType" required>
