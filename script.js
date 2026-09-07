@@ -317,6 +317,7 @@ let repairStatusReminderCache = [];
 let pendingNotesCache = [];
 let repairStatusReminderTimer = null;
 let pendingAlertMode = "notes";
+let pendingRepairAlertMinimized = false;
 let salesCloudMigrationDone = false;
 let currentUser = null;
 let managedUsersCache = [];
@@ -1751,10 +1752,25 @@ function renderPendingRepairList() {
 
 function togglePendingRepairList() {
   if (pendingAlertMode !== "repairs" || !pendingRepairList) return;
-  const shouldShow = pendingRepairList.hidden;
-  if (shouldShow) renderPendingRepairList();
-  pendingRepairList.hidden = !shouldShow;
-  openNotesFromAlert.textContent = shouldShow ? "Minimizar" : "Ver";
+  if (pendingRepairList.hidden) {
+    renderPendingRepairList();
+    pendingRepairList.hidden = false;
+    openNotesFromAlert.textContent = "Minimizar";
+    return;
+  }
+  pendingRepairAlertMinimized = true;
+  pendingRepairList.hidden = true;
+  pendingAlert.hidden = true;
+  openNotesFromAlert.textContent = "Ver";
+  updatePendingNotesBadge();
+}
+
+function restorePendingRepairAlert() {
+  pendingRepairAlertMinimized = false;
+  renderPendingAlert();
+  renderPendingRepairList();
+  if (pendingRepairList) pendingRepairList.hidden = false;
+  if (openNotesFromAlert) openNotesFromAlert.textContent = "Minimizar";
 }
 
 function renderPendingAlert() {
@@ -1767,6 +1783,11 @@ function renderPendingAlert() {
   if (!hasSession || isSnoozed || (!readyRepairs.length && !pendingNotes.length)) {
     pendingAlert.hidden = true;
     if (pendingRepairList) pendingRepairList.hidden = true;
+    return;
+  }
+
+  if (pendingRepairAlertMinimized && readyRepairs.length) {
+    pendingAlert.hidden = true;
     return;
   }
 
@@ -1793,6 +1814,7 @@ async function refreshRepairStatusReminder() {
     repairStatusReminderCache = getRepairStatusReminderItems(loadRepairs());
   }
   updateStatisticsPendingDot();
+  updatePendingNotesBadge();
   renderPendingAlert();
 }
 
@@ -1800,6 +1822,8 @@ function stopRepairStatusReminder() {
   if (repairStatusReminderTimer) clearInterval(repairStatusReminderTimer);
   repairStatusReminderTimer = null;
   repairStatusReminderCache = [];
+  pendingRepairAlertMinimized = false;
+  updatePendingNotesBadge();
   updateStatisticsPendingDot();
 }
 
@@ -2740,9 +2764,21 @@ function formatNoteDate(value) {
   }).format(date);
 }
 
+function updatePendingNotesBadge() {
+  const hasSession = Boolean(currentUser);
+  const canUseNotes = hasSession && canAccessModule("notes");
+  const canUseRepairs = hasSession && canAccessModule("repairs");
+  const pendingCount = pendingNotesCache.length + repairStatusReminderCache.length;
+  notesToggle.hidden = !hasSession || (!canUseNotes && !canUseRepairs);
+  notesBadge.hidden = !hasSession || pendingCount === 0;
+  notesBadge.textContent = hasSession ? pendingCount : 0;
+}
+
 async function renderNotes() {
-  const canUseNotes = Boolean(currentUser) && canAccessModule("notes");
-  if (!canUseNotes) {
+  const hasSession = Boolean(currentUser);
+  const canUseNotes = hasSession && canAccessModule("notes");
+  const canUseRepairs = hasSession && canAccessModule("repairs");
+  if (!canUseNotes && !canUseRepairs) {
     notesToggle.hidden = true;
     notesBadge.hidden = true;
     notesOverlay.hidden = true;
@@ -2752,20 +2788,24 @@ async function renderNotes() {
   }
 
   let notes = [];
-  try {
-    notes = await loadNotesFromSource();
-  } catch (error) {
-    notes = loadNotes();
-    notesList.innerHTML = `<p class="hint">${escapeHtml(error.message)}</p>`;
+  if (canUseNotes) {
+    try {
+      notes = await loadNotesFromSource();
+    } catch (error) {
+      notes = loadNotes();
+      notesList.innerHTML = `<p class="hint">${escapeHtml(error.message)}</p>`;
+    }
   }
   const pendingNotes = notes.filter((note) => !note.done);
   pendingNotesCache = pendingNotes;
-  const hasSession = Boolean(currentUser);
 
-  notesToggle.hidden = !hasSession;
-  notesBadge.hidden = !hasSession || pendingNotes.length === 0;
-  notesBadge.textContent = hasSession ? pendingNotes.length : 0;
+  updatePendingNotesBadge();
   renderPendingAlert();
+
+  if (!canUseNotes) {
+    notesOverlay.hidden = true;
+    return;
+  }
 
   if (!notes.length) {
     notesList.innerHTML = `<p class="hint">Todavia no hay notas pendientes.</p>`;
@@ -4612,7 +4652,13 @@ colorModeToggle.addEventListener("click", () => {
   setColorMode(nextMode);
 });
 
-notesToggle.addEventListener("click", openNotesPanel);
+notesToggle.addEventListener("click", () => {
+  if (repairStatusReminderCache.length && pendingRepairAlertMinimized) {
+    restorePendingRepairAlert();
+    return;
+  }
+  openNotesPanel();
+});
 openNotesFromAlert.addEventListener("click", () => {
   if (pendingAlertMode === "repairs") {
     togglePendingRepairList();
