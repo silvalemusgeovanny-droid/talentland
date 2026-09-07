@@ -2327,6 +2327,16 @@ function parseDateTimeLocalInput(value) {
   return Number.isNaN(date.getTime()) ? "" : date.toISOString();
 }
 
+function getCurrentDateTimeLocal() {
+  const date = new Date();
+  const pad = (number) => String(number).padStart(2, "0");
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
+
+function updateRepairEstimatedDeliveryMin() {
+  if (repairEstimatedDeliveryAtInput) repairEstimatedDeliveryAtInput.min = getCurrentDateTimeLocal();
+}
+
 function formatInvoiceDate(value) {
   const date = value ? new Date(value) : new Date();
   if (Number.isNaN(date.getTime())) return "";
@@ -2919,6 +2929,7 @@ function updateRepairDeliveredAt() {
 function resetRepairEstimatedDeliveryAt() {
   if (!repairEstimatedDeliveryAtInput) return;
   repairEstimatedDeliveryAtInput.value = "";
+  updateRepairEstimatedDeliveryMin();
 }
 
 async function renderSales() {
@@ -4893,6 +4904,8 @@ repairTypeInput.addEventListener("change", () => {
   syncNewRepairTypeField();
   syncKnownRepairTypeCase();
 });
+repairEstimatedDeliveryAtInput?.addEventListener("focus", updateRepairEstimatedDeliveryMin);
+repairEstimatedDeliveryAtInput?.addEventListener("change", updateRepairEstimatedDeliveryMin);
 repairTypeNewInput.addEventListener("blur", () => {
   repairTypeNewInput.value = normalizeSystemOption(repairTypeNewInput.value);
 });
@@ -5432,7 +5445,17 @@ repairsForm.addEventListener("submit", async (event) => {
     const status = formData.get("status");
     const createdAt = repairCreatedAtInput.dataset.value || new Date().toISOString();
     const deliveredAt = status === "Entregado" ? repairDeliveredAtInput.dataset.value || new Date().toISOString() : "";
-    const estimatedDeliveryAt = parseDateTimeLocalInput(formData.get("estimatedDeliveryAt"));
+    const estimatedDeliveryInput = String(formData.get("estimatedDeliveryAt") || "");
+    const estimatedDeliveryAt = parseDateTimeLocalInput(estimatedDeliveryInput);
+    if (estimatedDeliveryInput) {
+      const estimatedDeliveryTime = new Date(estimatedDeliveryAt).getTime();
+      if (!estimatedDeliveryAt || !Number.isFinite(estimatedDeliveryTime) || estimatedDeliveryTime <= Date.now()) {
+        updateRepairEstimatedDeliveryMin();
+        repairsHint.textContent = "La hora estimada de entrega debe ser posterior a la hora actual.";
+        repairEstimatedDeliveryAtInput?.focus();
+        return;
+      }
+    }
     const rawBrand = normalizeSystemOption(formData.get("brand"));
     const rawModel = normalizeSystemOption(formData.get("model"));
     if (isKnownRepairModelForOtherBrand(rawBrand, rawModel)) {
@@ -5845,6 +5868,7 @@ setRepairCreatedAt();
 renderRepairBrandOptions();
 renderRepairModelOptions();
 renderRepairTypeOptions();
+updateRepairEstimatedDeliveryMin();
 resetSaleDefaults();
 updateDateTime();
 if (!isBootRestoringSession) {
