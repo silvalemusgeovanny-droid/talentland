@@ -4,6 +4,7 @@
 node_modules/ 
 .telegram-bot.pid
 telegram-bot.*.log
+server.*.log
 output/
 tmp/
 backup-reparaciones-entregadas-*.json

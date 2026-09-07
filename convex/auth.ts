@@ -1,11 +1,16 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
+import { scryptAsync } from "@noble/hashes/scrypt.js";
 
 const sessionDurationMs = 1000 * 60 * 60 * 12;
 const activePresenceMs = 1000 * 60;
 const maxFailedLoginAttempts = 5;
 const lockDurationMs = 1000 * 60 * 15;
 const rootUsersMessage = "solo root puede gestionar usuarios";
+const scryptN = 2 ** 14;
+const scryptR = 8;
+const scryptP = 1;
+const scryptKeyLength = 32;
 
 async function sha256(value: string) {
   const bytes = new TextEncoder().encode(value);
@@ -13,6 +18,60 @@ async function sha256(value: string) {
   return Array.from(new Uint8Array(digest))
     .map((byte) => byte.toString(16).padStart(2, "0"))
     .join("");
+}
+
+function bytesToHex(bytes: Uint8Array) {
+  return Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("");
+}
+
+function hexToBytes(value: string) {
+  if (!/^[0-9a-f]+$/i.test(value) || value.length % 2 !== 0) return null;
+  const bytes = new Uint8Array(value.length / 2);
+  for (let index = 0; index < bytes.length; index += 1) {
+    bytes[index] = Number.parseInt(value.slice(index * 2, index * 2 + 2), 16);
+  }
+  return bytes;
+}
+
+function constantTimeEqual(left: Uint8Array, right: Uint8Array) {
+  if (left.length !== right.length) return false;
+  let difference = 0;
+  for (let index = 0; index < left.length; index += 1) difference |= left[index] ^ right[index];
+  return difference === 0;
+}
+
+async function hashPassword(password: string) {
+  const salt = new Uint8Array(16);
+  crypto.getRandomValues(salt);
+  const derivedKey = await scryptAsync(password, salt, {
+    N: scryptN,
+    r: scryptR,
+    p: scryptP,
+    dkLen: scryptKeyLength,
+  });
+  return `scrypt$${scryptN}$${scryptR}$${scryptP}$${bytesToHex(salt)}$${bytesToHex(derivedKey)}`;
+}
+
+async function verifyPassword(password: string, storedHash: string, username = "") {
+  if (!storedHash.startsWith("scrypt$")) {
+    return {
+      valid: (await sha256(`${username}:${password}`)) === storedHash,
+      needsRehash: true,
+    };
+  }
+
+  const [, nValue, rValue, pValue, saltValue, keyValue] = storedHash.split("$");
+  const n = Number(nValue);
+  const r = Number(rValue);
+  const p = Number(pValue);
+  const salt = hexToBytes(saltValue || "");
+  const expectedKey = hexToBytes(keyValue || "");
+  if (!Number.isSafeInteger(n) || !Number.isSafeInteger(r) || !Number.isSafeInteger(p) || !salt || !expectedKey) {
+    return { valid: false, needsRehash: false };
+  }
+
+  const derivedKey = await scryptAsync(password, salt, { N: n, r, p, dkLen: expectedKey.length });
+  return { valid: constantTimeEqual(derivedKey, expectedKey), needsRehash: false };
 }
 
 function publicUser(user: {
@@ -142,7 +201,7 @@ export const seedDefaultUsers = mutation({
 
       await ctx.db.insert("usuarios", {
         username: user.username,
-        passwordHash: await sha256(`${user.username}:${user.password}`),
+        passwordHash: await hashPassword(user.password),
         name: user.name,
         role: user.role,
         modules: user.modules,
@@ -205,8 +264,8 @@ export const login = mutation({
       throw new Error("Cuenta bloqueada temporalmente. Root puede desbloquearla o restablecer contrasena.");
     }
 
-    const passwordHash = await sha256(`${username}:${args.password}`);
-    if (passwordHash !== user.passwordHash) {
+    const passwordCheck = await verifyPassword(args.password, user.passwordHash, username);
+    if (!passwordCheck.valid) {
       const failedLoginCount = Number(user.failedLoginCount || 0) + 1;
       const now = new Date();
       const patch: Record<string, unknown> = {
@@ -234,13 +293,15 @@ export const login = mutation({
     }
 
     const now = new Date();
-    await ctx.db.patch(user._id, {
+    const loginPatch: Record<string, unknown> = {
       accountStatus: "active",
       failedLoginCount: 0,
       lockedUntil: 0,
       lastLoginAt: now.toISOString(),
       updatedAt: now.toISOString(),
-    });
+    };
+    if (passwordCheck.needsRehash) loginPatch.passwordHash = await hashPassword(args.password);
+    await ctx.db.patch(user._id, loginPatch);
     await ctx.db.insert("sesiones", {
       tokenHash: await sha256(args.sessionToken),
       userId: user._id,
@@ -372,12 +433,16 @@ async function verifyPrivilegedPassword(ctx: any, username: string, password: st
     return false;
   }
 
-  const passwordHash = await sha256(`${cleanUsername}:${password}`);
-  if (passwordHash === user.passwordHash) {
-    await ctx.db.patch(user._id, {
+  const passwordCheck = await verifyPassword(password, user.passwordHash, cleanUsername);
+  if (passwordCheck.valid) {
+    const verificationPatch: Record<string, unknown> = {
       failedLoginCount: 0,
       lockedUntil: 0,
       updatedAt: new Date().toISOString(),
+    };
+    if (passwordCheck.needsRehash) verificationPatch.passwordHash = await hashPassword(password);
+    await ctx.db.patch(user._id, {
+      ...verificationPatch,
     });
     return true;
   }
@@ -466,7 +531,7 @@ export const createUser = mutation({
 
     const id = await ctx.db.insert("usuarios", {
       username,
-      passwordHash: await sha256(`${username}:${args.password.trim()}`),
+      passwordHash: await hashPassword(args.password.trim()),
       name: args.name.trim(),
       role: args.role,
       modules: args.modules,
@@ -518,7 +583,7 @@ export const updateUser = mutation({
 
     if (args.password?.trim()) {
       validatePasswordStrength(args.password.trim());
-      patch.passwordHash = await sha256(`${username}:${args.password.trim()}`);
+      patch.passwordHash = await hashPassword(args.password.trim());
       patch.mustChangePassword = true;
       patch.accountStatus = "active";
       patch.failedLoginCount = 0;
@@ -598,11 +663,11 @@ export const changeOwnPassword = mutation({
     const user = await ctx.db.get(session.userId);
     if (!user || !user.active || getAccountStatus(user) !== "active") throw new Error("Usuario no autorizado.");
 
-    const currentHash = await sha256(`${user.username}:${args.currentPassword}`);
-    if (currentHash !== user.passwordHash) throw new Error("Contrasena actual incorrecta.");
+    const currentPasswordCheck = await verifyPassword(args.currentPassword, user.passwordHash, user.username);
+    if (!currentPasswordCheck.valid) throw new Error("Contrasena actual incorrecta.");
 
     await ctx.db.patch(user._id, {
-      passwordHash: await sha256(`${user.username}:${args.newPassword.trim()}`),
+      passwordHash: await hashPassword(args.newPassword.trim()),
       mustChangePassword: false,
       updatedAt: new Date().toISOString(),
     });
