@@ -474,7 +474,7 @@ function getCategoryValues() {
 
 function renderSelectOptions(select, values, placeholder, selectedValue = select.value) {
   const normalizedSelected = normalizePartType(selectedValue);
-  const sortedValues = [...values].sort((a, b) => String(a).localeCompare(String(b), "es", { sensitivity: "base" }));
+  const sortedValues = [...values].sort(compareOptionValues);
   delete select.dataset.editing;
   select.hidden = false;
   select.disabled = false;
@@ -485,6 +485,15 @@ function renderSelectOptions(select, values, placeholder, selectedValue = select
     `<option value="${newOptionValue}">Agregar nuevo</option>`,
   ].join("");
   if (sortedValues.includes(normalizedSelected)) select.value = normalizedSelected;
+}
+
+function compareOptionValues(a, b) {
+  const left = String(a || "");
+  const right = String(b || "");
+  const leftStartsWithNumber = /^\d/.test(left);
+  const rightStartsWithNumber = /^\d/.test(right);
+  if (leftStartsWithNumber !== rightStartsWithNumber) return leftStartsWithNumber ? -1 : 1;
+  return left.localeCompare(right, "es", { numeric: true, sensitivity: "base" });
 }
 
 function renderCategoryOptions(selectedValue = categorySelect.value || "Telefono") {

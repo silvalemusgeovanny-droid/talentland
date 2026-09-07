@@ -1601,13 +1601,22 @@ function getCategoryValues() {
 
 function renderSelectOptions(select, values, placeholder, selectedValue = select.value) {
   const normalizedSelected = normalizePartType(selectedValue);
-  const sortedValues = [...values].sort((a, b) => String(a).localeCompare(String(b), "es", { sensitivity: "base" }));
+  const sortedValues = [...values].sort(compareOptionValues);
   select.innerHTML = [
     `<option value="">${escapeHtml(placeholder)}</option>`,
     ...sortedValues.map((value) => `<option value="${escapeHtml(value)}">${escapeHtml(value)}</option>`),
     `<option value="${newOptionValue}">Agregar nuevo</option>`,
   ].join("");
   if (sortedValues.includes(normalizedSelected)) select.value = normalizedSelected;
+}
+
+function compareOptionValues(a, b) {
+  const left = String(a || "");
+  const right = String(b || "");
+  const leftStartsWithNumber = /^\d/.test(left);
+  const rightStartsWithNumber = /^\d/.test(right);
+  if (leftStartsWithNumber !== rightStartsWithNumber) return leftStartsWithNumber ? -1 : 1;
+  return left.localeCompare(right, "es", { numeric: true, sensitivity: "base" });
 }
 
 function renderQuickCategoryOptions(selectedValue = quickCategoryInput.value || "Telefono") {
@@ -2285,7 +2294,7 @@ function renderRepairBrandOptions() {
   if (selectedValue && !options.includes(selectedValue)) options.push(selectedValue);
   repairBrandInput.innerHTML = [
     `<option value="">Selecciona una marca</option>`,
-    ...options.sort().map((option) => `<option value="${escapeHtml(option)}">${escapeHtml(option)}</option>`),
+    ...options.sort(compareOptionValues).map((option) => `<option value="${escapeHtml(option)}">${escapeHtml(option)}</option>`),
   ].join("");
   repairBrandInput.value = selectedValue;
 }
@@ -2295,7 +2304,7 @@ function renderRepairModelOptions() {
   if (selectedValue && !options.includes(selectedValue)) options.push(selectedValue);
   repairModelInput.innerHTML = [
     `<option value="">${repairBrandInput.value ? "Selecciona un modelo" : "Selecciona primero una marca"}</option>`,
-    ...options.sort().map((option) => `<option value="${escapeHtml(option)}">${escapeHtml(option)}</option>`),
+    ...options.sort(compareOptionValues).map((option) => `<option value="${escapeHtml(option)}">${escapeHtml(option)}</option>`),
   ].join("");
   repairModelInput.value = selectedValue;
 }
@@ -2305,7 +2314,7 @@ function renderRepairTypeOptions() {
   if (selectedValue && !options.includes(selectedValue)) options.push(selectedValue);
   repairTypeInput.innerHTML = [
     `<option value="">Selecciona tipo de reparacion</option>`,
-    ...options.sort().map((option) => `<option value="${escapeHtml(option)}">${escapeHtml(option)}</option>`),
+    ...options.sort(compareOptionValues).map((option) => `<option value="${escapeHtml(option)}">${escapeHtml(option)}</option>`),
   ].join("");
   repairTypeInput.value = selectedValue;
   syncNewRepairTypeField();
