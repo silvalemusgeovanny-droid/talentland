@@ -2086,9 +2086,6 @@ function normalizeRepairIdentifier(value) {
 }
 
 function normalizeRepairForCloud(repair) {
-  // El backend publicado aun valida reparaciones sin `imei` ni `dui`.
-  // Conservamos ambos campos en el estado local, pero no los enviamos a Convex
-  // hasta que el despliegue del servidor quede alineado con el esquema local.
   return {
     sourceId: repair.sourceId || repair.id,
     repairNumber: Number(repair.repairNumber) || 0,
@@ -2099,6 +2096,8 @@ function normalizeRepairForCloud(repair) {
     brand: repair.brand || "",
     model: repair.model || "Sin modelo",
     repairType: repair.repairType || "Reparacion",
+    imei: normalizeRepairIdentifier(repair.imei),
+    dui: normalizeRepairIdentifier(repair.dui),
     status: repair.status || "En proceso",
     createdAt: repair.createdAt || new Date().toISOString(),
     deliveredAt: repair.deliveredAt || "",
@@ -2350,7 +2349,7 @@ function buildRepairInvoiceHtml(repair, options = {}) {
   const resta = Math.max(0, total - abono);
   const date = formatInvoiceDate(repair.createdAt);
   const orderNumber = String(repair.repairNumber || "").padStart(4, "0");
-  const showCanceledStamp = normalizeSearch(repair.status || "") === "listo";
+  const showCanceledStamp = total > 0 && abono >= total;
   const shouldRecordInvoice = options.recordOnPrint !== false;
   const technicianName = repair.technicianName || currentUser?.name || currentUser?.username || "";
   const invoicePayload = {
