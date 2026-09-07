@@ -3202,6 +3202,7 @@ function renderRepairsList(repairs) {
             <button class="edit-button icon-action-button icon-edit-button" type="button" data-repair-id="${escapeHtml(repairId)}" aria-label="Editar reparacion #${escapeHtml(repair.repairNumber || "")}" title="Editar">Editar</button>
             <button class="delete-button icon-action-button icon-delete-button" type="button" data-repair-id="${escapeHtml(repairId)}" aria-label="Eliminar reparacion #${escapeHtml(repair.repairNumber || "")}" title="Eliminar">Eliminar</button>
             <button class="edit-button icon-action-button icon-invoice-button" type="button" data-invoice-repair-id="${escapeHtml(repairId)}" aria-label="Generar factura de reparacion #${escapeHtml(repair.repairNumber || "")}" title="Factura">Factura</button>
+            <button class="secondary-button" type="button" data-edit-status-repair-id="${escapeHtml(repairId)}">Editar estado</button>
           </div>
         ` : "";
     return `
@@ -3293,11 +3294,12 @@ async function renderSideRepairs() {
 
   repairs = sortRepairsPendingFirst(repairs);
   sideRepairsList.innerHTML = resultSummary + repairs.slice(0, search ? repairs.length : 50).map((repair) => `
-    <article class="side-repair-item" data-side-repair-id="${escapeHtml(getRepairRecordId(repair))}" role="button" tabindex="0" aria-label="Editar reparacion #${escapeHtml(repair.repairNumber || "")}">
+    <article class="side-repair-item" data-side-repair-id="${escapeHtml(getRepairRecordId(repair))}" role="button" tabindex="0" aria-label="Editar reparacion #${escapeHtml(repair.repairNumber || "")} ">
       <strong>#${repair.repairNumber || ""} ${escapeHtml(repair.customer || "Sin nombre")}</strong>
       <span>${escapeHtml([repair.brand, repair.model].filter(Boolean).join(" ") || repair.deviceType || "Equipo")}</span>
       <span>${escapeHtml(repair.repairType || "Reparacion")} | ${escapeHtml(repair.status || "En proceso")}</span>
       <b>${formatCurrency(Number(repair.repairPrice) || 0)}</b>
+      <button class="secondary-button" type="button" data-edit-side-repair-id="${escapeHtml(getRepairRecordId(repair))}">Editar estado</button>
     </article>
   `).join("");
 }
@@ -5600,6 +5602,28 @@ repairsList.addEventListener("click", (event) => {
   const repair = findRepairByRecordId(repairs, editButton.dataset.repairId);
   if (!repair) return;
   openRepairInForm(repair);
+});
+
+repairsList.addEventListener("click", async (event) => {
+  const card = event.target.closest(".repair-item");
+  if (!card || event.target.closest("button")) return;
+  const repairId = card.querySelector("[data-repair-id]")?.dataset.repairId;
+  if (!repairId) return;
+  const repairs = loadRepairs();
+  const repair = repairs.find((item) => getRepairRecordId(item) === repairId);
+  if (!repair) return;
+  openRepairInForm(repair);
+  repairsForm.scrollIntoView({ behavior: "smooth", block: "start" });
+});
+
+repairsList.addEventListener("click", async (event) => {
+  const button = event.target.closest("[data-edit-status-repair-id]");
+  if (!button) return;
+  const repairs = await loadRepairsFromSource(10000, "");
+  const repair = repairs.find((item) => getRepairRecordId(item) === button.dataset.editStatusRepairId);
+  if (!repair) return;
+  openRepairInForm(repair);
+  repairsForm.scrollIntoView({ behavior: "smooth", block: "start" });
 });
 
 repairsList.addEventListener("click", (event) => {
