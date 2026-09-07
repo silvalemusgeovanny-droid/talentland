@@ -947,6 +947,17 @@ async function searchParts(chatId, search, options = {}) {
   const matches = allMatches.slice(0, MAX_RESULTS);
 
   if (matches.length === 0) {
+    if (allMatches.length === 0 && !options.onlyWithStock && EXA_API_KEY) {
+      const webRefs = await searchExaForBot(search, [], { numResults: 3 }).catch(() => []);
+      if (webRefs.length) {
+        await sendMessage(chatId, [
+          options.priceOnly ? "No encontré ese producto en nuestro catálogo de precios 📦" : "No encontré eso en nuestro inventario 📦",
+          "Te dejo una referencia web (no refleja el stock ni precios de tu negocio):",
+          formatExaReferenceFallback(webRefs),
+        ].join("\n\n"));
+        return;
+      }
+    }
     await sendMessage(chatId, BOT_MESSAGES.notRegisteredInInventory);
     return;
   }
@@ -1319,6 +1330,20 @@ function formatExaReferences(results) {
       ]
         .filter(Boolean)
         .join("\n");
+    })
+    .join("\n\n");
+}
+
+function formatExaReferenceFallback(results) {
+  return results
+    .slice(0, 3)
+    .map((result, index) => {
+      const highlight = (Array.isArray(result.highlights) ? result.highlights : [])
+        .map((value) => String(value || "").trim())
+        .filter(Boolean)
+        .join(" ")
+        .slice(0, 200);
+      return `${index + 1}. ${result.title || "Referencia"}\n${result.url || ""}${highlight ? `\n${highlight}` : ""}`;
     })
     .join("\n\n");
 }
@@ -2249,6 +2274,7 @@ export {
   buildBusinessContext,
   INTENT_TYPES,
   appendExternalReferenceStatus,
+  formatExaReferenceFallback,
   detectCustomerSupportCaseType,
   detectMessageIntent,
   formatLogEntry,

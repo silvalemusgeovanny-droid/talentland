@@ -353,9 +353,9 @@ enlace al archivo protegido.
 | `/menu` o `/start` | Muestra el teclado de opciones. |
 | `/ayuda` o `/help` | Muestra comandos y ejemplos. |
 | `/estado` o `/status` | Muestra la configuracion activa sin revelar secretos. No sustituye una prueba de consulta a Convex. |
-| `/buscar texto` o `/repuestos texto` | Busca repuestos por nombre, marca, modelo o categoria. |
+| `/buscar texto` o `/repuestos texto` | Busca repuestos por nombre, marca, modelo o categoria. Si no hay nada en el inventario local y hay clave Exa, muestra hasta 3 referencias web como respaldo (no son stock de tu local). |
 | `/stock texto` | Busca repuestos con existencia. |
-| `/precio texto` | Consulta el precio a cliente final. |
+| `/precio texto` | Consulta el precio a cliente final. Con el mismo respaldo web de Exa si el producto no existe en tu catalogo. |
 | `/stock_bajo` | Lista repuestos agotados o con poca existencia. |
 | `/resumen` | Muestra el resumen operativo del dia. |
 | `/pendientes` o `/alertas` | Consulta reparaciones listas o por vencer, catalogo pendiente y stock bajo. |

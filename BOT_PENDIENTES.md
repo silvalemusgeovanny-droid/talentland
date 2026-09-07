@@ -56,6 +56,13 @@ Completado:
    - Frases variables al saludar, al no entender, al cancelar y sin resultados;
      prompt de IA con tono mas cercano.
 
+10. Respaldo web con Exa (7 de septiembre de 2026):
+    - Si `/repuestos` o `/precio` no encuentran nada en el inventario local y hay
+      clave Exa, el bot muestra hasta 3 referencias web compactas dejando claro
+      que NO son stock ni precios del negocio.
+    - Formateador propio (`formatExaReferenceFallback`) con titulo, URL y resumen
+      breve; pruebas en `notifications.test.js`.
+
 Pendientes para continuar en la siguiente sesion:
 
 1. Confirmar una respuesta desde el chat de Telegram. El 5 de septiembre de 2026

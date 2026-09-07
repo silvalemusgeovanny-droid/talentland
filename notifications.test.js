@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { alertFingerprint, getNewRepairs } from "./telegram-bot.mjs";
+import { alertFingerprint, getNewRepairs, formatExaReferenceFallback } from "./telegram-bot.mjs";
 
 describe("notificaciones proactivas: deduplicacion", () => {
   it("genera el mismo fingerprint para un mismo conjunto de alertas", () => {
@@ -80,5 +80,29 @@ describe("notificaciones de reparaciones nuevas", () => {
       { ...base, repairNumber: 2, createdAt: "2026-09-06T13:00:00.000Z" },
     ];
     expect(getNewRepairs(repairs, "2026-09-06T12:00:00.000Z").map((r) => r.repairNumber)).toEqual([2]);
+  });
+});
+
+describe("respaldo Exa: formato compacto de referencias", () => {
+  it("formatea titulo, url y resumen breve", () => {
+    const results = [
+      {
+        title: "Pantalla iPhone 11 Original",
+        url: "https://ejemplo.com/pantalla-11",
+        highlights: ["Repuesto original para iPhone 11 con vidrio templado incluido."],
+      },
+    ];
+    const salida = formatExaReferenceFallback(results);
+    expect(salida).toContain("Pantalla iPhone 11 Original");
+    expect(salida).toContain("https://ejemplo.com/pantalla-11");
+    expect(salida).toContain("Repuesto original");
+  });
+
+  it("limita a 3 referencias y tolera resultados sin resumen", () => {
+    const results = Array.from({ length: 5 }, (_, i) => ({ title: `Ref ${i}`, url: `https://e.com/${i}`, highlights: [] }));
+    const salida = formatExaReferenceFallback(results);
+    expect(salida).toContain("1. Ref 0");
+    expect(salida).toContain("3. Ref 2");
+    expect(salida).not.toContain("4. Ref 3");
   });
 });
