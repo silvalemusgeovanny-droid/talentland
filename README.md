@@ -359,6 +359,7 @@ enlace al archivo protegido.
 | `/stock_bajo` | Lista repuestos agotados o con poca existencia. |
 | `/resumen` | Muestra el resumen operativo del dia. |
 | `/pendientes` o `/alertas` | Consulta reparaciones listas o por vencer, catalogo pendiente y stock bajo. |
+| `/notifica` o `/notificar` | Envia ahora el aviso de reparaciones nuevas, ignorando la deduplicacion automatica. |
 | `/cliente texto` o `/atencion texto` | Clasifica un caso de garantia, cotizacion, seguimiento o queja; busca reparaciones relacionadas e intenta guardar una nota interna en Convex. La respuesta indica si se guardo. |
 | `/login` | Solicita el usuario y la contrasena del sistema para iniciar sesion en el chat. |
 | `/logout` | Cierra la sesion del chat. |
@@ -411,6 +412,37 @@ Cada consulta valida la sesion actual en Convex. Al reiniciar el bot hay que
 iniciar sesion nuevamente. Las sesiones del navegador y Telegram son independientes.
 Sin `TELEGRAM_ALLOWED_CHAT_IDS`, solo queda disponible `/mi_chat_id`.
 No publicar `.env.local` ni copiar sus secretos en la documentacion.
+
+### Notificaciones proactivas
+
+Con `NOTIFICATIONS_ENABLED=true`, el bot revisa cada
+`NOTIFICATIONS_INTERVAL_MINUTES` (por defecto 30) si hay **reparaciones nuevas
+ingresadas** en los chats con sesion activa y con el modulo `repairs` habilitado,
+y lo avisa una unica vez por reparacion (basado en su campo `createdAt`). Las
+reparaciones ingresadas antes de la primera revision tras iniciar sesion no se
+anuncian, para no spamear historico. No envia alertas de listas/por vencer ni de
+stock bajo de forma automatica; esos datos se consultan bajo demanda con
+`/situacion` y `/faltantes`. Se puede forzar la revision manual con
+`/notifica`. El resumen diario (`NOTIFICATIONS_DAILY_HOUR`) esta disponible pero
+desactivado de la programacion automatica.
+
+Variables:
+
+```text
+NOTIFICATIONS_ENABLED=true
+NOTIFICATIONS_INTERVAL_MINUTES=30
+NOTIFICATIONS_DAILY_HOUR=18
+```
+
+Requisitos para recibir notificaciones:
+
+- El bot debe estar corriendo (`npm run bot:telegram`).
+- El chat debe estar en `TELEGRAM_ALLOWED_CHAT_IDS`.
+- El chat debe tener sesion iniciada con `/login` (las sesiones expiran a las
+  12 horas). Al reiniciar el bot hay que iniciar sesion nuevamente.
+
+Si `NOTIFICATIONS_ENABLED` no esta activa, el bot conserva todo su comportamiento
+actual bajo demanda (`/pendientes`, `/resumen`) sin cambios.
 
 `TELEGRAM_ONLY_PARTS` ya no controla el acceso. El menu y `/ayuda` muestran
 comandos segun los modulos del usuario. Root conserva acceso completo; los demas

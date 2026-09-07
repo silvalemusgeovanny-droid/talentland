@@ -22,6 +22,8 @@ export function availableCommands(user) {
   if (canAccess(user, 'notes')) commands.push('/nota', '/notas');
   if (canAccess(user, 'notes', true)) commands.push('/cliente');
   if (canAccess(user, 'statistics')) commands.push('/resumen');
-  if (['parts', 'repairs', 'statistics', 'notes'].some(module => canAccess(user, module))) commands.push('/pendientes');
+  if (['parts', 'repairs', 'statistics', 'notes'].some(module => canAccess(user, module))) {
+    commands.push('/pendientes', '/notifica');
+  }
   return commands;
 }

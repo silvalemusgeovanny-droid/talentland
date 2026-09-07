@@ -34,6 +34,28 @@ Completado:
    - README actualizado con comandos, configuracion, timeouts, inicio y parada,
      logs, self-test y pruebas Vitest.
 
+8. Notificaciones proactivas (6 de septiembre de 2026):
+   - `NOTIFICATIONS_ENABLED`, `NOTIFICATIONS_INTERVAL_MINUTES` para avisar de
+     estas alertas automaticamente.
+   - La notificacion automatica avisa SOLO de reparaciones nuevas ingresadas
+     (chat con sesion activa y modulo `repairs`). Listas/por vencer y stock bajo
+     ya no se notifican de forma automatica; quedan bajo demanda con
+     `/situacion` y `/faltantes`.
+   - Deduplicacion por fingerprint: una misma reparacion se avisa una sola vez.
+     Resumen diario (`NOTIFICATIONS_DAILY_HOUR`) disponible pero fuera de la
+     programacion automatica. `/notifica` fuerza la revision manual.
+   - Reparaciones nuevas: se detectan por `createdAt` posterior al ultimo aviso
+     (`getNewRepairs`); las previas a la primera revision tras `/login` no se
+     anuncian.
+   - Pruebas en `notifications.test.js`. Se corrigio ademas el listado de
+     `/notas` para incluir notas completadas propias.
+
+9. Comandos mas amigables (7 de septiembre de 2026):
+   - `/menu` rediseñado con emojis y descripcion por comando; alias naturales
+     (`/faltantes`, `/situacion`, `/alerta`, `/piezas`, `/reporte`).
+   - Frases variables al saludar, al no entender, al cancelar y sin resultados;
+     prompt de IA con tono mas cercano.
+
 Pendientes para continuar en la siguiente sesion:
 
 1. Confirmar una respuesta desde el chat de Telegram. El 5 de septiembre de 2026

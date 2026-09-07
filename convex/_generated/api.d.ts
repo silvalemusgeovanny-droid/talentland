@@ -15,6 +15,7 @@ import type * as backups from "../backups.js";
 import type * as catalogoPendientes from "../catalogoPendientes.js";
 import type * as contactos from "../contactos.js";
 import type * as crons from "../crons.js";
+import type * as facturas from "../facturas.js";
 import type * as notas from "../notas.js";
 import type * as productos from "../productos.js";
 import type * as reparaciones from "../reparaciones.js";
@@ -36,6 +37,7 @@ declare const fullApi: ApiFromModules<{
   catalogoPendientes: typeof catalogoPendientes;
   contactos: typeof contactos;
   crons: typeof crons;
+  facturas: typeof facturas;
   notas: typeof notas;
   productos: typeof productos;
   reparaciones: typeof reparaciones;
