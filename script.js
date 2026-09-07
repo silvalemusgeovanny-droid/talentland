@@ -144,6 +144,18 @@ const quickCategoryInput = document.querySelector("#quickCategory");
 const partsStorageKey = "inventoryParts";
 const salePartIdPrefix = "part:";
 const newOptionValue = "__new__";
+const repairTypeCatalog = [
+  "CAMBIO DE PANTALLA",
+  "NO ENCIENDE",
+  "PROBLEMA DE SENAL",
+  "CAMB. DE JACK DE CARGA",
+  "MOJADO",
+  "ACTIVACION",
+  "LIBERACION",
+  "CONF. INICIAL",
+  "CAMBIO DE SOFTWARE",
+  "OTROS",
+];
 const colorModeToggle = document.querySelector("#colorModeToggle");
 const colorModeStorageKey = "loginColorMode";
 const notesStorageKey = appSession.keys.notes;
@@ -2197,11 +2209,7 @@ function isPartLikelyForRepairEquipment(part, brandValue = "", modelValue = "") 
 }
 
 function getRepairTypeOptionsForEquipment() {
-  const partTypes = loadParts()
-    .filter((part) => isPartLikelyForRepairEquipment(part, repairBrandInput.value, repairModelInput.value))
-    .map((part) => part.name);
-  const approvedTypes = loadRepairOptions(repairTypesStorageKey, "repairType");
-  return [...new Set([...partTypes, ...approvedTypes].map(normalizeSystemOption).filter(Boolean))].sort();
+  return [...repairTypeCatalog];
 }
 
 function getRepairModelsForBrand(brandValue = "") {
@@ -2234,19 +2242,14 @@ function renderRepairModelOptions() {
     .join("");
 }
 function renderRepairTypeOptions() {
-  const isAddingNewType = repairTypeInput?.value === newOptionValue;
-  const selectedValue = isAddingNewType ? "" : normalizeSystemOption(repairTypeInput?.value || "");
+  const selectedValue = normalizeSystemOption(repairTypeInput?.value || "");
   const options = getRepairTypeOptionsForEquipment();
   if (selectedValue && !options.includes(selectedValue)) options.push(selectedValue);
-  if (!options.length) options.push("PENDIENTE POR ASIGNAR");
   repairTypeInput.innerHTML = [
     `<option value="">Selecciona tipo de reparacion</option>`,
     ...options.sort().map((option) => `<option value="${escapeHtml(option)}">${escapeHtml(option)}</option>`),
-    `<option value="${newOptionValue}">Agregar nuevo</option>`,
   ].join("");
-  repairTypeInput.value = isAddingNewType
-    ? newOptionValue
-    : selectedValue || (options.length === 1 && options[0] === "PENDIENTE POR ASIGNAR" ? options[0] : "");
+  repairTypeInput.value = selectedValue;
   syncNewRepairTypeField();
 }
 
