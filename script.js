@@ -2741,6 +2741,28 @@ function buildRepairInvoiceHtml(repair, options = {}) {
 async function recordRepairInvoiceIssued(invoice) {
   const issuedAt = new Date().toISOString();
   if (window.repairCloud?.isConfigured()) {
+    await window.repairCloud.recordInvoice({
+      sourceType: "repair",
+      sourceId: invoice.repairId || undefined,
+      sourceNumber: Number(invoice.repairNumber) || 0,
+      customer: invoice.customer || "",
+      phone: invoice.phone || undefined,
+      email: invoice.email || undefined,
+      brand: invoice.brand || undefined,
+      model: invoice.model || undefined,
+      repairType: invoice.repairType || undefined,
+      imei: invoice.imei || undefined,
+      dui: invoice.dui || undefined,
+      total: Number(invoice.total) || 0,
+      discount: Number(invoice.discount) || 0,
+      paid: Number(invoice.abono) || 0,
+      remaining: Number(invoice.resta) || 0,
+      status: Number(invoice.resta) > 0.005 ? "pendiente" : "cancelada",
+      issuedAt,
+      issuedByUsername: currentUser?.username || "",
+      issuedByName: currentUser?.name || currentUser?.username || "Usuario",
+      details: JSON.stringify({ status: invoice.status || "", repairParts: invoice.repairParts || [] }),
+    });
     await window.repairCloud?.registrarAuditoria(
       "FACTURA_EMITIDA",
       `Factura emitida para reparacion #${invoice.repairNumber || ""}`,
@@ -4571,12 +4593,29 @@ function buildSaleInvoiceHtml(sale) {
 </html>`;
 }
 
-function openSaleInvoice(sale, invoiceWindow = window.open("", "_blank")) {
+async function openSaleInvoice(sale, invoiceWindow = window.open("", "_blank")) {
   if (!invoiceWindow) {
     salesHint.textContent = "Permite ventanas emergentes para generar la factura.";
     return;
   }
-  window.repairCloud?.registrarAuditoria(
+  if (window.repairCloud?.isConfigured()) {
+    await window.repairCloud.recordInvoice({
+      sourceType: "sale",
+      sourceId: getSaleRecordId(sale) || undefined,
+      sourceNumber: Number(sale.saleNumber) || 0,
+      customer: getSaleCustomerName(sale),
+      product: sale.product || undefined,
+      productModel: sale.productModel || undefined,
+      total: Number(sale.total) || 0,
+      discount: Number(sale.discount) || 0,
+      paid: Number(sale.received) || 0,
+      remaining: Math.max(0, (Number(sale.total) || 0) - (Number(sale.received) || 0)),
+      status: Number(sale.received) + 0.005 >= (Number(sale.total) || 0) ? "cancelada" : "pendiente",
+      issuedAt: new Date().toISOString(),
+      issuedByUsername: currentUser?.username || "",
+      issuedByName: currentUser?.name || currentUser?.username || "Usuario",
+    });
+    await window.repairCloud.registrarAuditoria(
     "FACTURA_VENTA_EMITIDA",
     `Factura de venta #${sale.saleNumber || ""}`,
     currentUser?.username,
@@ -4589,7 +4628,8 @@ function openSaleInvoice(sale, invoiceWindow = window.open("", "_blank")) {
       total: Number(sale.total) || 0,
       issuedAt: new Date().toISOString(),
     }),
-  );
+    );
+  }
   invoiceWindow.document.open();
   invoiceWindow.document.write(buildSaleInvoiceHtml(sale));
   invoiceWindow.document.close();
@@ -5378,7 +5418,7 @@ saleCustomerForm?.addEventListener("submit", async (event) => {
       ? saleWithCustomer
       : pendingSale;
     await renderSales();
-    openSaleInvoice(saleWithCustomer, invoiceWindow);
+    await openSaleInvoice(saleWithCustomer, invoiceWindow);
     closeSaleCustomerDialog();
     salesHint.textContent = "Factura lista.";
   } catch (error) {

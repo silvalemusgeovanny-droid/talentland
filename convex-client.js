@@ -117,5 +117,7 @@
     createSale: (sale) => callConvex("mutation", "ventas:create", withSession(sale)),
     updateSale: (id, patch) => callConvex("mutation", "ventas:update", withSession({ id, patch })),
     removeSale: (id) => callConvex("mutation", "ventas:remove", withSession({ id })),
+    recordInvoice: (invoice) => callConvex("mutation", "facturas:record", withSession(invoice)),
+    listInvoices: (limit = 500) => callConvex("query", "facturas:list", withSession({ limit })),
   };
 })();

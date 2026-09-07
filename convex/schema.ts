@@ -88,6 +88,38 @@ export default defineSchema({
     fecha: v.string(),
   }).index("by_fecha", ["fecha"]),
 
+  facturas: defineTable({
+    sourceType: v.optional(v.string()),
+    sourceId: v.optional(v.string()),
+    sourceNumber: v.optional(v.number()),
+    repairId: v.optional(v.string()),
+    repairNumber: v.optional(v.number()),
+    customer: v.string(),
+    phone: v.optional(v.string()),
+    email: v.optional(v.string()),
+    brand: v.optional(v.string()),
+    model: v.optional(v.string()),
+    repairType: v.optional(v.string()),
+    product: v.optional(v.string()),
+    productModel: v.optional(v.string()),
+    imei: v.optional(v.string()),
+    dui: v.optional(v.string()),
+    total: v.number(),
+    discount: v.optional(v.number()),
+    paid: v.optional(v.number()),
+    remaining: v.optional(v.number()),
+    abono: v.optional(v.number()),
+    resta: v.optional(v.number()),
+    status: v.string(),
+    issuedAt: v.string(),
+    issuedByUsername: v.optional(v.string()),
+    issuedByName: v.optional(v.string()),
+    details: v.optional(v.string()),
+  })
+    .index("by_source_id", ["sourceId"])
+    .index("by_issued_at", ["issuedAt"])
+    .index("by_source_type", ["sourceType"]),
+
   respaldos: defineTable({
     cadence: v.string(),
     fileName: v.string(),
