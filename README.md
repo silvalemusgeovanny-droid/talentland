@@ -416,11 +416,13 @@ No publicar `.env.local` ni copiar sus secretos en la documentacion.
 ### Notificaciones proactivas
 
 Con `NOTIFICATIONS_ENABLED=true`, el bot revisa cada
-`NOTIFICATIONS_INTERVAL_MINUTES` (por defecto 30) si hay **reparaciones nuevas
+`NOTIFICATIONS_INTERVAL_MINUTES` si hay **reparaciones nuevas
 ingresadas** en los chats con sesion activa y con el modulo `repairs` habilitado,
 y lo avisa una unica vez por reparacion (basado en su campo `createdAt`). Las
 reparaciones ingresadas antes de la primera revision tras iniciar sesion no se
-anuncian, para no spamear historico. No envia alertas de listas/por vencer ni de
+anuncian, para no spamear historico. El intervalo acepta minutos con decimales
+para ciclos cortos: `0.25` equivale a 15 segundos y el minimo es `0.1` (6
+segundos); con el default de 30. No envia alertas de listas/por vencer ni de
 stock bajo de forma automatica; esos datos se consultan bajo demanda con
 `/situacion` y `/faltantes`. Se puede forzar la revision manual con
 `/notifica`. El resumen diario (`NOTIFICATIONS_DAILY_HOUR`) esta disponible pero

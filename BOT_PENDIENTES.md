@@ -63,6 +63,12 @@ Completado:
     - Formateador propio (`formatExaReferenceFallback`) con titulo, URL y resumen
       breve; pruebas en `notifications.test.js`.
 
+11. Intervalos cortos (7 de septiembre de 2026):
+    - `NOTIFICATIONS_INTERVAL_MINUTES` acepta decimales (minimo `0.1` = 6 s); en
+      `.env.local` configurado a `0.25` (15 s) para avisar casi al momento.
+    - Nuevo helper puro `notificationIntervalMs` con fallback a 30 min ante
+      valores invalidos; pruebas en `notifications.test.js`.
+
 Pendientes para continuar en la siguiente sesion:
 
 1. Confirmar una respuesta desde el chat de Telegram. El 5 de septiembre de 2026

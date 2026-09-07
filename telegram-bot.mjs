@@ -271,12 +271,18 @@ async function main() {
   }
 }
 
+function notificationIntervalMs(minutes = 30) {
+  const parsed = Number(minutes);
+  const safe = Number.isFinite(parsed) && parsed >= 0 ? parsed : 30;
+  return Math.max(safe, 0.1) * 60 * 1000;
+}
+
 function startNotificationScheduler() {
   if (!NOTIFICATIONS_ENABLED) {
     logWarn("notificaciones", "NOTIFICATIONS_ENABLED no esta definido: no se enviaran alertas proactivas.");
     return;
   }
-  const intervalMs = Math.max(NOTIFICATIONS_INTERVAL_MINUTES, 1) * 60 * 1000;
+  const intervalMs = notificationIntervalMs(NOTIFICATIONS_INTERVAL_MINUTES);
 
   setTimeout(() => {
     runNotificationsCheck()
@@ -288,7 +294,10 @@ function startNotificationScheduler() {
       .catch((error) => logError("notificaciones", "Fallo en la revision programada de alertas.", error));
   }, intervalMs);
 
-  logInfo("notificaciones", `Notificaciones proactivas activadas (cada ${NOTIFICATIONS_INTERVAL_MINUTES} min).`);
+  const intervalLabel = NOTIFICATIONS_INTERVAL_MINUTES < 1
+    ? `cada ${Math.round(NOTIFICATIONS_INTERVAL_MINUTES * 60)} seg`
+    : `cada ${NOTIFICATIONS_INTERVAL_MINUTES} min`;
+  logInfo("notificaciones", `Notificaciones proactivas activadas (${intervalLabel}).`);
 }
 
 async function runNotificationsCheck() {
@@ -2275,6 +2284,7 @@ export {
   INTENT_TYPES,
   appendExternalReferenceStatus,
   formatExaReferenceFallback,
+  notificationIntervalMs,
   detectCustomerSupportCaseType,
   detectMessageIntent,
   formatLogEntry,

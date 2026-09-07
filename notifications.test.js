@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { alertFingerprint, getNewRepairs, formatExaReferenceFallback } from "./telegram-bot.mjs";
+import { alertFingerprint, getNewRepairs, formatExaReferenceFallback, notificationIntervalMs } from "./telegram-bot.mjs";
 
 describe("notificaciones proactivas: deduplicacion", () => {
   it("genera el mismo fingerprint para un mismo conjunto de alertas", () => {
@@ -104,5 +104,23 @@ describe("respaldo Exa: formato compacto de referencias", () => {
     expect(salida).toContain("1. Ref 0");
     expect(salida).toContain("3. Ref 2");
     expect(salida).not.toContain("4. Ref 3");
+  });
+});
+
+describe("intervalos cortos de notificacion", () => {
+  it("convierte minutos a milisegundos con decimales", () => {
+    expect(notificationIntervalMs(30)).toBe(30 * 60 * 1000);
+    expect(notificationIntervalMs(0.25)).toBe(15 * 1000);
+    expect(notificationIntervalMs(0.1)).toBe(6 * 1000);
+  });
+
+  it("fuerza un minimo de 6 segundos", () => {
+    expect(notificationIntervalMs(0.01)).toBe(6 * 1000);
+    expect(notificationIntervalMs(0)).toBe(6 * 1000);
+  });
+
+  it("usa el default de 30 minutos ante valores invalidos", () => {
+    expect(notificationIntervalMs("abc")).toBe(30 * 60 * 1000);
+    expect(notificationIntervalMs()).toBe(30 * 60 * 1000);
   });
 });
