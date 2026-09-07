@@ -3293,7 +3293,7 @@ async function renderSideRepairs() {
 
   repairs = sortRepairsPendingFirst(repairs);
   sideRepairsList.innerHTML = resultSummary + repairs.slice(0, search ? repairs.length : 50).map((repair) => `
-    <article class="side-repair-item">
+    <article class="side-repair-item" data-side-repair-id="${escapeHtml(getRepairRecordId(repair))}" role="button" tabindex="0" aria-label="Editar reparacion #${escapeHtml(repair.repairNumber || "")}">
       <strong>#${repair.repairNumber || ""} ${escapeHtml(repair.customer || "Sin nombre")}</strong>
       <span>${escapeHtml([repair.brand, repair.model].filter(Boolean).join(" ") || repair.deviceType || "Equipo")}</span>
       <span>${escapeHtml(repair.repairType || "Reparacion")} | ${escapeHtml(repair.status || "En proceso")}</span>
@@ -4792,6 +4792,30 @@ notesToggle.addEventListener("click", () => {
     return;
   }
   openNotesPanel();
+});
+
+sideRepairsList.addEventListener("click", async (event) => {
+  const item = event.target.closest("[data-side-repair-id]");
+  if (!item) return;
+  try {
+    const repairs = await loadRepairsFromSource(10000, "");
+    const repair = repairs.find((entry) => getRepairRecordId(entry) === item.dataset.sideRepairId);
+    if (!repair) {
+      repairsHint.textContent = "No se encontro la reparacion seleccionada.";
+      return;
+    }
+    setModule("repairs");
+    openRepairInForm(repair);
+    repairsForm.scrollIntoView({ behavior: "smooth", block: "start" });
+  } catch (error) {
+    repairsHint.textContent = `No se pudo abrir la reparacion: ${error.message}`;
+  }
+});
+
+sideRepairsList.addEventListener("keydown", (event) => {
+  if (event.key !== "Enter" && event.key !== " ") return;
+  event.preventDefault();
+  event.target.click();
 });
 
 statisticsLists?.addEventListener("click", (event) => {
