@@ -1,7 +1,10 @@
 import { canAccess, userModules, availableCommands } from './bot-access.js';
-import { readFileSync, existsSync } from "node:fs";
-import { resolve } from "node:path";
-import { pathToFileURL } from "node:url";
+import { spawnSync } from "node:child_process";
+import { readFileSync, existsSync, readdirSync, statSync, realpathSync } from "node:fs";
+import { resolve, extname } from "node:path";
+import { pathToFileURL, fileURLToPath } from "node:url";
+import { createHash } from "node:crypto";
+import { networkInterfaces, hostname } from "node:os";
 import { ConvexHttpClient } from "convex/browser";
 import { api } from "./convex/_generated/api.js";
 
@@ -23,6 +26,9 @@ const GEMINI_FETCH_TIMEOUT_MS = Number(process.env.GEMINI_FETCH_TIMEOUT_MS || 25
 const EXA_FETCH_TIMEOUT_MS = Number(process.env.EXA_FETCH_TIMEOUT_MS || 12000);
 const REQUIRE_AUTH = process.env.TELEGRAM_REQUIRE_AUTH !== "false";
 const SILENT_UNAUTHORIZED = process.env.TELEGRAM_SILENT_UNAUTHORIZED !== "false";
+const ADMIN_CHAT_ID = process.env.TELEGRAM_ADMIN_CHAT_ID
+  ? String(process.env.TELEGRAM_ADMIN_CHAT_ID)
+  : (Array.from(ALLOWED_CHAT_IDS)[0] || "");
 const CONVERSATION_MEMORY_LIMIT = Number(process.env.CONVERSATION_MEMORY_LIMIT || 8);
 const NOTIFICATIONS_ENABLED = process.env.NOTIFICATIONS_ENABLED === "true";
 const NOTIFICATIONS_INTERVAL_MINUTES = Number(process.env.NOTIFICATIONS_INTERVAL_MINUTES || 30);
@@ -235,6 +241,8 @@ if (isDirectRun && process.argv.includes("--self-test")) {
 }
 
 async function main() {
+  releaseStaleBotInstances();
+
   logInfo("telegram", "Bot de Telegram iniciado.");
   recordBotAuditEvent("BOT_INICIO", "Bot de Telegram iniciado.", { pid: process.pid });
   if (ALLOWED_CHAT_IDS.size === 0) {
@@ -245,6 +253,29 @@ async function main() {
   }
   if (!EXA_API_KEY) {
     logWarn("exa", "EXA_API_KEY no esta definido: /ia solo usara contexto interno de Convex.");
+  }
+
+  const convexClient = new ConvexHttpClient(CONVEX_URL);
+  globalThis.convexHttpClient = convexClient;
+
+  let BOT_APPROVED = true;
+  try {
+    const fp = machineFingerprint();
+    const ip = await fetch("https://api.ipify.org").then(r => r.text()).catch(() => "desconocida");
+    const res = await convexClient.mutation(api.botInstances.register, {
+      ...fp,
+      ip,
+      botVersion: process.env.npm_package_version || "dev",
+    });
+    BOT_APPROVED = res.allowed;
+    if (!BOT_APPROVED) {
+      logWarn("seguridad", `Instancia no aprobada (${res.instanceId}). Modo solo-lectura.`);
+      await sendSecurityAlert("BOT_NO_APROBADO", { username: "system" }, `Instance ${res.instanceId} blocked`);
+    } else {
+      logInfo("seguridad", `Instancia aprobada (${res.instanceId}).`);
+    }
+  } catch (error) {
+    logError("seguridad", "Fallo registro de instancia, continuando en modo abierto.", error);
   }
 
   process.on("SIGINT", () => shutdown("SIGINT"));
@@ -1753,6 +1784,22 @@ async function sendMessage(chatId, text, options = {}) {
   }
 }
 
+async function sendSecurityAlert(chatId, from, text) {
+  if (!ADMIN_CHAT_ID) return;
+  const username = from?.username ? `@${from.username}` : "sin username";
+  const name = [from?.first_name, from?.last_name].filter(Boolean).join(" ") || "desconocido";
+  const ip = await fetch("https://api.ipify.org").then(r => r.text()).catch(() => "desconocida");
+  const alert = [
+    "🚨 *Intento de acceso no autorizado*",
+    `Chat ID: \`${chatId}\``,
+    `Usuario: ${username} (${name})`,
+    `IP de salida del bot: ${ip}`,
+    `Mensaje: ${text?.slice(0, 200) || "(vacío)"}`,
+    `Hora: ${new Date().toISOString()}`,
+  ].join("\n");
+  await sendMessage(ADMIN_CHAT_ID, alert, { parse_mode: "Markdown" }).catch(() => null);
+}
+
 async function sendChatAction(chatId, action) {
   await telegram("sendChatAction", {
     chat_id: chatId,
@@ -2241,6 +2288,18 @@ function formatLogEntry(level, service, message, details) {
   return `[${timestamp}] [${String(level).toUpperCase()}] [${service}] ${message}${detailText}`;
 }
 
+function machineFingerprint() {
+  const macs = Object.values(networkInterfaces())
+    .flat()
+    .filter((i) => !i.internal && i.mac !== "00:00:00:00:00:00")
+    .map((i) => i.mac)
+    .sort();
+  const host = hostname();
+  const raw = `${host}|${macs.join(",")}`;
+  const machineId = createHash("sha256").update(raw).digest("hex").slice(0, 32);
+  return { machineId, hostname: host, macs };
+}
+
 function formatErrorDetails(error) {
   if (!error) return {};
   return {
@@ -2274,6 +2333,30 @@ function recordBotAuditEvent(tipo, descripcion, datos = {}) {
       .catch((error) => {
         console.warn(formatLogEntry("warn", "convex", "No se pudo registrar bitacora del bot.", formatErrorDetails(error)));
       });
+}
+
+function releaseStaleBotInstances() {
+  try {
+    const scriptRealPath = realpathSync(process.argv[1] || modulePath());
+    const results = spawnSync(
+      "powershell.exe",
+      ["-NoProfile", "-NonInteractive", "-Command",
+        `Get-CimInstance Win32_Process -Filter "Name='node.exe'" | Where-Object { $_.CommandLine -match [regex]::Escape('${scriptRealPath}') -and $_.ProcessId -ne $PID } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }`],
+      { encoding: "utf8", timeout: 8000, windowsHide: true },
+    );
+    const killed = (results.stdout || "").trim();
+    if (killed) {
+      logInfo("telegram", `Terminadas instancias previas del bot: ${killed.replace(/\r?\n/g, " ")}`);
+    }
+  } catch (error) {
+    logWarn("telegram", "No se pudo verificar instancias previas del bot.", formatErrorDetails(error));
+  }
+}
+
+function modulePath() {
+  return import.meta.url.startsWith("file:")
+    ? fileURLToPath(import.meta.url)
+    : resolve(process.cwd(), "telegram-bot.mjs");
 }
 
 export {

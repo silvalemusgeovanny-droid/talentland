@@ -254,4 +254,16 @@ export default defineSchema({
     .index("by_source_id", ["sourceId"])
     .index("by_status", ["status"])
     .index("by_created_at", ["createdAt"]),
+
+  botInstances: defineTable({
+    machineId: v.string(),
+    hostname: v.string(),
+    macs: v.array(v.string()),
+    ip: v.string(),
+    botVersion: v.optional(v.string()),
+    allowed: v.boolean(),
+    firstSeen: v.number(),
+    lastSeen: v.number(),
+    approvedBy: v.optional(v.id("usuarios")),
+  }).index("by_machine", ["machineId"]),
 });
