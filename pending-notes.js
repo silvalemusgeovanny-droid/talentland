@@ -284,7 +284,8 @@ function setupPendingNotes() {
   window.addEventListener("storage", (event) => {
     if ([notesStorageKey, notesSnoozeStorageKey, sessionTokenStorageKey, currentUserStorageKey].includes(event.key)) renderNotes();
   });
-  window.addEventListener("repair-session-changed", renderNotes);
+window.addEventListener("repair-session-changed", renderNotes);
+window.addEventListener("repair-session-token-changed", renderNotes);
 
   renderNotes();
 }
