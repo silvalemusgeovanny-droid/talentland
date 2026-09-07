@@ -377,17 +377,23 @@
               </div>
 
               <label for="repairBrand">Marca</label>
-              <select id="repairBrand" name="brand" required>
-                <option value="">Selecciona una marca</option>
-                <option value="__new__">Agregar nuevo</option>
-              </select>
+              <div class="managed-option-row">
+                <select id="repairBrand" name="brand" required>
+                  <option value="">Selecciona una marca</option>
+                  <option value="__new__">Agregar nuevo</option>
+                </select>
+                <button class="edit-button option-action-button" type="button" id="repairBrandAddButton">Agregar nueva</button>
+              </div>
               <input id="repairBrandNew" class="manual-option-field" type="text" placeholder="Escribe la marca nueva" hidden />
 
               <label for="repairModel">Modelo</label>
-              <select id="repairModel" name="model" required>
-                <option value="">Selecciona primero una marca</option>
-                <option value="__new__">Agregar nuevo</option>
-              </select>
+              <div class="managed-option-row">
+                <select id="repairModel" name="model" required>
+                  <option value="">Selecciona primero una marca</option>
+                  <option value="__new__">Agregar nuevo</option>
+                </select>
+                <button class="edit-button option-action-button" type="button" id="repairModelAddButton">Agregar nuevo</button>
+              </div>
               <input id="repairModelNew" class="manual-option-field" type="text" placeholder="Escribe el modelo nuevo" hidden />
 
               <label for="repairType">Tipo de reparacion</label>

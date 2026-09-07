@@ -216,6 +216,8 @@ const repairBrandInput = document.querySelector("#repairBrand");
 const repairModelInput = document.querySelector("#repairModel");
 const repairBrandNewInput = document.querySelector("#repairBrandNew");
 const repairModelNewInput = document.querySelector("#repairModelNew");
+const repairBrandAddButton = document.querySelector("#repairBrandAddButton");
+const repairModelAddButton = document.querySelector("#repairModelAddButton");
 const repairTypeInput = document.querySelector("#repairType");
 const repairTypeNewInput = document.querySelector("#repairTypeNew");
 const repairImeiInput = document.querySelector("#repairImei");
@@ -2374,6 +2376,13 @@ function syncRepairModelManualField() {
   repairModelNewInput.required = isNew;
   if (!isNew) repairModelNewInput.value = "";
   if (isNew) repairModelNewInput.focus();
+}
+
+function activateNewRepairOption(select, input) {
+  select.value = newOptionValue;
+  input.hidden = false;
+  input.required = true;
+  input.focus();
 }
 function renderRepairTypeOptions() {
   const selectedValue = normalizeSystemOption(repairTypeInput?.value || "");
@@ -5067,6 +5076,8 @@ repairModelInput.addEventListener("input", () => {
 });
 repairModelInput.addEventListener("blur", syncKnownRepairModelCase);
 repairModelInput.addEventListener("change", () => { syncRepairModelManualField(); syncKnownRepairModelCase(); });
+repairBrandAddButton?.addEventListener("click", () => activateNewRepairOption(repairBrandInput, repairBrandNewInput));
+repairModelAddButton?.addEventListener("click", () => activateNewRepairOption(repairModelInput, repairModelNewInput));
 repairTypeInput.addEventListener("blur", syncKnownRepairTypeCase);
 repairTypeInput.addEventListener("change", () => {
   syncNewRepairTypeField();
