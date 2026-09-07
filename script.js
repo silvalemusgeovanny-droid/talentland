@@ -902,7 +902,7 @@ function normalizeCatalogPending(pending) {
 async function createBrandModelPending({ brand, model, sourceModule, sourceRecordId, repairNumber = 0 }) {
   const normalizedBrand = normalizeSystemOption(brand);
   const normalizedModel = normalizeSystemOption(model);
-  if (!normalizedBrand || !normalizedModel || currentUser?.role === "root") return false;
+  if (!normalizedBrand || !normalizedModel) return false;
   const pending = normalizeCatalogPending({
     sourceId: `brand-model|${normalizePartSearch(normalizedBrand)}|${normalizePartSearch(normalizedModel)}`,
     repairNumber,
@@ -915,17 +915,23 @@ async function createBrandModelPending({ brand, model, sourceModule, sourceRecor
   });
   if (window.repairCloud?.isConfigured()) {
     const { id: _localId, ...cloudPending } = pending;
-    await window.repairCloud.createCatalogPending(cloudPending);
+    const pendingId = await window.repairCloud.createCatalogPending({
+      ...cloudPending,
+      status: currentUser?.role === "root" ? "resolved" : "pending",
+    });
+    if (currentUser?.role === "root") await window.repairCloud.resolveCatalogPending(pendingId);
     await window.repairCloud.registrarAuditoria(
-      "MARCA_MODELO_PENDIENTE",
-      `Marca ${normalizedBrand} y modelo ${normalizedModel} enviados a validacion`,
+      currentUser?.role === "root" ? "MARCA_MODELO_APROBADO" : "MARCA_MODELO_PENDIENTE",
+      currentUser?.role === "root"
+        ? `Marca ${normalizedBrand} y modelo ${normalizedModel} aprobados por root`
+        : `Marca ${normalizedBrand} y modelo ${normalizedModel} enviados a validacion`,
       currentUser?.username,
       JSON.stringify({ brand: normalizedBrand, model: normalizedModel, sourceModule, sourceRecordId, repairNumber }),
     );
   } else {
     const items = loadCatalogPending();
     if (!items.some((item) => item.sourceId === pending.sourceId)) {
-      items.unshift(pending);
+      items.unshift({ ...pending, status: currentUser?.role === "root" ? "resolved" : "pending" });
       saveCatalogPending(items);
     }
   }
@@ -2380,6 +2386,7 @@ function syncRepairModelManualField() {
 
 function activateNewRepairOption(select, input) {
   select.value = newOptionValue;
+  select.dispatchEvent(new Event("change", { bubbles: true }));
   input.hidden = false;
   input.required = true;
   input.focus();
@@ -5723,6 +5730,8 @@ repairsForm.addEventListener("submit", async (event) => {
       }
       await createCatalogPendingIfNeeded(updatedRepair);
       await createBrandModelPending({ brand, model, sourceModule: "reparaciones", sourceRecordId: editingId, repairNumber: updatedRepair.repairNumber });
+      renderRepairBrandOptions();
+      renderRepairModelOptions();
 
       if (index !== -1) {
         repairs[index] = updatedRepair;
@@ -5770,6 +5779,8 @@ repairsForm.addEventListener("submit", async (event) => {
       }
       await createCatalogPendingIfNeeded(repairData);
       await createBrandModelPending({ brand, model, sourceModule: "reparaciones", sourceRecordId: repairData.id, repairNumber: repairData.repairNumber });
+      renderRepairBrandOptions();
+      renderRepairModelOptions();
       repairsHint.textContent = "Reparacion guardada correctamente.";
     }
 
