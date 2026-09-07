@@ -2381,6 +2381,15 @@ function renderRepairModelOptions() {
   syncRepairModelManualField();
 }
 
+function preserveRepairSelectValue(select, value) {
+  const normalizedValue = normalizeSystemOption(value || "");
+  if (!normalizedValue) return;
+  if (![...select.options].some((option) => option.value === normalizedValue)) {
+    select.add(new Option(normalizedValue, normalizedValue));
+  }
+  select.value = normalizedValue;
+}
+
 function syncRepairBrandManualField() {
   const isNew = repairBrandInput.value === newOptionValue;
   repairBrandNewInput.hidden = !isNew;
@@ -5650,8 +5659,10 @@ function openRepairInForm(repair, approval = null) {
   repairEmailInput.value = repair.email || "";
   repairBrandInput.value = repair.brand;
   renderRepairBrandOptions();
+  preserveRepairSelectValue(repairBrandInput, repair.brand);
   repairModelInput.value = repair.model;
   renderRepairModelOptions();
+  preserveRepairSelectValue(repairModelInput, repair.model);
   repairTypeInput.value = repair.repairType;
   renderRepairTypeOptions();
   repairImeiInput.value = normalizeRepairIdentifier(repair.imei);
