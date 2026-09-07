@@ -19,6 +19,7 @@ import type * as notas from "../notas.js";
 import type * as productos from "../productos.js";
 import type * as reparaciones from "../reparaciones.js";
 import type * as repuestos from "../repuestos.js";
+import type * as tiposReparacion from "../tiposReparacion.js";
 import type * as ventas from "../ventas.js";
 
 import type {
@@ -39,6 +40,7 @@ declare const fullApi: ApiFromModules<{
   productos: typeof productos;
   reparaciones: typeof reparaciones;
   repuestos: typeof repuestos;
+  tiposReparacion: typeof tiposReparacion;
   ventas: typeof ventas;
 }>;
 
