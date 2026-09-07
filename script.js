@@ -5148,7 +5148,7 @@ repairDuiInput.addEventListener("input", () => {
   repairDuiInput.value = repairDuiInput.value.replace(/\D/g, "").slice(0, 15);
 });
 repairPriceInput.addEventListener("input", updateRepairRemaining);
-repairDiscountInput.addEventListener("input", updateRepairRemaining);
+repairDiscountInput?.addEventListener("input", updateRepairRemaining);
 repairAbonoInput.addEventListener("input", updateRepairRemaining);
 repairBrandInput.addEventListener("blur", syncKnownRepairBrandCase);
 repairBrandInput.addEventListener("change", () => { syncRepairBrandManualField(); syncKnownRepairBrandCase(); });
