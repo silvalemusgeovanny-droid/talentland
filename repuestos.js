@@ -474,16 +474,17 @@ function getCategoryValues() {
 
 function renderSelectOptions(select, values, placeholder, selectedValue = select.value) {
   const normalizedSelected = normalizePartType(selectedValue);
+  const sortedValues = [...values].sort((a, b) => String(a).localeCompare(String(b), "es", { sensitivity: "base" }));
   delete select.dataset.editing;
   select.hidden = false;
   select.disabled = false;
   select.required = true;
   select.innerHTML = [
     `<option value="">${escapeHtml(placeholder)}</option>`,
-    ...values.map((value) => `<option value="${escapeHtml(value)}">${escapeHtml(value)}</option>`),
+    ...sortedValues.map((value) => `<option value="${escapeHtml(value)}">${escapeHtml(value)}</option>`),
     `<option value="${newOptionValue}">Agregar nuevo</option>`,
   ].join("");
-  if (values.includes(normalizedSelected)) select.value = normalizedSelected;
+  if (sortedValues.includes(normalizedSelected)) select.value = normalizedSelected;
 }
 
 function renderCategoryOptions(selectedValue = categorySelect.value || "Telefono") {

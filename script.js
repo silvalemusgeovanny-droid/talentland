@@ -1601,12 +1601,13 @@ function getCategoryValues() {
 
 function renderSelectOptions(select, values, placeholder, selectedValue = select.value) {
   const normalizedSelected = normalizePartType(selectedValue);
+  const sortedValues = [...values].sort((a, b) => String(a).localeCompare(String(b), "es", { sensitivity: "base" }));
   select.innerHTML = [
     `<option value="">${escapeHtml(placeholder)}</option>`,
-    ...values.map((value) => `<option value="${escapeHtml(value)}">${escapeHtml(value)}</option>`),
+    ...sortedValues.map((value) => `<option value="${escapeHtml(value)}">${escapeHtml(value)}</option>`),
     `<option value="${newOptionValue}">Agregar nuevo</option>`,
   ].join("");
-  if (values.includes(normalizedSelected)) select.value = normalizedSelected;
+  if (sortedValues.includes(normalizedSelected)) select.value = normalizedSelected;
 }
 
 function renderQuickCategoryOptions(selectedValue = quickCategoryInput.value || "Telefono") {
@@ -2923,20 +2924,26 @@ function applySelectedSaleProduct(products = loadProducts(), parts = loadParts()
 function renderProductCatalog(products, parts = loadParts()) {
   const activeProducts = products.filter((product) => product.active !== false);
   const saleParts = parts.filter((part) => getPartStock(part) > 0 && getMoneyCents(part, "customerPrice", "customerPriceCents") > 0);
+  const sortedProducts = [...activeProducts].sort((a, b) =>
+    `${a.name || ""} ${a.exactModel || ""}`.localeCompare(`${b.name || ""} ${b.exactModel || ""}`, "es", { sensitivity: "base" }),
+  );
+  const sortedSaleParts = [...saleParts].sort((a, b) =>
+    getPartDisplayName(a).localeCompare(getPartDisplayName(b), "es", { sensitivity: "base" }),
+  );
   const canEditProducts = canEditProductCatalog();
   productCatalogForm.hidden = !canEditProducts;
   saleProductInput.innerHTML = [
     `<option value="">Selecciona producto</option>`,
-    activeProducts.length ? `<optgroup label="Catalogo">` : "",
-    ...activeProducts.map((product) =>
+    sortedProducts.length ? `<optgroup label="Catalogo">` : "",
+    ...sortedProducts.map((product) =>
       `<option value="${escapeHtml(getProductRecordId(product))}">#${escapeHtml(product.productNumber || "")} ${escapeHtml(product.name)} ${escapeHtml(product.exactModel || "")} - ${formatCurrency(Number(product.price) || 0)} (${Number(product.quantity) || 0})</option>`,
     ),
-    activeProducts.length ? `</optgroup>` : "",
-    saleParts.length ? `<optgroup label="Repuestos">` : "",
-    ...saleParts.map((part) =>
+    sortedProducts.length ? `</optgroup>` : "",
+    sortedSaleParts.length ? `<optgroup label="Repuestos">` : "",
+    ...sortedSaleParts.map((part) =>
       `<option value="${escapeHtml(makeSalePartId(getPartRecordId(part)))}">${escapeHtml(getPartDisplayName(part))} - ${formatCurrencyCents(getMoneyCents(part, "customerPrice", "customerPriceCents"))} (${getPartStock(part)})</option>`,
     ),
-    saleParts.length ? `</optgroup>` : "",
+    sortedSaleParts.length ? `</optgroup>` : "",
   ].join("");
   catalogProductNumberInput.value = getNextProductNumber(products);
 
@@ -2944,8 +2951,8 @@ function renderProductCatalog(products, parts = loadParts()) {
     productCatalogList.innerHTML = `<p class="hint">Todavia no hay productos guardados.</p>`;
   }
 
-  if (activeProducts.length) {
-    productCatalogList.innerHTML = activeProducts.slice(0, 8).map((product) => `
+  if (sortedProducts.length) {
+    productCatalogList.innerHTML = sortedProducts.slice(0, 8).map((product) => `
       <article class="compact-part-item product-catalog-item">
         <strong>#${escapeHtml(product.productNumber || "")} ${escapeHtml(product.name)}</strong>
         <span>${escapeHtml(product.exactModel || "Sin modelo")} | ${canViewPartCost() ? `Proveedor ${formatCurrency(Number(product.providerPrice) || 0)} | ` : ""}Precio ${formatCurrency(Number(product.price) || 0)} | Cant. ${Number(product.quantity) || 0}</span>
