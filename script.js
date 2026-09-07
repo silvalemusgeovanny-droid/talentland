@@ -209,6 +209,7 @@ const repairImeiInput = document.querySelector("#repairImei");
 const repairDuiInput = document.querySelector("#repairDui");
 const repairPriceInput = document.querySelector("#repairPrice");
 const repairAbonoInput = document.querySelector("#repairAbono");
+const repairRemainingInput = document.querySelector("#repairRemaining");
 const repairStatusInput = document.querySelector("#repairStatus");
 const repairDeliveredAtInput = document.querySelector("#repairDeliveredAt");
 const repairEstimatedDeliveryAtInput = document.querySelector("#repairEstimatedDeliveryAt");
@@ -1121,6 +1122,15 @@ function getRepairPartsTotalCents(parts = selectedRepairParts) {
   return normalizeRepairParts(parts).reduce((sum, line) => sum + line.subtotalCents, 0);
 }
 
+function updateRepairRemaining() {
+  if (!repairRemainingInput) return;
+  const repairPrice = Math.max(0, Number(repairPriceInput?.value) || 0);
+  const partsTotal = centsToMoney(getRepairPartsTotalCents());
+  const abono = Math.max(0, Number(repairAbonoInput?.value) || 0);
+  const remaining = Math.max(0, repairPrice + partsTotal - abono);
+  repairRemainingInput.value = remaining.toFixed(2);
+}
+
 function buildRepairPartLine(part, quantity) {
   const partId = getPartRecordId(part);
   const unitPriceCents = getMoneyCents(part, "customerPrice", "customerPriceCents");
@@ -1200,6 +1210,7 @@ function renderSelectedRepairParts() {
       : "Observaciones, accesorios, detalles del equipo...";
   }
   repairPartsTotal.textContent = formatCurrencyCents(getRepairPartsTotalCents());
+  updateRepairRemaining();
   if (!selectedRepairParts.length) {
     repairPartsList.innerHTML = `<p class="hint">Sin repuesto seleccionado.</p>`;
     return;
@@ -2349,7 +2360,7 @@ function buildRepairInvoiceHtml(repair, options = {}) {
   const resta = Math.max(0, total - abono);
   const date = formatInvoiceDate(repair.createdAt);
   const orderNumber = String(repair.repairNumber || "").padStart(4, "0");
-  const showCanceledStamp = total > 0 && abono >= total;
+  const showCanceledStamp = total > 0 && resta <= 0.005;
   const shouldRecordInvoice = options.recordOnPrint !== false;
   const technicianName = repair.technicianName || currentUser?.name || currentUser?.username || "";
   const invoicePayload = {
@@ -4861,6 +4872,8 @@ repairImeiInput.addEventListener("input", () => {
 repairDuiInput.addEventListener("input", () => {
   repairDuiInput.value = repairDuiInput.value.replace(/\D/g, "").slice(0, 15);
 });
+repairPriceInput.addEventListener("input", updateRepairRemaining);
+repairAbonoInput.addEventListener("input", updateRepairRemaining);
 repairBrandInput.addEventListener("blur", syncKnownRepairBrandCase);
 repairBrandInput.addEventListener("change", syncKnownRepairBrandCase);
 repairBrandInput.addEventListener("input", () => {
