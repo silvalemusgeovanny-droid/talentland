@@ -3756,16 +3756,19 @@ function renderCatalogPendingHistory(items) {
   const rows = items.slice(0, 12);
   return `
     <section class="statistics-list-group">
-      <h3>Pendientes de catalogo</h3>
+      <h3>Pendientes de catalogo (${items.length})</h3>
       <div class="compact-list statistics-list">
         ${rows.length ? rows.map((item) => `
           <article class="compact-part-item">
-            <strong>Reparacion #${escapeHtml(item.repairNumber || "")} - ${escapeHtml(item.partName || "Repuesto")}</strong>
+            <strong>${item.pendingType === "brand_model" ? "Marca y modelo por autorizar" : `Reparacion #${escapeHtml(item.repairNumber || "")} - ${escapeHtml(item.partName || "Repuesto")}`}</strong>
             <span>${escapeHtml(item.brand || "Sin marca")} | ${escapeHtml(item.model || "Sin modelo")}</span>
-            <span>${escapeHtml(formatRepairDateTimeInput(item.createdAt))} | ${escapeHtml(item.createdBy || "sistema")}</span>
+            <span>${item.pendingType === "brand_model" ? `Origen: ${escapeHtml(item.sourceModule || "reparaciones")}` : `Tipo: ${escapeHtml(item.partName || "Repuesto")}`}</span>
+            <span>Creado ${escapeHtml(formatRepairDateTimeInput(item.createdAt))} por ${escapeHtml(item.createdBy || "sistema")}</span>
+            <span class="hint">${currentUser?.role === "root" ? "Ve a Repuestos para aceptar, rechazar o posponer." : "Solo root puede completar esta validacion."}</span>
           </article>
         `).join("") : `<p class="hint">No hay pendientes de catalogo.</p>`}
       </div>
+      ${items.length && currentUser?.role === "root" ? `<button class="secondary-button" type="button" data-open-catalog-pending>Gestionar en Repuestos</button>` : ""}
     </section>
   `;
 }
@@ -4779,6 +4782,13 @@ notesToggle.addEventListener("click", () => {
     return;
   }
   openNotesPanel();
+});
+
+statisticsLists?.addEventListener("click", (event) => {
+  if (!event.target.closest("[data-open-catalog-pending]")) return;
+  setModule("parts");
+  refreshQuickPartsView();
+  catalogPendingPanel?.scrollIntoView({ behavior: "smooth", block: "center" });
 });
 openNotesFromAlert.addEventListener("click", () => {
   if (pendingAlertMode === "repairs") {
