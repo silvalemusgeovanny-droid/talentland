@@ -2212,13 +2212,7 @@ function getRepairTypeOptionsForEquipment() {
 
 function getRepairModelsForBrand(brandValue = "") {
   const brandKey = normalizePartSearch(brandValue);
-  const partModels = loadParts()
-    .filter((part) => !brandKey || normalizePartSearch(part.brand) === brandKey)
-    .map((part) => part.model);
-  const repairModels = loadRepairs()
-    .filter((repair) => !brandKey || normalizePartSearch(repair.brand) === brandKey)
-    .map((repair) => repair.model);
-  return [...new Set([...partModels, ...repairModels].map((value) => normalizeSystemOption(value || "")).filter(Boolean))].sort();
+  return getPartFieldOptions("model", (part) => !brandKey || normalizePartSearch(part.brand) === brandKey);
 }
 
 function isKnownRepairModelForOtherBrand(brandValue, modelValue) {
@@ -2237,7 +2231,7 @@ function syncKnownRepairOptionCase(input, storageKey, repairField) {
 
 function renderRepairBrandOptions() {
   const selectedValue = normalizeSystemOption(repairBrandInput?.value || "");
-  const options = loadRepairOptions(repairBrandsStorageKey, "brand");
+  const options = getPartFieldOptions("brand");
   if (selectedValue && !options.includes(selectedValue)) options.push(selectedValue);
   repairBrandInput.innerHTML = [
     `<option value="">Selecciona una marca</option>`,
