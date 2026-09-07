@@ -2174,6 +2174,29 @@ body.users-active .users-panel-header {
   font-weight: 900;
 }
 
+.pending-repair-list {
+  display: grid;
+  grid-column: 1 / -1;
+  gap: 8px;
+  max-height: 260px;
+  overflow: auto;
+  padding-top: 4px;
+}
+
+.pending-repair-item {
+  display: grid;
+  gap: 3px;
+  padding: 9px;
+  border: 1px solid #edc8bb;
+  border-radius: 7px;
+  background: rgb(255 255 255 / 70%);
+}
+
+.pending-repair-item span {
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
 .notes-card {
   max-width: 620px;
 }

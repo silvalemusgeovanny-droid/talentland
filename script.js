@@ -172,6 +172,7 @@ const pendingAlertTitle = document.querySelector("#pendingAlertTitle");
 const pendingAlertCopy = document.querySelector("#pendingAlertCopy");
 const openNotesFromAlert = document.querySelector("#openNotesFromAlert");
 const snoozePendingAlert = document.querySelector("#snoozePendingAlert");
+const pendingRepairList = document.querySelector("#pendingRepairList");
 const salesStorageKey = "inventorySales";
 const productsStorageKey = "saleProducts";
 const productCatalogForm = document.querySelector("#productCatalogForm");
@@ -1736,6 +1737,26 @@ function openPendingRepairSummary() {
   loadStatisticsSection(activeStatisticsSection, { preserveContent: true });
 }
 
+function renderPendingRepairList() {
+  if (!pendingRepairList) return;
+  pendingRepairList.innerHTML = repairStatusReminderCache.map((repair) => `
+    <article class="pending-repair-item">
+      <strong>Reparacion #${escapeHtml(repair.repairNumber || "")}</strong>
+      <span>${escapeHtml(repair.customer || "Sin cliente")} | ${escapeHtml([repair.brand, repair.model].filter(Boolean).join(" ") || repair.deviceType || "Equipo")}</span>
+      <span>${escapeHtml(repair.repairType || "Reparacion")} | Estado: ${escapeHtml(repair.status || "En proceso")}</span>
+      <span>${repair.estimatedDeliveryAt ? `Entrega estimada: ${escapeHtml(formatRepairDateTimeInput(repair.estimatedDeliveryAt))}` : "Sin hora estimada"}</span>
+    </article>
+  `).join("");
+}
+
+function togglePendingRepairList() {
+  if (pendingAlertMode !== "repairs" || !pendingRepairList) return;
+  const shouldShow = pendingRepairList.hidden;
+  if (shouldShow) renderPendingRepairList();
+  pendingRepairList.hidden = !shouldShow;
+  openNotesFromAlert.textContent = shouldShow ? "Minimizar" : "Ver";
+}
+
 function renderPendingAlert() {
   if (!pendingAlert) return;
   const hasSession = Boolean(currentUser);
@@ -1745,6 +1766,7 @@ function renderPendingAlert() {
 
   if (!hasSession || isSnoozed || (!readyRepairs.length && !pendingNotes.length)) {
     pendingAlert.hidden = true;
+    if (pendingRepairList) pendingRepairList.hidden = true;
     return;
   }
 
@@ -1753,10 +1775,13 @@ function renderPendingAlert() {
     pendingAlertMode = "repairs";
     pendingAlertTitle.textContent = `${readyRepairs.length} reparacion${readyRepairs.length === 1 ? "" : "es"} por revisar`;
     pendingAlertCopy.textContent = "Revisa como va la reparacion y actualiza el estado si corresponde.";
+    openNotesFromAlert.textContent = pendingRepairList?.hidden === false ? "Minimizar" : "Ver";
     return;
   }
 
   pendingAlertMode = "notes";
+  if (pendingRepairList) pendingRepairList.hidden = true;
+  openNotesFromAlert.textContent = "Ver";
   pendingAlertTitle.textContent = `${pendingNotes.length} pendiente${pendingNotes.length === 1 ? "" : "s"} activo${pendingNotes.length === 1 ? "" : "s"}`;
   pendingAlertCopy.textContent = pendingNotes[0]?.text || "Tienes notas por revisar.";
 }
@@ -4590,7 +4615,7 @@ colorModeToggle.addEventListener("click", () => {
 notesToggle.addEventListener("click", openNotesPanel);
 openNotesFromAlert.addEventListener("click", () => {
   if (pendingAlertMode === "repairs") {
-    openPendingRepairSummary();
+    togglePendingRepairList();
     return;
   }
   openNotesPanel();
