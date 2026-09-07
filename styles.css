@@ -2646,21 +2646,6 @@ body.users-active .session-panel {
   align-self: flex-start;
 }
 
-.header-actions {
-  display: flex;
-  flex: 0 0 auto;
-  gap: 10px;
-  align-items: flex-start;
-}
-
-.parts-header .header-actions .secondary-button {
-  width: auto;
-  min-height: 42px;
-  margin-top: 0;
-  padding: 0 14px;
-  text-decoration: none;
-}
-
 .back-link:hover {
   background: var(--accent);
   color: #ffffff;
@@ -3702,16 +3687,6 @@ tbody tr:hover {
 
   .header-panel-link {
     align-self: stretch;
-  }
-
-  .header-actions {
-    width: 100%;
-    flex-direction: column;
-  }
-
-  .parts-header .header-actions .secondary-button,
-  .header-actions .header-panel-link {
-    width: 100%;
   }
 
   .users-panel-layout {
