@@ -214,6 +214,8 @@ const repairPhoneInput = document.querySelector("#repairPhone");
 const repairEmailInput = document.querySelector("#repairEmail");
 const repairBrandInput = document.querySelector("#repairBrand");
 const repairModelInput = document.querySelector("#repairModel");
+const repairBrandNewInput = document.querySelector("#repairBrandNew");
+const repairModelNewInput = document.querySelector("#repairModelNew");
 const repairTypeInput = document.querySelector("#repairType");
 const repairTypeNewInput = document.querySelector("#repairTypeNew");
 const repairImeiInput = document.querySelector("#repairImei");
@@ -311,6 +313,7 @@ let contactRepairSearchTimer = null;
 let repairContactSuggestions = [];
 let selectedRepairParts = [];
 let catalogPendingCache = [];
+let approvedCatalogCache = [];
 let repairTypePendingCache = [];
 let activeCatalogPendingId = "";
 let repairStatusReminderCache = [];
@@ -883,11 +886,48 @@ function normalizeCatalogPending(pending) {
     brand: normalizeSystemOption(pending.brand || ""),
     model: normalizeSystemOption(pending.model || ""),
     partName: normalizeSystemOption(pending.partName || ""),
+    pendingType: pending.pendingType || "part",
+    sourceModule: pending.sourceModule || "repairs",
+    sourceRecordId: pending.sourceRecordId || "",
     status: pending.status || "pending",
     createdBy: pending.createdBy || currentUser?.username || "sistema",
     createdAt: pending.createdAt || now,
     updatedAt: pending.updatedAt || now,
+    postponedUntil: pending.postponedUntil || "",
   };
+}
+
+async function createBrandModelPending({ brand, model, sourceModule, sourceRecordId, repairNumber = 0 }) {
+  const normalizedBrand = normalizeSystemOption(brand);
+  const normalizedModel = normalizeSystemOption(model);
+  if (!normalizedBrand || !normalizedModel || currentUser?.role === "root") return false;
+  const pending = normalizeCatalogPending({
+    sourceId: `brand-model|${normalizePartSearch(normalizedBrand)}|${normalizePartSearch(normalizedModel)}`,
+    repairNumber,
+    brand: normalizedBrand,
+    model: normalizedModel,
+    partName: "Marca y modelo",
+    pendingType: "brand_model",
+    sourceModule,
+    sourceRecordId,
+  });
+  if (window.repairCloud?.isConfigured()) {
+    const { id: _localId, ...cloudPending } = pending;
+    await window.repairCloud.createCatalogPending(cloudPending);
+    await window.repairCloud.registrarAuditoria(
+      "MARCA_MODELO_PENDIENTE",
+      `Marca ${normalizedBrand} y modelo ${normalizedModel} enviados a validacion`,
+      currentUser?.username,
+      JSON.stringify({ brand: normalizedBrand, model: normalizedModel, sourceModule, sourceRecordId, repairNumber }),
+    );
+  } else {
+    const items = loadCatalogPending();
+    if (!items.some((item) => item.sourceId === pending.sourceId)) {
+      items.unshift(pending);
+      saveCatalogPending(items);
+    }
+  }
+  return true;
 }
 
 function loadRepairTypePending() {
@@ -1572,9 +1612,13 @@ async function refreshQuickPartsView() {
 function getPartBrandModelValues(brandValue = "") {
   const brandKey = normalizePartSearch(brandValue);
   const deletedKeys = getDeletedPartOptionKeys("model");
-  return getUniqueNormalizedValues(loadParts()
+  const approvedModels = approvedCatalogCache
+    .filter((item) => item?.pendingType === "brand_model")
+    .filter((item) => !brandKey || normalizePartSearch(item.brand) === brandKey)
+    .map((item) => item.model);
+  return getUniqueNormalizedValues([...loadParts()
     .filter((part) => !brandKey || normalizePartSearch(part.brand) === brandKey)
-    .map((part) => part.model))
+    .map((part) => part.model), ...approvedModels])
     .filter((value) => !deletedKeys.has(normalizePartSearch(value)));
 }
 
@@ -1588,7 +1632,10 @@ function isKnownModelForOtherBrand(brandValue, modelValue) {
 
 function getUniquePartValues(field) {
   const deletedKeys = getDeletedPartOptionKeys(field);
-  return getUniqueNormalizedValues(loadParts().map((part) => part[field]))
+  const approvedOptions = approvedCatalogCache
+    .filter((item) => item?.pendingType === "brand_model")
+    .map((item) => item[field]);
+  return getUniqueNormalizedValues([...loadParts().map((part) => part[field]), ...approvedOptions])
     .filter((value) => !deletedKeys.has(normalizePartSearch(value)));
 }
 
@@ -2295,8 +2342,10 @@ function renderRepairBrandOptions() {
   repairBrandInput.innerHTML = [
     `<option value="">Selecciona una marca</option>`,
     ...options.sort(compareOptionValues).map((option) => `<option value="${escapeHtml(option)}">${escapeHtml(option)}</option>`),
+    `<option value="${newOptionValue}">Agregar nuevo</option>`,
   ].join("");
   repairBrandInput.value = selectedValue;
+  syncRepairBrandManualField();
 }
 function renderRepairModelOptions() {
   const selectedValue = normalizeSystemOption(repairModelInput?.value || "");
@@ -2305,8 +2354,26 @@ function renderRepairModelOptions() {
   repairModelInput.innerHTML = [
     `<option value="">${repairBrandInput.value ? "Selecciona un modelo" : "Selecciona primero una marca"}</option>`,
     ...options.sort(compareOptionValues).map((option) => `<option value="${escapeHtml(option)}">${escapeHtml(option)}</option>`),
+    `<option value="${newOptionValue}">Agregar nuevo</option>`,
   ].join("");
   repairModelInput.value = selectedValue;
+  syncRepairModelManualField();
+}
+
+function syncRepairBrandManualField() {
+  const isNew = repairBrandInput.value === newOptionValue;
+  repairBrandNewInput.hidden = !isNew;
+  repairBrandNewInput.required = isNew;
+  if (!isNew) repairBrandNewInput.value = "";
+  if (isNew) repairBrandNewInput.focus();
+}
+
+function syncRepairModelManualField() {
+  const isNew = repairModelInput.value === newOptionValue;
+  repairModelNewInput.hidden = !isNew;
+  repairModelNewInput.required = isNew;
+  if (!isNew) repairModelNewInput.value = "";
+  if (isNew) repairModelNewInput.focus();
 }
 function renderRepairTypeOptions() {
   const selectedValue = normalizeSystemOption(repairTypeInput?.value || "");
@@ -2681,7 +2748,7 @@ function renderQuickParts() {
 
 function renderCatalogPendingPanel() {
   if (!catalogPendingPanel || !catalogPendingList) return;
-  const canReview = canManageParts() && canViewPartCost() && canViewPartCustomerPrice();
+  const canReview = currentUser?.role === "root";
   const activeCatalogPending = catalogPendingCache.filter((item) => item?.status === "pending");
   const activeRepairTypePending = repairTypePendingCache.filter((item) => item?.status === "pending");
   const pendingCount = activeCatalogPending.length + activeRepairTypePending.length;
@@ -2707,14 +2774,14 @@ function renderCatalogPendingPanel() {
   });
   const catalogItems = activeCatalogPending.map((item) => {
     const id = getCatalogPendingRecordId(item);
+    const isBrandModel = item.pendingType === "brand_model";
     return `
       <article class="compact-part-item catalog-pending-item">
-        <strong>Reparacion #${escapeHtml(item.repairNumber || "")} | ${escapeHtml(item.partName || "Repuesto")}</strong>
+        <strong>${isBrandModel ? "Marca y modelo" : `Reparacion #${escapeHtml(item.repairNumber || "")} | ${escapeHtml(item.partName || "Repuesto")}`}</strong>
         <span>${escapeHtml(item.brand || "Sin marca")} | ${escapeHtml(item.model || "Sin modelo")}</span>
-        <span>Creado por ${escapeHtml(item.createdBy || "sistema")} | ${escapeHtml(formatRepairDateTimeInput(item.createdAt))}</span>
+        <span>Creado por ${escapeHtml(item.createdBy || "sistema")} | ${escapeHtml(item.sourceModule || "reparaciones")} | ${escapeHtml(formatRepairDateTimeInput(item.createdAt))}</span>
         <div class="table-action-icons">
-          <button class="edit-button" type="button" data-load-catalog-pending="${escapeHtml(id)}">Cargar</button>
-          <button class="delete-button" type="button" data-dismiss-catalog-pending="${escapeHtml(id)}">Descartar</button>
+          ${isBrandModel ? `<button class="edit-button" type="button" data-approve-catalog-pending="${escapeHtml(id)}">Aceptar</button><button class="delete-button" type="button" data-dismiss-catalog-pending="${escapeHtml(id)}">Rechazar</button><button class="edit-button" type="button" data-postpone-catalog-pending="${escapeHtml(id)}">Posponer 24 h</button>` : `<button class="edit-button" type="button" data-load-catalog-pending="${escapeHtml(id)}">Cargar</button><button class="delete-button" type="button" data-dismiss-catalog-pending="${escapeHtml(id)}">Descartar</button>`}
         </div>
       </article>
     `;
@@ -2730,6 +2797,9 @@ async function refreshCatalogPendingIndicators() {
   }
   try {
     catalogPendingCache = await loadCatalogPendingFromSource();
+    approvedCatalogCache = window.repairCloud?.isConfigured()
+      ? (await window.repairCloud.listApprovedCatalog()).filter((item) => item?.pendingType === "brand_model")
+      : approvedCatalogCache;
     repairTypePendingCache = canManageParts()
       ? await loadRepairTypePendingFromSource()
       : [];
@@ -4984,7 +5054,7 @@ repairDuiInput.addEventListener("input", () => {
 repairPriceInput.addEventListener("input", updateRepairRemaining);
 repairAbonoInput.addEventListener("input", updateRepairRemaining);
 repairBrandInput.addEventListener("blur", syncKnownRepairBrandCase);
-repairBrandInput.addEventListener("change", syncKnownRepairBrandCase);
+repairBrandInput.addEventListener("change", () => { syncRepairBrandManualField(); syncKnownRepairBrandCase(); });
 repairBrandInput.addEventListener("input", () => {
   renderRepairModelOptions();
   renderRepairTypeOptions();
@@ -4996,7 +5066,7 @@ repairModelInput.addEventListener("input", () => {
   renderRepairPartPicker();
 });
 repairModelInput.addEventListener("blur", syncKnownRepairModelCase);
-repairModelInput.addEventListener("change", syncKnownRepairModelCase);
+repairModelInput.addEventListener("change", () => { syncRepairModelManualField(); syncKnownRepairModelCase(); });
 repairTypeInput.addEventListener("blur", syncKnownRepairTypeCase);
 repairTypeInput.addEventListener("change", () => {
   syncNewRepairTypeField();
@@ -5304,6 +5374,23 @@ adminVoidForm.addEventListener("submit", async (event) => {
 });
 
 catalogPendingList?.addEventListener("click", async (event) => {
+  const approveCatalogButton = event.target.closest("[data-approve-catalog-pending]");
+  if (approveCatalogButton) {
+    await resolveCatalogPending(approveCatalogButton.dataset.approveCatalogPending);
+    quickPartsHint.textContent = "Marca y modelo aprobados por root.";
+    return;
+  }
+  const postponeCatalogButton = event.target.closest("[data-postpone-catalog-pending]");
+  if (postponeCatalogButton) {
+    try {
+      await window.repairCloud?.postponeCatalogPending(postponeCatalogButton.dataset.postponeCatalogPending);
+      await refreshCatalogPendingIndicators();
+      quickPartsHint.textContent = "Pendiente pospuesto por 24 horas.";
+    } catch (error) {
+      quickPartsHint.textContent = `No se pudo posponer: ${error.message}`;
+    }
+    return;
+  }
   const approveRepairTypeButton = event.target.closest("[data-approve-repair-type]");
   if (approveRepairTypeButton) {
     await approveRepairTypePending(approveRepairTypeButton.dataset.approveRepairType);
@@ -5337,6 +5424,8 @@ quickPartsForm.addEventListener("submit", async (event) => {
     quickPartsHint.textContent = "Tu rol solo permite consultar repuestos.";
     return;
   }
+  const requestedNewBrand = quickBrandSelect.value === newOptionValue;
+  const requestedNewModel = quickModelSelect.value === newOptionValue;
   syncQuickPartSelectFields();
   const duplicateOptionFields = [
     { field: "name", select: quickPartNameSelect, input: quickPartNameInput },
@@ -5405,11 +5494,21 @@ quickPartsForm.addEventListener("submit", async (event) => {
   }
   ["name", "brand", "model", "supplier", "category"].forEach((field) => unmarkPartOptionDeleted(field, part[field]));
   saveParts(parts);
+  if (requestedNewBrand || requestedNewModel) {
+    await createBrandModelPending({
+      brand: part.brand,
+      model: part.model,
+      sourceModule: "ventas",
+      sourceRecordId: getPartRecordId(part),
+    });
+  }
   if (activeCatalogPendingId) {
     await resolveCatalogPending(activeCatalogPendingId);
   }
   quickPartsForm.reset();
-  quickPartsHint.textContent = "Repuesto guardado correctamente.";
+  quickPartsHint.textContent = requestedNewBrand || requestedNewModel
+    ? "Repuesto guardado y marca/modelo enviados a validacion de root."
+    : "Repuesto guardado correctamente.";
   await refreshQuickPartsView();
 });
 
@@ -5554,14 +5653,18 @@ repairsForm.addEventListener("submit", async (event) => {
         return;
       }
     }
-    const rawBrand = normalizeSystemOption(formData.get("brand"));
-    const rawModel = normalizeSystemOption(formData.get("model"));
+    const rawBrand = normalizeSystemOption(repairBrandInput.value === newOptionValue ? repairBrandNewInput.value : formData.get("brand"));
+    const rawModel = normalizeSystemOption(repairModelInput.value === newOptionValue ? repairModelNewInput.value : formData.get("model"));
     if (isKnownRepairModelForOtherBrand(rawBrand, rawModel)) {
       repairsHint.textContent = `El modelo ${rawModel} ya esta ligado a otra marca. Revisa la marca antes de guardar.`;
       return;
     }
-    const brand = addRepairBrand(rawBrand);
-    const model = addRepairModel(rawModel);
+    const brand = rawBrand;
+    const model = rawModel;
+    if (currentUser?.role === "root") {
+      saveRepairOptions(repairBrandsStorageKey, [...loadRepairOptions(repairBrandsStorageKey, "brand"), brand]);
+      saveRepairOptions(repairModelsStorageKey, [...loadRepairOptions(repairModelsStorageKey, "model"), model]);
+    }
     const selectedRepairType = formData.get("repairType");
     if (selectedRepairType === newOptionValue) {
       await requestNewRepairType(formData.get("newRepairType"));
@@ -5608,6 +5711,7 @@ repairsForm.addEventListener("submit", async (event) => {
         await applyRepairPartsStockChange(existingRepair.repairParts, repairParts);
       }
       await createCatalogPendingIfNeeded(updatedRepair);
+      await createBrandModelPending({ brand, model, sourceModule: "reparaciones", sourceRecordId: editingId, repairNumber: updatedRepair.repairNumber });
 
       if (index !== -1) {
         repairs[index] = updatedRepair;
@@ -5654,6 +5758,7 @@ repairsForm.addEventListener("submit", async (event) => {
         repairs.unshift(repairData);
       }
       await createCatalogPendingIfNeeded(repairData);
+      await createBrandModelPending({ brand, model, sourceModule: "reparaciones", sourceRecordId: repairData.id, repairNumber: repairData.repairNumber });
       repairsHint.textContent = "Reparacion guardada correctamente.";
     }
 

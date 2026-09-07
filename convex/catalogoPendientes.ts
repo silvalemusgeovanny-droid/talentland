@@ -1,6 +1,6 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
-import { requireModuleRead, requireModuleWrite } from "./authorization";
+import { requireModuleRead, requireModuleWrite, requireRoot } from "./authorization";
 
 const pendingFields = {
   sourceId: v.optional(v.string()),
@@ -9,12 +9,16 @@ const pendingFields = {
   brand: v.string(),
   model: v.string(),
   partName: v.string(),
+  pendingType: v.optional(v.string()),
+  sourceModule: v.optional(v.string()),
+  sourceRecordId: v.optional(v.string()),
   status: v.string(),
   createdBy: v.string(),
   createdAt: v.string(),
   updatedAt: v.string(),
   resolvedBy: v.optional(v.string()),
   resolvedAt: v.optional(v.string()),
+  postponedUntil: v.optional(v.string()),
 };
 
 function normalizePendingKey(value = "") {
@@ -31,16 +35,19 @@ export const list = query({
     sessionToken: v.string(),
     status: v.optional(v.string()),
     limit: v.optional(v.number()),
+    now: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     await requireModuleRead(ctx, args.sessionToken, "statistics");
     const status = args.status || "pending";
     const limit = args.limit || 100;
-    return await ctx.db
+    const items = await ctx.db
       .query("catalogoPendientes")
       .withIndex("by_status", (q) => q.eq("status", status))
       .order("desc")
       .take(limit);
+    const now = args.now || new Date().toISOString();
+    return items.filter((item) => !item.postponedUntil || item.postponedUntil <= now);
   },
 });
 
@@ -74,12 +81,13 @@ export const resolve = mutation({
     resolvedAt: v.string(),
   },
   handler: async (ctx, args) => {
-    const user = await requireModuleWrite(ctx, args.sessionToken, "parts");
+    const user = await requireRoot(ctx, args.sessionToken);
     await ctx.db.patch(args.id, {
       status: "resolved",
       resolvedBy: args.resolvedBy || user.username,
       resolvedAt: args.resolvedAt,
       updatedAt: args.resolvedAt,
+      postponedUntil: undefined,
     });
     return args.id;
   },
@@ -93,13 +101,28 @@ export const dismiss = mutation({
     resolvedAt: v.string(),
   },
   handler: async (ctx, args) => {
-    const user = await requireModuleWrite(ctx, args.sessionToken, "parts");
+    const user = await requireRoot(ctx, args.sessionToken);
     await ctx.db.patch(args.id, {
       status: "dismissed",
       resolvedBy: args.resolvedBy || user.username,
       resolvedAt: args.resolvedAt,
       updatedAt: args.resolvedAt,
+      postponedUntil: undefined,
     });
+    return args.id;
+  },
+});
+
+export const postpone = mutation({
+  args: {
+    sessionToken: v.string(),
+    id: v.id("catalogoPendientes"),
+    postponedUntil: v.string(),
+    updatedAt: v.string(),
+  },
+  handler: async (ctx, args) => {
+    await requireRoot(ctx, args.sessionToken);
+    await ctx.db.patch(args.id, { status: "pending", postponedUntil: args.postponedUntil, updatedAt: args.updatedAt });
     return args.id;
   },
 });

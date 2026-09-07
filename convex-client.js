@@ -89,12 +89,15 @@
       callConvex("mutation", "repuestos:updateStockForSale", withSession({ id, quantityChange, updatedAt: new Date().toISOString() })),
     removePart: (id) => callConvex("mutation", "repuestos:remove", withSession({ id })),
     importParts: (parts) => callConvex("mutation", "repuestos:importBatch", withSession({ parts })),
-    listCatalogPending: () => callConvex("query", "catalogoPendientes:list", withSession({ status: "pending", limit: 100 })),
+    listCatalogPending: () => callConvex("query", "catalogoPendientes:list", withSession({ status: "pending", limit: 100, now: new Date().toISOString() })),
+    listApprovedCatalog: () => callConvex("query", "catalogoPendientes:list", withSession({ status: "resolved", limit: 500 })),
     createCatalogPending: (pending) => callConvex("mutation", "catalogoPendientes:create", withSession(pending)),
     resolveCatalogPending: (id) =>
       callConvex("mutation", "catalogoPendientes:resolve", withSession({ id, resolvedAt: new Date().toISOString() })),
     dismissCatalogPending: (id) =>
       callConvex("mutation", "catalogoPendientes:dismiss", withSession({ id, resolvedAt: new Date().toISOString() })),
+    postponeCatalogPending: (id) =>
+      callConvex("mutation", "catalogoPendientes:postpone", withSession({ id, postponedUntil: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(), updatedAt: new Date().toISOString() })),
     listApprovedRepairTypes: () => callConvex("query", "tiposReparacion:listApproved", withSession({})),
     listPendingRepairTypes: () => callConvex("query", "tiposReparacion:listPending", withSession({})),
     requestRepairType: (name) => callConvex("mutation", "tiposReparacion:request", withSession({ name })),

@@ -76,3 +76,9 @@ export async function requireModuleWrite(
 
   return user;
 }
+
+export async function requireRoot(ctx: MutationCtx, sessionToken: string) {
+  const { user } = await requireActiveSession(ctx, sessionToken);
+  if (user.role !== "root") throw new Error("Solo root puede aprobar cambios de catalogo.");
+  return user;
+}
