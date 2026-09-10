@@ -268,6 +268,8 @@ const statisticsSummary = document.querySelector("#statisticsSummary");
 const statisticsHint = document.querySelector("#statisticsHint");
 const statisticsGrid = document.querySelector("#statisticsGrid");
 const statisticsLists = document.querySelector("#statisticsLists");
+const healthPermissionAudit = document.querySelector("#healthPermissionAudit");
+const healthPermissionAuditCount = document.querySelector("#healthPermissionAuditCount");
 const statisticsPendingDot = document.querySelector("#statisticsPendingDot");
 const statisticsPeriodButtons = document.querySelectorAll("[data-statistics-period]");
 const statisticsSectionButtons = document.querySelectorAll("[data-statistics-section]");
@@ -4721,6 +4723,41 @@ function getAllowedModules() {
   return getUserModules(currentUser).filter((moduleName) => navigableModules.has(moduleName));
 }
 
+function formatPermissionModules(modules = []) {
+  if (!modules.length) return "sin cambios";
+  return modules.map((moduleName) => moduleLabels[moduleName] || moduleName).join(", ");
+}
+
+async function renderHealthPermissionAudit() {
+  if (!healthPermissionAudit || !healthPermissionAuditCount) return;
+  if (!canAccessModule("health")) return;
+  if (!window.repairCloud?.isConfigured()) {
+    healthPermissionAuditCount.textContent = "Sin conexion";
+    healthPermissionAudit.innerHTML = `<div class="health-empty-state"><span class="health-empty-icon">⌁</span><strong>Bitacora no disponible</strong><p>Configura Convex para consultar cambios de permisos.</p></div>`;
+    return;
+  }
+  try {
+    const logs = await window.repairCloud.obtenerAuditoria();
+    const permissionLogs = logs.filter((log) => ["PERMISOS_USUARIO_CREADO", "PERMISOS_USUARIO_ACTUALIZADOS"].includes(log.tipo));
+    healthPermissionAuditCount.textContent = `${permissionLogs.length} evento${permissionLogs.length === 1 ? "" : "s"}`;
+    if (!permissionLogs.length) {
+      healthPermissionAudit.innerHTML = `<div class="health-empty-state"><span class="health-empty-icon">⌁</span><strong>Aun no hay cambios de permisos</strong><p>Las futuras autorizaciones y denegaciones apareceran aqui.</p></div>`;
+      return;
+    }
+    healthPermissionAudit.innerHTML = permissionLogs.slice(0, 12).map((log) => {
+      let data = {};
+      try { data = JSON.parse(log.datos || "{}"); } catch {}
+      const granted = formatPermissionModules(data.grantedModules || []);
+      const revoked = formatPermissionModules(data.revokedModules || []);
+      const date = log.fecha ? new Date(log.fecha).toLocaleString("es-MX", { dateStyle: "medium", timeStyle: "short" }) : "Sin fecha";
+      return `<article class="health-audit-item"><span class="health-audit-icon">${log.tipo === "PERMISOS_USUARIO_CREADO" ? "+" : "↔"}</span><div><strong>${escapeHtml(data.targetUsername || "Usuario")}</strong><p>Autorizado por <b>${escapeHtml(log.usuario || "sistema")}</b> · ${escapeHtml(date)}</p><small>${data.grantedModules?.length ? `Autorizados: ${escapeHtml(granted)}` : ""}${data.grantedModules?.length && data.revokedModules?.length ? " · " : ""}${data.revokedModules?.length ? `Denegados: ${escapeHtml(revoked)}` : ""}${data.previousRole && data.previousRole !== data.role ? `${(data.grantedModules?.length || data.revokedModules?.length) ? " · " : ""}Rol: ${escapeHtml(data.previousRole)} → ${escapeHtml(data.role)}` : ""}</small></div></article>`;
+    }).join("");
+  } catch (error) {
+    healthPermissionAuditCount.textContent = "Error";
+    healthPermissionAudit.innerHTML = `<div class="health-empty-state"><span class="health-empty-icon">!</span><strong>No se pudo consultar la bitacora</strong><p>${escapeHtml(error.message || "Intenta nuevamente.")}</p></div>`;
+  }
+}
+
 function setModule(moduleName) {
   if (!canAccessModule(moduleName)) {
     credentialHint.textContent = "Tu rol no tiene permiso para abrir ese modulo.";
@@ -4759,6 +4796,7 @@ function setModule(moduleName) {
   }
   if (moduleName === "database") renderDatabase();
   if (moduleName === "statistics") renderStatistics();
+  if (moduleName === "health") renderHealthPermissionAudit();
   if (moduleName === "contacts") renderContacts();
   if (moduleName === "users") renderUsers();
   if (moduleName === "parts") refreshQuickPartsView();

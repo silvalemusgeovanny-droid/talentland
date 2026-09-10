@@ -1589,6 +1589,12 @@ body.entry-panel-active :is(.repairs-form, .contacts-form) > textarea {
 .health-empty-state { display: grid; min-height: 115px; place-items: center; align-content: center; text-align: center; }
 .health-empty-state strong { margin-top: 4px; color: var(--ink); font-size: .86rem; }
 .health-empty-icon { color: #9aabb5; font-size: 1.65rem; line-height: 1; }
+.health-permission-audit { display: grid; gap: 8px; margin-top: 14px; max-height: 280px; overflow: auto; }
+.health-audit-item { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 10px; align-items: start; padding: 10px; border: 1px solid rgb(23 32 38 / 8%); border-radius: 9px; background: #f8fbfc; }
+.health-audit-icon { display: grid; width: 25px; height: 25px; place-items: center; border-radius: 7px; background: #eaf8ef; color: #168447; font-weight: 900; }
+.health-audit-item strong { color: var(--ink); font-size: .82rem; }
+.health-audit-item p, .health-audit-item small { display: block; margin: 2px 0 0; color: var(--muted); font-size: .72rem; font-weight: 700; line-height: 1.4; }
+.health-audit-item small { color: #426071; }
 .health-next-card { background: linear-gradient(150deg, #fffdf6, #fff 75%); }
 .health-next-card > p { line-height: 1.5; }
 .health-step-number { display: grid; width: 31px; height: 31px; place-items: center; border-radius: 9px; background: #fff1cb; color: #a66900; font-size: .72rem; font-weight: 900; }

@@ -517,7 +517,7 @@ export const createUser = mutation({
     modules: v.array(v.string()),
   },
   handler: async (ctx, args) => {
-    await requireRootSession(ctx, args.sessionToken);
+    const root = await requireRootSession(ctx, args.sessionToken);
     const username = args.username.trim().toLowerCase();
     const now = new Date().toISOString();
     const existing = await ctx.db
@@ -546,6 +546,12 @@ export const createUser = mutation({
 
     const user = await ctx.db.get(id);
     if (!user) throw new Error("Usuario no encontrado.");
+    await registerAudit(ctx, "PERMISOS_USUARIO_CREADO", `Permisos autorizados para ${user.username}`, root.username, {
+      targetUsername: user.username,
+      targetUserId: String(user._id),
+      role: user.role,
+      grantedModules: user.modules || [],
+    });
     return publicUser(user);
   },
 });
@@ -573,6 +579,12 @@ export const updateUser = mutation({
 
     if (duplicated && duplicated._id !== args.id) throw new Error("Ese usuario ya existe.");
 
+    const previousModules = new Set(user.modules || []);
+    const nextModules = new Set(args.modules || []);
+    const grantedModules = [...nextModules].filter((moduleName) => !previousModules.has(moduleName));
+    const revokedModules = [...previousModules].filter((moduleName) => !nextModules.has(moduleName));
+    const roleChanged = user.role !== args.role;
+
     const patch: Record<string, unknown> = {
       username,
       name: args.name.trim(),
@@ -593,6 +605,16 @@ export const updateUser = mutation({
     await ctx.db.patch(args.id, patch);
     const updatedUser = await ctx.db.get(args.id);
     if (!updatedUser) throw new Error("Usuario no encontrado.");
+    if (roleChanged || grantedModules.length || revokedModules.length) {
+      await registerAudit(ctx, "PERMISOS_USUARIO_ACTUALIZADOS", `Permisos actualizados para ${updatedUser.username}`, root.username, {
+        targetUsername: updatedUser.username,
+        targetUserId: String(updatedUser._id),
+        previousRole: user.role,
+        role: updatedUser.role,
+        grantedModules,
+        revokedModules,
+      });
+    }
     return publicUser(updatedUser);
   },
 });

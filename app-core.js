@@ -9,7 +9,7 @@
     notesSnoozeUntil: "pendingNotesSnoozeUntil",
   });
 
-  const manageableModules = ["sales", "products", "parts", "partsCost", "partsCustomerPrice", "repairs", "contacts", "notes", "statistics", "health", "database", "users"];
+  const manageableModules = ["sales", "products", "parts", "partsCost", "partsCustomerPrice", "repairs", "contacts", "notes", "statistics", "database", "users"];
   const roleProfiles = Object.freeze({
     root: {
       label: "Root",
@@ -172,7 +172,9 @@
       return [...new Set(["permissions", ...user.modules.filter((moduleName) => allowed.has(moduleName))])];
     },
     canAccess(user, moduleName) {
-      return Boolean(user) && this.getUserModules(user).includes(moduleName);
+      if (!user) return false;
+      if (moduleName === "health") return user.role === "root";
+      return this.getUserModules(user).includes(moduleName);
     },
     canManageParts(user) {
       return user?.role === "root" || (this.canAccess(user, "parts") && user?.role !== "activador");
