@@ -92,6 +92,7 @@ const moduleLabels = {
   contacts: "Contactos",
   notes: "Notas",
   statistics: "Resumen",
+  health: "Salud del sistema",
   database: "Datos",
   users: "Usuarios",
 };
@@ -477,7 +478,7 @@ function saveCurrentUser(user) {
 }
 
 function resetLoginLayout() {
-  document.body.classList.remove("left-panel-active", "statistics-active", "users-active", "entry-panel-active");
+  document.body.classList.remove("left-panel-active", "statistics-active", "health-active", "users-active", "entry-panel-active");
   if (accessCard) accessCard.hidden = false;
   if (sideRepairsPanel) sideRepairsPanel.hidden = true;
   if (sideUsersPanel) sideUsersPanel.hidden = true;
@@ -3345,10 +3346,12 @@ function setLeftPanelForModule(moduleName) {
   const showRepairsPanel = ["sales", "repairs"].includes(moduleName) && Boolean(currentUser);
   const showUsersPanel = moduleName === "users" && Boolean(currentUser);
   const showStatisticsPanel = moduleName === "statistics" && Boolean(currentUser);
+  const showHealthPanel = moduleName === "health" && Boolean(currentUser);
   document.body.classList.toggle("left-panel-active", showRepairsPanel || showUsersPanel);
   document.body.classList.toggle("statistics-active", showStatisticsPanel);
+  document.body.classList.toggle("health-active", showHealthPanel);
   document.body.classList.toggle("users-active", showUsersPanel);
-  if (accessCard) accessCard.hidden = showRepairsPanel || showStatisticsPanel;
+  if (accessCard) accessCard.hidden = showRepairsPanel || showStatisticsPanel || showHealthPanel;
   sideRepairsPanel.hidden = !showRepairsPanel;
   if (sideUsersPanel) sideUsersPanel.hidden = !showUsersPanel;
   if (showRepairsPanel) renderSideRepairs();
@@ -4725,7 +4728,7 @@ function setModule(moduleName) {
   }
   saveActiveModule(moduleName);
   document.body.classList.toggle("entry-panel-active", ["sales", "products", "parts", "repairs", "contacts"].includes(moduleName));
-  sessionPanel.classList.toggle("control-panel-wide", moduleName === "statistics");
+  sessionPanel.classList.toggle("control-panel-wide", ["statistics", "health"].includes(moduleName));
   moduleTabs.forEach((button) => {
     const isAllowed = canAccessModule(button.dataset.module);
     button.hidden = !isAllowed;
@@ -4740,6 +4743,7 @@ function setModule(moduleName) {
       (moduleName === "repairs" && panel.id === "repairsModule") ||
       (moduleName === "contacts" && panel.id === "contactsModule") ||
       (moduleName === "statistics" && panel.id === "statisticsModule") ||
+      (moduleName === "health" && panel.id === "healthModule") ||
       (moduleName === "database" && panel.id === "databaseModule") ||
       (moduleName === "users" && panel.id === "usersModule");
     panel.classList.toggle("active", isActive);

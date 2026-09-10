@@ -9,7 +9,7 @@
     notesSnoozeUntil: "pendingNotesSnoozeUntil",
   });
 
-  const manageableModules = ["sales", "products", "parts", "partsCost", "partsCustomerPrice", "repairs", "contacts", "notes", "statistics", "database", "users"];
+  const manageableModules = ["sales", "products", "parts", "partsCost", "partsCustomerPrice", "repairs", "contacts", "notes", "statistics", "health", "database", "users"];
   const roleProfiles = Object.freeze({
     root: {
       label: "Root",
