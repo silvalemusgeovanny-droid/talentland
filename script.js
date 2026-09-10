@@ -305,6 +305,8 @@ const submitUserButton = document.querySelector("#submitUser");
 const userPermissionGrid = document.querySelector("#userPermissionGrid");
 const permissionRoleSummary = document.querySelector("#permissionRoleSummary");
 const resetRolePermissionsButton = document.querySelector("#resetRolePermissions");
+const newManagedUserButton = document.querySelector("#newManagedUser");
+const usersSelectionNotice = document.querySelector("#usersSelectionNotice");
 let repairExcelDatabasePromise = null;
 let pendingSale = null;
 let pendingSaleIsSaved = false;
@@ -312,6 +314,7 @@ let pendingInvoiceSale = null;
 let pendingVoidSaleId = null;
 let pendingAdminAction = null;
 let pendingEditApproval = null;
+let userEditorMode = "unselected";
 let lastVoidedSale = null;
 let undoTimerId = null;
 let sideRepairSearchTimer = null;
@@ -4386,7 +4389,7 @@ async function renderUsers() {
     return;
   }
 
-  renderPermissionEditor();
+  if (userEditorMode === "unselected") renderPermissionEditor();
   let users = [];
   try {
     users = await loadManagedUsers();
@@ -4439,29 +4442,65 @@ function getSelectedPermissionModules() {
   return [...new Set(modules)];
 }
 
-function renderPermissionEditor(selectedModules = null) {
+function renderPermissionEditor(selectedModules = null, useRoleDefaults = false) {
   if (!userPermissionGrid) return;
   const role = managedRoleInput.value || "user";
-  const enabledModules = new Set(selectedModules || getRoleDefaultModules(role));
-  permissionRoleSummary.textContent = `Plantilla ${getRoleProfile(role).label}`;
+  const hasSelectedUser = userEditorMode === "editing";
+  const isCreatingUser = userEditorMode === "creating";
+  const canEditPermissions = hasSelectedUser || isCreatingUser;
+  const enabledModules = new Set(
+    canEditPermissions ? (selectedModules || (useRoleDefaults || isCreatingUser ? getRoleDefaultModules(role) : [])) : []
+  );
+  permissionRoleSummary.textContent = hasSelectedUser
+    ? `Permisos de ${getRoleProfile(role).label}`
+    : isCreatingUser
+      ? `Nuevo usuario: ${getRoleProfile(role).label}`
+      : "Ningun usuario seleccionado";
+  if (usersSelectionNotice) {
+    usersSelectionNotice.textContent = hasSelectedUser
+      ? "Revisa los permisos actuales y guarda solo los cambios necesarios."
+      : isCreatingUser
+        ? "Define el rol y los permisos para la nueva cuenta."
+        : "Selecciona una cuenta del directorio para ver y modificar sus permisos.";
+  }
+  resetRolePermissionsButton.disabled = !canEditPermissions;
+  submitUserButton.disabled = !canEditPermissions;
 
   userPermissionGrid.innerHTML = manageableModules.map((moduleName) => {
     const checked = enabledModules.has(moduleName) ? "checked" : "";
-    const required =
+    const restricted =
       (moduleName === "users" && role !== "root") ||
-      (role === "activador" && !["parts", "partsCustomerPrice", "notes"].includes(moduleName))
-        ? "disabled"
-        : "";
+      (role === "activador" && !["parts", "partsCustomerPrice", "notes"].includes(moduleName));
+    const disabled = !canEditPermissions || restricted ? "disabled" : "";
     const isFinePermission = ["partsCost", "partsCustomerPrice"].includes(moduleName);
     return `
-      <label class="permission-switch${isFinePermission ? " permission-switch-detail" : ""}">
-        <input type="checkbox" value="${moduleName}" data-user-permission ${checked} ${required} />
+      <label class="permission-switch${isFinePermission ? " permission-switch-detail" : ""}${!canEditPermissions ? " permission-switch-disabled" : ""}">
+        <input type="checkbox" value="${moduleName}" data-user-permission ${checked} ${disabled} />
         <span></span>
         <b>${moduleLabels[moduleName]}</b>
         <small>${checked ? "Permitido" : "Denegado"}</small>
       </label>
     `;
   }).join("");
+}
+
+function showUnselectedUserEditor() {
+  userEditorMode = "unselected";
+  delete usersForm.dataset.editingId;
+  usersForm.reset();
+  managedRoleInput.value = "user";
+  submitUserButton.textContent = "Selecciona o crea un usuario";
+  renderPermissionEditor();
+}
+
+function showNewUserEditor() {
+  userEditorMode = "creating";
+  delete usersForm.dataset.editingId;
+  usersForm.reset();
+  managedRoleInput.value = "user";
+  submitUserButton.textContent = "Guardar usuario";
+  renderPermissionEditor(null, true);
+  managedNameInput.focus();
 }
 
 function renderSaleConfirmation(sale) {
@@ -6052,6 +6091,10 @@ usersForm.addEventListener("submit", async (event) => {
     usersHint.textContent = "Solo root puede guardar usuarios.";
     return;
   }
+  if (userEditorMode === "unselected") {
+    usersHint.textContent = "Selecciona una cuenta para editarla o presiona Nuevo usuario.";
+    return;
+  }
 
   const formData = new FormData(usersForm);
   const users = window.repairCloud?.isConfigured() ? managedUsersCache : loadUsers();
@@ -6133,22 +6176,24 @@ usersForm.addEventListener("submit", async (event) => {
     return;
   }
 
-  delete usersForm.dataset.editingId;
-  submitUserButton.textContent = "Guardar usuario";
-  usersForm.reset();
-  managedRoleInput.value = "user";
-  renderPermissionEditor();
+  showUnselectedUserEditor();
   renderUsers();
   renderDatabase();
 });
 
 managedRoleInput.addEventListener("change", () => {
-  renderPermissionEditor();
+  if (userEditorMode !== "unselected") renderPermissionEditor(null, true);
 });
 
 resetRolePermissionsButton?.addEventListener("click", () => {
-  renderPermissionEditor();
+  if (userEditorMode === "unselected") return;
+  renderPermissionEditor(null, true);
   usersHint.textContent = "Permisos restaurados segun el rol seleccionado.";
+});
+
+newManagedUserButton?.addEventListener("click", () => {
+  showNewUserEditor();
+  usersHint.textContent = "Captura los datos y permisos de la nueva cuenta.";
 });
 
 userPermissionGrid?.addEventListener("change", (event) => {
@@ -6185,6 +6230,7 @@ usersList.addEventListener("click", async (event) => {
   if (!user) return;
 
   if (button.dataset.userAction === "edit") {
+    userEditorMode = "editing";
     managedNameInput.value = user.name;
     managedUsernameInput.value = user.username;
     managedPasswordInput.value = "";

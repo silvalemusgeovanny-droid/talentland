@@ -7,6 +7,7 @@
     <meta http-equiv="Pragma" content="no-cache" />
     <meta http-equiv="Expires" content="0" />
     <link rel="icon" type="image/svg+xml" href="favicon.svg?v=drmovil-2" />
+    <link rel="stylesheet" href="styles.css?v=theme-health-1" />
     <title>Login | Inventario y Reparaciones</title>
     <script>
       try {
@@ -15,12 +16,6 @@
           document.documentElement.classList.add("session-restoring");
         }
       } catch {}
-    </script>
-    <script>
-      const appStyles = document.createElement("link");
-      appStyles.rel = "stylesheet";
-      appStyles.href = `styles.css?v=mobile-refresh-1-${Date.now()}`;
-      document.head.append(appStyles);
     </script>
   </head>
   <body>
@@ -630,6 +625,7 @@
                 <div class="users-form-heading">
                   <span class="panel-kicker">Editor</span>
                   <strong>Cuenta y rol</strong>
+                  <p class="users-selection-notice" id="usersSelectionNotice">Selecciona una cuenta del directorio para ver y modificar sus permisos.</p>
                 </div>
 
                 <div class="field-grid">
@@ -652,9 +648,12 @@
                   <div class="permission-editor-heading">
                     <div>
                       <span class="panel-kicker">Permisos</span>
-                      <strong id="permissionRoleSummary">Plantilla Usuario</strong>
+                      <strong id="permissionRoleSummary">Ningun usuario seleccionado</strong>
                     </div>
-                    <button class="inline-action-button" type="button" id="resetRolePermissions">Usar rol</button>
+                    <div class="permission-editor-actions">
+                      <button class="inline-action-button" type="button" id="newManagedUser">Nuevo usuario</button>
+                      <button class="inline-action-button" type="button" id="resetRolePermissions" disabled>Usar rol</button>
+                    </div>
                   </div>
                   <div class="permission-grid" id="userPermissionGrid"></div>
                 </section>

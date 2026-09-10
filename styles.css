@@ -1602,6 +1602,133 @@ body.entry-panel-active :is(.repairs-form, .contacts-form) > textarea {
 .health-progress span { display: block; width: 22%; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #0f4f6a, #2a8a65); }
 .health-next-card small { display: block; margin-top: 9px; color: #89959d; font-size: .7rem; font-weight: 800; }
 
+/* Salud del sistema usa la misma paleta del panel, en lugar de colores propios. */
+.health-module-tab .module-tab-icon,
+.health-module-tab.active .module-tab-icon {
+  border-color: rgb(15 79 106 / 30%);
+  background: rgb(15 79 106 / 11%);
+  color: var(--accent);
+}
+
+.health-hero,
+.health-status-card,
+.health-floating-card {
+  border-color: var(--line);
+  background: var(--surface);
+}
+
+.health-hero-icon,
+.health-card-icon {
+  border-color: rgb(15 79 106 / 18%);
+  background: var(--soft);
+  color: var(--accent);
+}
+
+.health-overview-card {
+  border-color: rgb(15 79 106 / 18%);
+  background: rgb(15 79 106 / 8%);
+}
+
+.health-overview-meta { border-left-color: rgb(15 79 106 / 18%); }
+
+.health-eyebrow,
+.health-overview-card strong {
+  color: var(--accent);
+}
+
+.health-status-dot.healthy {
+  color: var(--accent);
+  box-shadow: 0 0 0 4px rgb(15 79 106 / 12%);
+}
+
+.health-status-card.healthy { border-top-color: var(--accent); }
+.health-status-card.warning { border-top-color: var(--accent-2); }
+.health-status-card.neutral { border-top-color: var(--muted); }
+.health-status-card.healthy .health-card-icon,
+.health-pill.healthy { background: rgb(15 79 106 / 10%); color: var(--accent); }
+.health-status-card.warning .health-card-icon,
+.health-pill.warning { background: rgb(211 95 45 / 11%); color: var(--accent-2); }
+.health-pill.neutral { background: var(--soft); color: var(--muted); }
+.health-floating-card.health-next-card { background: rgb(211 95 45 / 7%); }
+.health-section-heading > span:not(.health-step-number),
+.health-step-number { background: rgb(15 79 106 / 10%); color: var(--accent); }
+.health-progress { background: var(--soft); }
+.health-progress span { background: var(--accent); }
+.health-audit-item { border-color: var(--line); background: var(--soft); }
+.health-audit-icon { background: rgb(15 79 106 / 10%); color: var(--accent); }
+
+:is(body.login-dark, html.login-dark body) .health-hero,
+:is(body.login-dark, html.login-dark body) .health-status-card,
+:is(body.login-dark, html.login-dark body) .health-floating-card {
+  border-color: rgb(255 255 255 / 12%);
+  background: #17242e;
+  box-shadow: 0 16px 40px rgb(0 0 0 / 18%);
+}
+
+:is(body.login-dark, html.login-dark body) .health-overview-card {
+  border-color: rgb(255 255 255 / 12%);
+  background: #263844;
+}
+
+:is(body.login-dark, html.login-dark body) .health-module-tab .module-tab-icon {
+  border-color: #3c5261;
+  background: #0f1820;
+  color: #91a9ba;
+}
+
+:is(body.login-dark, html.login-dark body) .health-overview-meta {
+  border-left-color: rgb(255 255 255 / 12%);
+}
+
+:is(body.login-dark, html.login-dark body) .health-hero-icon,
+:is(body.login-dark, html.login-dark body) .health-card-icon,
+:is(body.login-dark, html.login-dark body) .health-audit-icon {
+  border-color: #3c5261;
+  background: #0f1820;
+  color: #91a9ba;
+}
+
+:is(body.login-dark, html.login-dark body) .health-hero h2,
+:is(body.login-dark, html.login-dark body) .health-section-heading h3,
+:is(body.login-dark, html.login-dark body) .health-overview-card strong,
+:is(body.login-dark, html.login-dark body) .health-status-card > strong,
+:is(body.login-dark, html.login-dark body) .health-empty-state strong,
+:is(body.login-dark, html.login-dark body) .health-audit-item strong {
+  color: #f4f8fa;
+}
+
+:is(body.login-dark, html.login-dark body) .health-hero p,
+:is(body.login-dark, html.login-dark body) .health-overview-card p,
+:is(body.login-dark, html.login-dark body) .health-next-card > p,
+:is(body.login-dark, html.login-dark body) .health-empty-state p,
+:is(body.login-dark, html.login-dark body) .health-status-card p,
+:is(body.login-dark, html.login-dark body) .health-status-card small,
+:is(body.login-dark, html.login-dark body) .health-audit-item p,
+:is(body.login-dark, html.login-dark body) .health-audit-item small,
+:is(body.login-dark, html.login-dark body) .health-overview-meta span,
+:is(body.login-dark, html.login-dark body) .health-overview-meta strong {
+  color: #a9b8c2;
+}
+
+:is(body.login-dark, html.login-dark body) .health-pill.healthy,
+:is(body.login-dark, html.login-dark body) .health-section-heading > span:not(.health-step-number),
+:is(body.login-dark, html.login-dark body) .health-step-number {
+  background: #0f1820;
+  color: #91a9ba;
+}
+
+:is(body.login-dark, html.login-dark body) .health-pill.warning,
+:is(body.login-dark, html.login-dark body) .health-floating-card.health-next-card {
+  background: rgb(211 95 45 / 14%);
+  color: #ffd166;
+}
+
+:is(body.login-dark, html.login-dark body) .health-pill.neutral,
+:is(body.login-dark, html.login-dark body) .health-progress,
+:is(body.login-dark, html.login-dark body) .health-audit-item {
+  background: #0f1820;
+}
+
 .control-dashboard {
   display: grid;
   grid-template-columns: minmax(180px, 230px) minmax(0, 1fr);
@@ -1901,6 +2028,13 @@ body.users-active .users-panel-header {
   font-weight: 700;
 }
 
+.users-selection-notice {
+  margin: 2px 0 0;
+  color: var(--muted);
+  font-size: 0.8rem;
+  font-weight: 800;
+}
+
 .users-directory-heading p {
   margin: 0;
   color: var(--muted);
@@ -1999,6 +2133,12 @@ body.users-active .users-panel-header {
   font-size: 1rem;
 }
 
+.permission-editor-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
 .permission-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -2057,6 +2197,12 @@ body.users-active .users-panel-header {
 
 .permission-switch input:disabled + span {
   opacity: 0.55;
+}
+
+.permission-switch-disabled {
+  cursor: not-allowed;
+  border-style: dashed;
+  background: rgb(236 242 245 / 72%);
 }
 
 .permission-switch b {
