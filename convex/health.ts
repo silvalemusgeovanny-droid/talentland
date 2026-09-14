@@ -40,6 +40,20 @@ export const check = query({
           bytes: latestBackup.bytes,
         }
       : { status: "unconfigured" };
+    const securitySince = new Date(now - 24 * 60 * 60 * 1000).toISOString();
+    const recentSecurityEvents = await ctx.db
+      .query("auditoria")
+      .withIndex("by_fecha", (q) => q.gte("fecha", securitySince))
+      .collect();
+    const failedLogins = recentSecurityEvents.filter((event) =>
+      ["LOGIN_FALLIDO", "VERIFICACION_PRIVILEGIADA_FALLIDA", "VERIFICACION_PRIVILEGIADA_BLOQUEADA"].includes(event.tipo)
+    ).length;
+    const blockedUsers = recentSecurityEvents.filter((event) => event.tipo === "USUARIO_BLOQUEADO").length;
+    const security = {
+      status: failedLogins || blockedUsers ? "alert" : "healthy",
+      failedLogins,
+      blockedUsers,
+    };
     return {
       checkedAt: new Date(now).toISOString(),
       bot,
@@ -50,6 +64,7 @@ export const check = query({
         version: pendingBot.botVersion || "Sin version",
       } : null,
       backup,
+      security,
     };
   },
 });
