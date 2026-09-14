@@ -287,6 +287,8 @@ const healthApproveBotButton = document.querySelector("#healthApproveBotButton")
 const healthSecurityCard = document.querySelector("#healthSecurityCard");
 const healthSecurityPill = document.querySelector("#healthSecurityPill");
 const healthSecurityDetail = document.querySelector("#healthSecurityDetail");
+const healthRecentEvents = document.querySelector("#healthRecentEvents");
+const healthRecentEventCount = document.querySelector("#healthRecentEventCount");
 let pendingHealthBotId = "";
 const statisticsPendingDot = document.querySelector("#statisticsPendingDot");
 const statisticsPeriodButtons = document.querySelectorAll("[data-statistics-period]");
@@ -4826,6 +4828,20 @@ function setHealthSecurityStatus(status, detail) {
   healthSecurityDetail.textContent = detail;
 }
 
+function renderHealthRecentEvents(events = []) {
+  if (!healthRecentEvents || !healthRecentEventCount) return;
+  healthRecentEventCount.textContent = `${events.length} evento${events.length === 1 ? "" : "s"}`;
+  if (!events.length) {
+    healthRecentEvents.innerHTML = `<div class="health-empty-state"><span class="health-empty-icon">⌁</span><strong>Sin actividad reciente</strong><p>Aqui apareceran eventos del bot, respaldos, seguridad y permisos.</p></div>`;
+    return;
+  }
+  healthRecentEvents.innerHTML = events.map((event) => {
+    const date = event.fecha ? new Date(event.fecha).toLocaleString("es-MX", { dateStyle: "medium", timeStyle: "short" }) : "Sin fecha";
+    const isAlert = ["LOGIN_FALLIDO", "USUARIO_BLOQUEADO"].includes(event.tipo);
+    return `<article class="health-audit-item${isAlert ? " health-audit-alert" : ""}"><span class="health-audit-icon">${isAlert ? "!" : "•"}</span><div><strong>${escapeHtml(event.tipo.replaceAll("_", " "))}</strong><p>${escapeHtml(event.descripcion || "Evento registrado")}</p><small>${escapeHtml(date)}</small></div></article>`;
+  }).join("");
+}
+
 async function checkHealthApi() {
   if (!healthOverallStatus || !healthOverallDetail || !healthLastChecked) return;
   const checkedAt = new Date();
@@ -4854,6 +4870,7 @@ async function checkHealthApi() {
     const pendingBot = result?.pendingBot;
     const backup = result?.backup;
     const security = result?.security;
+    renderHealthRecentEvents(result?.recentEvents || []);
     if (bot?.status === "online") {
       const lastSeen = new Date(bot.lastSeen).toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit" });
       setHealthBotStatus("healthy", `${bot.hostname || "Bot"} activo · ultima senal ${lastSeen}.`);
@@ -4900,6 +4917,7 @@ async function checkHealthApi() {
     setHealthBotStatus("error", "No fue posible consultar el estado del bot.");
     setHealthBackupStatus("error", "No fue posible consultar el estado de respaldos.");
     setHealthSecurityStatus("error", "No fue posible consultar eventos de seguridad.");
+    renderHealthRecentEvents([]);
     healthOverallStatus.textContent = "Atencion requerida";
     healthOverallDetail.textContent = error.message || "La comprobacion no pudo completarse.";
     healthLastChecked.textContent = checkedAt.toLocaleString("es-MX", { dateStyle: "medium", timeStyle: "short" });

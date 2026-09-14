@@ -1676,6 +1676,7 @@ body.entry-panel-active :is(.repairs-form, .contacts-form) > textarea {
 .health-progress span { background: var(--accent); }
 .health-audit-item { border-color: var(--line); background: var(--soft); }
 .health-audit-icon { background: rgb(15 79 106 / 10%); color: var(--accent); }
+.health-audit-alert .health-audit-icon { background: rgb(220 38 38 / 11%); color: #dc2626; }
 
 :is(body.login-dark, html.login-dark body) .health-hero,
 :is(body.login-dark, html.login-dark body) .health-status-card,

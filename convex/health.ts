@@ -54,6 +54,20 @@ export const check = query({
       failedLogins,
       blockedUsers,
     };
+    const recentEvents = (await ctx.db
+      .query("auditoria")
+      .withIndex("by_fecha")
+      .order("desc")
+      .take(100))
+      .filter((event) =>
+        event.tipo.startsWith("BACKUP_") ||
+        event.tipo.startsWith("BOT_") ||
+        event.tipo.startsWith("LOGIN_") ||
+        event.tipo === "USUARIO_BLOQUEADO" ||
+        event.tipo.startsWith("PERMISOS_")
+      )
+      .slice(0, 6)
+      .map((event) => ({ tipo: event.tipo, descripcion: event.descripcion, fecha: event.fecha }));
     return {
       checkedAt: new Date(now).toISOString(),
       bot,
@@ -65,6 +79,7 @@ export const check = query({
       } : null,
       backup,
       security,
+      recentEvents,
     };
   },
 });
