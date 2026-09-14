@@ -23,6 +23,9 @@ export const check = query({
           version: latestApprovedBot.botVersion || "Sin version",
         }
       : { status: "unconfigured" };
+    const pendingBot = instances
+      .filter((instance) => !instance.allowed)
+      .sort((left, right) => right.lastSeen - left.lastSeen)[0];
     const latestBackup = await ctx.db
       .query("respaldos")
       .withIndex("by_created_at")
@@ -37,6 +40,16 @@ export const check = query({
           bytes: latestBackup.bytes,
         }
       : { status: "unconfigured" };
-    return { checkedAt: new Date(now).toISOString(), bot, backup };
+    return {
+      checkedAt: new Date(now).toISOString(),
+      bot,
+      pendingBot: pendingBot ? {
+        id: pendingBot._id,
+        hostname: pendingBot.hostname,
+        lastSeen: pendingBot.lastSeen,
+        version: pendingBot.botVersion || "Sin version",
+      } : null,
+      backup,
+    };
   },
 });

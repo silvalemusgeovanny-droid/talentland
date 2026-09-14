@@ -283,6 +283,8 @@ const healthBotDetail = document.querySelector("#healthBotDetail");
 const healthBackupCard = document.querySelector("#healthBackupCard");
 const healthBackupPill = document.querySelector("#healthBackupPill");
 const healthBackupDetail = document.querySelector("#healthBackupDetail");
+const healthApproveBotButton = document.querySelector("#healthApproveBotButton");
+let pendingHealthBotId = "";
 const statisticsPendingDot = document.querySelector("#statisticsPendingDot");
 const statisticsPeriodButtons = document.querySelectorAll("[data-statistics-period]");
 const statisticsSectionButtons = document.querySelectorAll("[data-statistics-section]");
@@ -4835,6 +4837,7 @@ async function checkHealthApi() {
     const status = latency > 1500 ? "error" : "healthy";
     const checkDate = result?.checkedAt ? new Date(result.checkedAt) : checkedAt;
     const bot = result?.bot;
+    const pendingBot = result?.pendingBot;
     const backup = result?.backup;
     if (bot?.status === "online") {
       const lastSeen = new Date(bot.lastSeen).toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit" });
@@ -4842,7 +4845,11 @@ async function checkHealthApi() {
     } else if (bot?.status === "offline") {
       setHealthBotStatus("error", `Ultima senal: ${new Date(bot.lastSeen).toLocaleString("es-MX", { dateStyle: "medium", timeStyle: "short" })}.`);
     } else {
-      setHealthBotStatus("neutral", "No hay una instancia aprobada registrada.");
+      pendingHealthBotId = pendingBot?.id || "";
+      if (healthApproveBotButton) healthApproveBotButton.hidden = !pendingHealthBotId;
+      setHealthBotStatus("neutral", pendingBot
+        ? `${pendingBot.hostname || "Instancia"} espera aprobacion de root.`
+        : "No hay una instancia registrada.");
     }
     if (backup?.status === "current" || backup?.status === "stale") {
       const createdAt = new Date(backup.createdAt).toLocaleString("es-MX", { dateStyle: "medium", timeStyle: "short" });
@@ -4865,6 +4872,8 @@ async function checkHealthApi() {
     healthOverallDot?.classList.remove("healthy", "error", "neutral");
     healthOverallDot?.classList.add(overallStatus);
   } catch (error) {
+    pendingHealthBotId = "";
+    if (healthApproveBotButton) healthApproveBotButton.hidden = true;
     setHealthApiStatus("error", "No fue posible obtener respuesta de Convex.");
     setHealthBotStatus("error", "No fue posible consultar el estado del bot.");
     setHealthBackupStatus("error", "No fue posible consultar el estado de respaldos.");
@@ -4964,6 +4973,20 @@ function setModule(moduleName) {
 
 tabButtons.forEach((button) => button.addEventListener("click", () => setTheme(button.dataset.theme)));
 healthRefreshButton?.addEventListener("click", () => checkHealthApi());
+healthApproveBotButton?.addEventListener("click", async () => {
+  if (!pendingHealthBotId) return;
+  healthApproveBotButton.disabled = true;
+  try {
+    await window.repairCloud.approveBotInstance(pendingHealthBotId);
+    pendingHealthBotId = "";
+    healthApproveBotButton.hidden = true;
+    await checkHealthApi();
+  } catch (error) {
+    setHealthBotStatus("error", error.message || "No se pudo aprobar la instancia.");
+  } finally {
+    healthApproveBotButton.disabled = false;
+  }
+});
 moduleTabs.forEach((button) => button.addEventListener("click", () => {
   if (button.dataset.module === "parts") {
     window.location.href = "repuestos.html";

@@ -1,5 +1,6 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
+import { requireRoot } from "./authorization";
 
 export const register = mutation({
   args: {
@@ -63,13 +64,12 @@ export const heartbeat = mutation({
 });
 
 export const approve = mutation({
-  args: { instanceId: v.id("botInstances"), allow: v.boolean() },
+  args: { sessionToken: v.string(), instanceId: v.id("botInstances"), allow: v.boolean() },
   handler: async (ctx, args) => {
-    const identity = await auth.getCurrentUser(ctx);
-    if (identity?.role !== "root") throw new Error("Solo root");
+    const root = await requireRoot(ctx, args.sessionToken);
     await ctx.db.patch(args.instanceId, {
       allowed: args.allow,
-      approvedBy: identity._id,
+      approvedBy: root._id,
       lastSeen: Date.now(),
     });
     return { ok: true };

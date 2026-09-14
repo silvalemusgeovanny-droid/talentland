@@ -1558,6 +1558,8 @@ body.entry-panel-active :is(.repairs-form, .contacts-form) > textarea {
   cursor: pointer;
 }
 .health-refresh-button:disabled { cursor: wait; opacity: .65; }
+.health-card-action { justify-self: start; padding: 6px 8px; border: 1px solid var(--line); border-radius: 7px; background: var(--soft); color: var(--accent); font: inherit; font-size: .7rem; font-weight: 900; cursor: pointer; }
+.health-card-action:disabled { cursor: wait; opacity: .65; }
 .health-status-card.error { border-top-color: #dc2626; }
 .health-pill.error { background: rgb(220 38 38 / 11%); color: #dc2626; }
 
