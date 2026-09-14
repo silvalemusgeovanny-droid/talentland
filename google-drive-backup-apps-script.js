@@ -1,5 +1,6 @@
 const BACKUP_SECRET = "PEGA_AQUI_LA_CLAVE_SECRETA";
 const BACKUP_NOTIFY_EMAIL = "";
+const HEALTH_MONITOR_PROPERTY_PREFIX = "HEALTH_MONITOR_";
 
 function doPost(e) {
   try {
@@ -83,6 +84,56 @@ function sendBackupReadyEmail(details) {
   ].filter(Boolean).join("\n");
 
   MailApp.sendEmail(BACKUP_NOTIFY_EMAIL, subject, body);
+}
+
+// Configura antes estas propiedades privadas en Apps Script: HEALTH_MONITOR_SECRET,
+// HEALTH_MONITOR_CONVEX_URL y HEALTH_MONITOR_EMAIL. Luego ejecuta esta funcion una
+// vez para instalar la revision cada cinco minutos.
+function installHealthMonitorTrigger() {
+  const exists = ScriptApp.getProjectTriggers()
+    .some((trigger) => trigger.getHandlerFunction() === "checkSystemHealth");
+  if (!exists) {
+    ScriptApp.newTrigger("checkSystemHealth").timeBased().everyMinutes(5).create();
+  }
+}
+
+function checkSystemHealth() {
+  const config = getHealthMonitorConfig();
+  const response = UrlFetchApp.fetch(config.convexUrl + "/api/query", {
+    method: "post",
+    contentType: "application/json",
+    payload: JSON.stringify({
+      path: "health:externalMonitor",
+      args: { monitorSecret: config.secret },
+      format: "json",
+    }),
+    muteHttpExceptions: true,
+  });
+  const body = JSON.parse(response.getContentText() || "{}");
+  if (body.status !== "success") throw new Error(body.errorMessage || "Convex no pudo revisar la salud.");
+
+  const alerts = body.value && Array.isArray(body.value.alerts) ? body.value.alerts : [];
+  const properties = PropertiesService.getScriptProperties();
+  const previousCodes = JSON.parse(properties.getProperty("healthAlertCodes") || "[]");
+  const currentCodes = alerts.map((alert) => alert.code);
+  alerts.filter((alert) => previousCodes.indexOf(alert.code) === -1).forEach((alert) => {
+    MailApp.sendEmail(config.email, "Alerta: salud del sistema", alert.message);
+  });
+  previousCodes.filter((code) => currentCodes.indexOf(code) === -1).forEach((code) => {
+    MailApp.sendEmail(config.email, "Recuperacion: salud del sistema", "El servicio se recupero: " + code + ".");
+  });
+  properties.setProperty("healthAlertCodes", JSON.stringify(currentCodes));
+}
+
+function getHealthMonitorConfig() {
+  const properties = PropertiesService.getScriptProperties();
+  const secret = properties.getProperty(HEALTH_MONITOR_PROPERTY_PREFIX + "SECRET");
+  const convexUrl = properties.getProperty(HEALTH_MONITOR_PROPERTY_PREFIX + "CONVEX_URL");
+  const email = properties.getProperty(HEALTH_MONITOR_PROPERTY_PREFIX + "EMAIL");
+  if (!secret || !convexUrl || !email) {
+    throw new Error("Configura HEALTH_MONITOR_SECRET, HEALTH_MONITOR_CONVEX_URL y HEALTH_MONITOR_EMAIL en las propiedades del script.");
+  }
+  return { secret, convexUrl: convexUrl.replace(/\/$/, ""), email };
 }
 
 function jsonResponse(data) {

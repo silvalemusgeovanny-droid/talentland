@@ -55,6 +55,36 @@ export const monitoringSummary = query({
   },
 });
 
+export const externalMonitor = query({
+  args: { monitorSecret: v.string() },
+  handler: async (ctx, args) => {
+    const expectedSecret = process.env.HEALTH_MONITOR_SECRET;
+    if (!expectedSecret || args.monitorSecret !== expectedSecret) throw new Error("No autorizado.");
+    const now = Date.now();
+    const alerts = [] as { code: string; message: string }[];
+    const latestBackup = await ctx.db.query("respaldos").withIndex("by_created_at").order("desc").first();
+    if (!latestBackup) {
+      alerts.push({ code: "BACKUP_MISSING", message: "No hay respaldos registrados en el sistema." });
+    } else if (now - new Date(latestBackup.createdAt).getTime() > 26 * 60 * 60 * 1000) {
+      alerts.push({ code: "BACKUP_STALE", message: "El ultimo respaldo registrado tiene mas de 26 horas." });
+    }
+    const latestBot = (await ctx.db.query("botInstances").take(100))
+      .filter((instance) => instance.allowed)
+      .sort((left, right) => right.lastSeen - left.lastSeen)[0];
+    if (latestBot && now - latestBot.lastSeen > 90_000) {
+      alerts.push({ code: "BOT_OFFLINE", message: "El bot de Telegram no ha enviado una senal reciente." });
+    }
+    const securitySince = new Date(now - 24 * 60 * 60 * 1000).toISOString();
+    const securityEvents = await ctx.db.query("auditoria").withIndex("by_fecha", (q) => q.gte("fecha", securitySince)).collect();
+    const failedLogins = securityEvents.filter((event) => ["LOGIN_FALLIDO", "VERIFICACION_PRIVILEGIADA_FALLIDA", "VERIFICACION_PRIVILEGIADA_BLOQUEADA"].includes(event.tipo)).length;
+    const blockedUsers = securityEvents.filter((event) => event.tipo === "USUARIO_BLOQUEADO").length;
+    if (failedLogins || blockedUsers) {
+      alerts.push({ code: "SECURITY_ALERT", message: `Seguridad: ${failedLogins} intentos fallidos y ${blockedUsers} bloqueos en las ultimas 24 horas.` });
+    }
+    return { checkedAt: new Date(now).toISOString(), alerts };
+  },
+});
+
 // Punto de comprobacion pequeño y autenticado. No expone datos operativos;
 // sirve para verificar que Convex, la API y la sesion siguen respondiendo.
 export const check = query({
