@@ -397,6 +397,8 @@ async function syncPartsFromSource() {
   if (!window.repairCloud?.isConfigured()) return loadParts();
   await migrateLocalPartsToCloud();
   const cloudParts = await window.repairCloud.listParts();
+  const localParts = loadParts();
+  if (!cloudParts.length && localParts.length) return localParts;
   const parts = cloudParts.map((part) => ({ ...part, id: part._id || part.id, stock: normalizeStockQuantity(part.stock) }));
   saveParts(parts);
   return parts;

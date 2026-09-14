@@ -55,6 +55,8 @@ function getLocalSales() {
 async function loadSales() {
   if (window.repairCloud?.isConfigured()) {
     const sales = await window.repairCloud.listSales(10000);
+    const localSales = getLocalSales();
+    if (!sales.length && localSales.length) return localSales;
     localStorage.setItem("inventorySales", JSON.stringify(sales));
     return sales;
   }
