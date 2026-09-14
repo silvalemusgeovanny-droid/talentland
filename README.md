@@ -341,6 +341,31 @@ recibe el contenido base64 del backup protegido para guardarlo en Drive y avisar
 por correo. Gmail no recibe datos planos del negocio, solo la notificacion y el
 enlace al archivo protegido.
 
+## Salud del sistema
+
+El módulo **Salud del sistema** muestra la disponibilidad de Convex, la última
+señal del bot de Telegram, el respaldo más reciente, alertas de seguridad, la
+bitácora de permisos y el historial de revisiones. Root puede aprobar desde esa
+vista una nueva instancia del bot; mientras no se apruebe, el bot no procesa
+mensajes.
+
+Para recibir alertas externas por correo, copia
+`google-drive-backup-apps-script.js` en el mismo proyecto de Google Apps Script
+que recibe los respaldos y configura estas *Script properties* (no las escribas
+en el código):
+
+```text
+HEALTH_MONITOR_SECRET=<mismo valor que la variable de entorno en Convex>
+HEALTH_MONITOR_CONVEX_URL=https://tu-proyecto.convex.cloud
+HEALTH_MONITOR_EMAIL=correo-que-recibira-las-alertas
+```
+
+Agrega también `HEALTH_MONITOR_SECRET` como variable de entorno del deployment
+de Convex. Después ejecuta una vez `installHealthMonitorTrigger` desde Apps
+Script y concede los permisos solicitados. El disparador revisa cada cinco
+minutos y envía un correo solo cuando aparece o se recupera una alerta; no
+repite correos mientras el estado no cambie.
+
 ## Bot de Telegram
 
 `telegram-bot.mjs` implementa un bot conectado a Convex mediante

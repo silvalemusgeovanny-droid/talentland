@@ -4810,7 +4810,7 @@ function setHealthBotStatus(status, detail) {
 
 function setHealthBackupStatus(status, detail) {
   if (!healthBackupCard || !healthBackupPill || !healthBackupDetail) return;
-  const labels = { healthy: "Vigente", neutral: "Sin historial", error: "Atrasado" };
+  const labels = { healthy: "Vigente", warning: "Sin configurar", neutral: "Sin historial", error: "Atrasado" };
   healthBackupCard.classList.remove("healthy", "warning", "neutral", "error");
   healthBackupPill.classList.remove("healthy", "warning", "neutral", "error");
   healthBackupCard.classList.add(status);
@@ -4821,7 +4821,7 @@ function setHealthBackupStatus(status, detail) {
 
 function setHealthSecurityStatus(status, detail) {
   if (!healthSecurityCard || !healthSecurityPill || !healthSecurityDetail) return;
-  const labels = { healthy: "Sin alertas", neutral: "Sin revisar", error: "Atencion" };
+  const labels = { healthy: "Sin alertas", warning: "Por revisar", neutral: "Sin revisar", error: "Atencion" };
   healthSecurityCard.classList.remove("healthy", "warning", "neutral", "error");
   healthSecurityPill.classList.remove("healthy", "warning", "neutral", "error");
   healthSecurityCard.classList.add(status);
@@ -4839,8 +4839,9 @@ function renderHealthRecentEvents(events = []) {
   }
   healthRecentEvents.innerHTML = events.map((event) => {
     const date = event.fecha ? new Date(event.fecha).toLocaleString("es-MX", { dateStyle: "medium", timeStyle: "short" }) : "Sin fecha";
-    const isAlert = ["LOGIN_FALLIDO", "USUARIO_BLOQUEADO"].includes(event.tipo);
-    return `<article class="health-audit-item${isAlert ? " health-audit-alert" : ""}"><span class="health-audit-icon">${isAlert ? "!" : "•"}</span><div><strong>${escapeHtml(event.tipo.replaceAll("_", " "))}</strong><p>${escapeHtml(event.descripcion || "Evento registrado")}</p><small>${escapeHtml(date)}</small></div></article>`;
+    const eventType = String(event.tipo || "EVENTO");
+    const isAlert = ["LOGIN_FALLIDO", "USUARIO_BLOQUEADO", "VERIFICACION_PRIVILEGIADA_FALLIDA", "VERIFICACION_PRIVILEGIADA_BLOQUEADA"].includes(eventType);
+    return `<article class="health-audit-item${isAlert ? " health-audit-alert" : ""}"><span class="health-audit-icon">${isAlert ? "!" : "•"}</span><div><strong>${escapeHtml(eventType.replaceAll("_", " "))}</strong><p>${escapeHtml(event.descripcion || "Evento registrado")}</p><small>${escapeHtml(date)}</small></div></article>`;
   }).join("");
 }
 
@@ -4866,7 +4867,7 @@ async function checkHealthApi() {
     healthOverallStatus.textContent = "Requiere configuracion";
     healthOverallDetail.textContent = "Agrega la URL de Convex para habilitar las comprobaciones.";
     healthLastChecked.textContent = checkedAt.toLocaleString("es-MX", { dateStyle: "medium", timeStyle: "short" });
-    healthOverallDot?.classList.remove("healthy", "error", "neutral");
+    healthOverallDot?.classList.remove("healthy", "warning", "error", "neutral");
     healthOverallDot?.classList.add("error");
     if (healthRefreshButton) healthRefreshButton.disabled = false;
     return;
@@ -4880,7 +4881,9 @@ async function checkHealthApi() {
   try {
     const result = await window.repairCloud.healthCheck();
     const latency = Math.round(performance.now() - startedAt);
-    const status = latency > 1500 ? "error" : "healthy";
+    // Una respuesta lenta merece seguimiento, pero no equivale a una API
+    // caida. Solo los errores de la consulta se muestran como no disponible.
+    const status = latency > 1500 ? "warning" : "healthy";
     const checkDate = result?.checkedAt ? new Date(result.checkedAt) : checkedAt;
     const bot = result?.bot;
     const pendingBot = result?.pendingBot;
@@ -4896,7 +4899,7 @@ async function checkHealthApi() {
     } else {
       pendingHealthBotId = pendingBot?.id || "";
       if (healthApproveBotButton) healthApproveBotButton.hidden = !pendingHealthBotId;
-      setHealthBotStatus("neutral", pendingBot
+      setHealthBotStatus("warning", pendingBot
         ? `${pendingBot.hostname || "Instancia"} espera aprobacion de root.`
         : "No hay una instancia registrada.");
     }
@@ -4905,16 +4908,19 @@ async function checkHealthApi() {
       const records = Number(backup.recordCount || 0).toLocaleString("es-MX");
       setHealthBackupStatus(backup.status === "current" ? "healthy" : "error", `${backup.cadence} · ${records} registros · ${createdAt}.`);
     } else {
-      setHealthBackupStatus("neutral", "No hay respaldos registrados todavia.");
+      setHealthBackupStatus("warning", "No hay respaldos registrados todavia.");
     }
     if (security?.status === "alert") {
       setHealthSecurityStatus("error", `${security.failedLogins || 0} intentos fallidos · ${security.blockedUsers || 0} bloqueos en 24 h.`);
     } else {
       setHealthSecurityStatus("healthy", "Sin intentos fallidos ni bloqueos en las ultimas 24 h.");
     }
-    const overallStatus = status === "error" || bot?.status === "offline" || backup?.status === "stale" || security?.status === "alert" ? "error" : "healthy";
+    const requiresSetup = bot?.status === "unconfigured" || backup?.status === "unconfigured";
+    const overallStatus = status === "error" || bot?.status === "offline" || backup?.status === "stale" || security?.status === "alert"
+      ? "error"
+      : status === "warning" || requiresSetup ? "warning" : "healthy";
     setHealthApiStatus(status, `Respondio en ${latency} ms.`);
-    healthOverallStatus.textContent = overallStatus === "healthy" ? "Todo en orden" : "Atencion requerida";
+    healthOverallStatus.textContent = overallStatus === "healthy" ? "Todo en orden" : overallStatus === "warning" ? "Configuracion pendiente" : "Atencion requerida";
     healthOverallDetail.textContent = overallStatus === "healthy"
       ? "Los servicios configurados responden correctamente."
       : bot?.status === "offline"
@@ -4923,9 +4929,11 @@ async function checkHealthApi() {
           ? "El ultimo respaldo registrado esta atrasado."
           : security?.status === "alert"
             ? "Hay alertas de seguridad recientes que requieren revision."
-          : "Convex responde, pero la consulta tardo mas de lo habitual.";
+          : requiresSetup
+            ? "Falta configurar o aprobar uno de los servicios supervisados."
+            : "Convex responde, pero la consulta tardo mas de lo habitual.";
     healthLastChecked.textContent = checkDate.toLocaleString("es-MX", { dateStyle: "medium", timeStyle: "short" });
-    healthOverallDot?.classList.remove("healthy", "error", "neutral");
+    healthOverallDot?.classList.remove("healthy", "warning", "error", "neutral");
     healthOverallDot?.classList.add(overallStatus);
     window.repairCloud.recordHealthCheck({
       apiLatencyMs: latency,
@@ -4946,7 +4954,7 @@ async function checkHealthApi() {
     healthOverallStatus.textContent = "Atencion requerida";
     healthOverallDetail.textContent = error.message || "La comprobacion no pudo completarse.";
     healthLastChecked.textContent = checkedAt.toLocaleString("es-MX", { dateStyle: "medium", timeStyle: "short" });
-    healthOverallDot?.classList.remove("healthy", "neutral");
+    healthOverallDot?.classList.remove("healthy", "warning", "error", "neutral");
     healthOverallDot?.classList.add("error");
   } finally {
     if (healthRefreshButton) healthRefreshButton.disabled = false;

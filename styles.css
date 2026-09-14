@@ -1578,6 +1578,7 @@ body.entry-panel-active :is(.repairs-form, .contacts-form) > textarea {
 .health-status-dot, .health-pill i { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
 .health-status-dot.healthy { color: #16a34a; box-shadow: 0 0 0 4px rgb(22 163 74 / 12%); }
 .health-status-dot.error { color: #dc2626; box-shadow: 0 0 0 4px rgb(220 38 38 / 12%); }
+.health-status-dot.warning { color: var(--accent-2); box-shadow: 0 0 0 4px rgb(211 95 45 / 12%); }
 .health-status-dot.neutral { color: #71808a; box-shadow: none; }
 .health-overview-card strong { display: block; margin-top: 5px; color: #116337; font-size: 1.25rem; }
 .health-overview-meta { min-width: 105px; padding-left: 18px; border-left: 1px solid rgb(22 163 74 / 18%); }

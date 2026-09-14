@@ -1,6 +1,6 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
-import { requireModuleRead } from "./authorization";
+import { requireModuleRead, requireModuleWrite } from "./authorization";
 import { requireRoot } from "./authorization";
 
 export const record = mutation({
@@ -13,7 +13,10 @@ export const record = mutation({
     securityStatus: v.string(),
   },
   handler: async (ctx, args) => {
-    await requireRoot(ctx, args.sessionToken);
+    // El historial es parte del modulo de salud. Asi una cuenta a la que root
+    // delegue ese modulo puede dejar constancia de sus revisiones, sin darle
+    // privilegios de administracion total.
+    await requireModuleWrite(ctx, args.sessionToken, "health");
     await ctx.db.insert("saludHistorial", {
       apiLatencyMs: Math.max(0, Math.round(args.apiLatencyMs)),
       apiStatus: args.apiStatus,
