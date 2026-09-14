@@ -3,6 +3,19 @@ import { v } from "convex/values";
 import { requireModuleRead, requireModuleWrite } from "./authorization";
 import { requireRoot } from "./authorization";
 
+function getNextDailyBackupAt(now = new Date()) {
+  const offsetMinutes = Number(process.env.BACKUP_TIMEZONE_OFFSET_MINUTES || "-360");
+  const local = new Date(now.getTime() + offsetMinutes * 60 * 1000);
+  const nextLocal = new Date(Date.UTC(
+    local.getUTCFullYear(),
+    local.getUTCMonth(),
+    local.getUTCDate(),
+    18, 0, 0, 0,
+  ));
+  if (local >= nextLocal) nextLocal.setUTCDate(nextLocal.getUTCDate() + 1);
+  return new Date(nextLocal.getTime() - offsetMinutes * 60 * 1000).toISOString();
+}
+
 export const record = mutation({
   args: {
     sessionToken: v.string(),
@@ -162,11 +175,12 @@ export const check = query({
       failedLogins,
       blockedUsers,
     };
-    const recentEvents = (await ctx.db
+    const auditEvents = await ctx.db
       .query("auditoria")
       .withIndex("by_fecha")
       .order("desc")
-      .take(100))
+      .take(100);
+    const recentEvents = auditEvents
       .filter((event) =>
         event.tipo.startsWith("BACKUP_") ||
         event.tipo.startsWith("BOT_") ||
@@ -175,6 +189,10 @@ export const check = query({
         event.tipo === "USUARIO_BLOQUEADO" ||
         event.tipo.startsWith("PERMISOS_")
       )
+      .slice(0, 6)
+      .map((event) => ({ tipo: event.tipo, descripcion: event.descripcion, fecha: event.fecha }));
+    const systemErrors = auditEvents
+      .filter((event) => event.tipo.startsWith("SISTEMA_ERROR_") || event.tipo.startsWith("BOT_ERROR_"))
       .slice(0, 6)
       .map((event) => ({ tipo: event.tipo, descripcion: event.descripcion, fecha: event.fecha }));
     const history = await ctx.db
@@ -192,8 +210,10 @@ export const check = query({
         version: pendingBot.botVersion || "Sin version",
       } : null,
       backup,
+      nextBackupAt: getNextDailyBackupAt(),
       security,
       recentEvents,
+      systemErrors,
       history,
     };
   },

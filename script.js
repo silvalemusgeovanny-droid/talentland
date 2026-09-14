@@ -293,6 +293,8 @@ const healthSecurityPill = document.querySelector("#healthSecurityPill");
 const healthSecurityDetail = document.querySelector("#healthSecurityDetail");
 const healthRecentEvents = document.querySelector("#healthRecentEvents");
 const healthRecentEventCount = document.querySelector("#healthRecentEventCount");
+const healthSystemErrors = document.querySelector("#healthSystemErrors");
+const healthSystemErrorCount = document.querySelector("#healthSystemErrorCount");
 const healthHistory = document.querySelector("#healthHistory");
 const healthHistoryCount = document.querySelector("#healthHistoryCount");
 let pendingHealthBotId = "";
@@ -4963,6 +4965,42 @@ function renderHealthRecentEvents(events = []) {
   }).join("");
 }
 
+function formatNextBackup(nextBackupAt) {
+  if (!nextBackupAt) return "";
+  const date = new Date(nextBackupAt);
+  if (Number.isNaN(date.getTime())) return "";
+  const remainingMs = Math.max(0, date.getTime() - Date.now());
+  const remainingMinutes = Math.ceil(remainingMs / 60_000);
+  const remaining = remainingMinutes < 60
+    ? `${remainingMinutes} min`
+    : `${Math.floor(remainingMinutes / 60)} h ${remainingMinutes % 60} min`;
+  const today = new Date();
+  const tomorrow = new Date(today);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  const day = date.toDateString() === today.toDateString()
+    ? "hoy"
+    : date.toDateString() === tomorrow.toDateString()
+      ? "manana"
+      : date.toLocaleDateString("es-MX", { day: "numeric", month: "short" });
+  const time = date.toLocaleTimeString("es-MX", { hour: "numeric", minute: "2-digit" });
+  return `Proximo: ${day}, ${time} · en ${remaining}.`;
+}
+
+function renderHealthSystemErrors(errors = []) {
+  if (!healthSystemErrors || !healthSystemErrorCount) return;
+  healthSystemErrorCount.textContent = errors.length
+    ? `${errors.length} error${errors.length === 1 ? "" : "es"}`
+    : "Sin errores";
+  if (!errors.length) {
+    healthSystemErrors.innerHTML = `<div class="health-empty-state"><span class="health-empty-icon">✓</span><strong>Sin errores registrados</strong><p>Los fallos tecnicos del navegador, Convex y bot apareceran aqui.</p></div>`;
+    return;
+  }
+  healthSystemErrors.innerHTML = errors.map((error) => {
+    const date = error.fecha ? new Date(error.fecha).toLocaleString("es-MX", { dateStyle: "medium", timeStyle: "short" }) : "Sin fecha";
+    return `<article class="health-audit-item health-audit-alert"><span class="health-audit-icon">!</span><div><strong>${escapeHtml(String(error.tipo || "SISTEMA_ERROR").replaceAll("_", " "))}</strong><p>${escapeHtml(error.descripcion || "Error registrado")}</p><small>${escapeHtml(date)}</small></div></article>`;
+  }).join("");
+}
+
 function renderHealthHistory(history = []) {
   if (!healthHistory || !healthHistoryCount) return;
   healthHistoryCount.textContent = `${history.length} revision${history.length === 1 ? "" : "es"}`;
@@ -5008,8 +5046,10 @@ async function checkHealthApi() {
     const bot = result?.bot;
     const pendingBot = result?.pendingBot;
     const backup = result?.backup;
+    const nextBackupDetail = formatNextBackup(result?.nextBackupAt);
     const security = result?.security;
     renderHealthRecentEvents(result?.recentEvents || []);
+    renderHealthSystemErrors(result?.systemErrors || []);
     renderHealthHistory(result?.history || []);
     if (bot?.status === "online") {
       const lastSeen = new Date(bot.lastSeen).toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit" });
@@ -5026,21 +5066,38 @@ async function checkHealthApi() {
     if (backup?.status === "current" || backup?.status === "stale") {
       const createdAt = new Date(backup.createdAt).toLocaleString("es-MX", { dateStyle: "medium", timeStyle: "short" });
       const records = Number(backup.recordCount || 0).toLocaleString("es-MX");
-      setHealthBackupStatus(backup.status === "current" ? "healthy" : "error", `${backup.cadence} · ${records} registros · ${createdAt}.`);
+      setHealthBackupStatus(backup.status === "current" ? "healthy" : "error", `${backup.cadence} · ${records} registros · ${createdAt}. ${nextBackupDetail}`.trim());
     } else {
-      setHealthBackupStatus("warning", "No hay respaldos registrados todavia.");
+      setHealthBackupStatus("warning", `No hay respaldos registrados todavia. ${nextBackupDetail}`.trim());
     }
     if (security?.status === "alert") {
       setHealthSecurityStatus("error", `${security.failedLogins || 0} intentos fallidos · ${security.blockedUsers || 0} bloqueos en 24 h.`);
     } else {
       setHealthSecurityStatus("healthy", "Sin intentos fallidos ni bloqueos en las ultimas 24 h.");
     }
-    const requiresSetup = bot?.status === "unconfigured" || backup?.status === "unconfigured";
+    const setupIssues = [];
+    if (bot?.status === "unconfigured") {
+      setupIssues.push(pendingBot
+        ? `El bot ${pendingBot.hostname || "detectado"} espera aprobacion de root.`
+        : "No hay una instancia del bot registrada en Convex.");
+    }
+    if (backup?.status === "unconfigured") {
+      setupIssues.push("Aun no existe un respaldo exitoso registrado.");
+    }
+    const requiresSetup = setupIssues.length > 0;
     const overallStatus = status === "error" || bot?.status === "offline" || backup?.status === "stale" || security?.status === "alert"
       ? "error"
       : status === "warning" || requiresSetup ? "warning" : "healthy";
     setHealthApiStatus(status, `Respondio en ${latency} ms.`);
-    healthOverallStatus.textContent = overallStatus === "healthy" ? "Todo en orden" : overallStatus === "warning" ? "Configuracion pendiente" : "Atencion requerida";
+    healthOverallStatus.textContent = overallStatus === "healthy"
+      ? "Todo en orden"
+      : overallStatus === "warning"
+        ? setupIssues.length === 1 && backup?.status === "unconfigured"
+          ? "Primer respaldo pendiente"
+          : setupIssues.length === 1 && bot?.status === "unconfigured"
+            ? pendingBot ? "Bot pendiente de aprobacion" : "Bot sin registrar"
+            : "Servicios pendientes"
+        : "Atencion requerida";
     healthOverallDetail.textContent = overallStatus === "healthy"
       ? "Los servicios configurados responden correctamente."
       : bot?.status === "offline"
@@ -5050,7 +5107,7 @@ async function checkHealthApi() {
           : security?.status === "alert"
             ? "Hay alertas de seguridad recientes que requieren revision."
           : requiresSetup
-            ? "Falta configurar o aprobar uno de los servicios supervisados."
+            ? setupIssues.join(" ")
             : "Convex responde, pero la consulta tardo mas de lo habitual.";
     healthLastChecked.textContent = checkDate.toLocaleString("es-MX", { dateStyle: "medium", timeStyle: "short" });
     healthOverallDot?.classList.remove("healthy", "warning", "error", "neutral");
@@ -5070,6 +5127,7 @@ async function checkHealthApi() {
     setHealthBackupStatus("error", "No fue posible consultar el estado de respaldos.");
     setHealthSecurityStatus("error", "No fue posible consultar eventos de seguridad.");
     renderHealthRecentEvents([]);
+    renderHealthSystemErrors([]);
     renderHealthHistory([]);
     healthOverallStatus.textContent = "Atencion requerida";
     healthOverallDetail.textContent = error.message || "La comprobacion no pudo completarse.";

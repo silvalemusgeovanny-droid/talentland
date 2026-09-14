@@ -17,6 +17,15 @@ PENDIENTES DE SEGURIDAD Y MEJORAS
    - Permitir ajustes de stock desde el celular.
    - Incluir captura manual del codigo como alternativa si la camara no logra leerlo.
 10. Diferenciar el estado del bot en reposo (amarillo) del estado caido (rojo), manteniendo el heartbeat y los umbrales definidos.
+11. Mejoras pendientes para Salud del sistema:
+   - Agregar pruebas manuales, solo para root, de conexion del bot y ejecucion de respaldo, mostrando resultado, fecha y detalle seguro.
+   - Clasificar cada evento por severidad: informativo, aviso y critico; usar esa severidad en tarjetas, historial y alertas.
+   - Permitir filtrar Eventos recientes por Bot, Respaldos, Seguridad y Errores del sistema.
+   - Registrar y mostrar cuando un servicio se recupera, incluyendo cuanto tiempo estuvo afectado.
+   - Enviar a root un resumen diario breve solo si hubo alertas o errores, sin repetir notificaciones ya atendidas.
+
+Estado actual del panel de Salud:
+- Ya muestra la causa especifica de configuracion pendiente, una tarjeta independiente de errores y el proximo respaldo programado con tiempo restante.
 
 Nota:
 - El sistema continuara funcionando con Convex y conexion a internet.
