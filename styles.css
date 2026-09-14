@@ -1390,6 +1390,22 @@ body.entry-panel-active :is(.repairs-form, .contacts-form) > textarea {
   width: 100%;
 }
 
+.statistics-grid .control-dashboard { gap: 14px; }
+
+.statistics-grid .control-main-grid {
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 14px;
+}
+
+.statistics-grid .control-panel-card {
+  min-height: 205px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: linear-gradient(145deg, #fff, rgb(15 79 106 / 5%));
+  box-shadow: 0 12px 28px rgb(17 24 32 / 7%);
+}
+
 .stat-card {
   display: grid;
   gap: 5px;
@@ -2843,6 +2859,12 @@ body.users-active .users-panel-header {
 :is(body.login-dark, html.login-dark body) .control-kpi b,
 :is(body.login-dark, html.login-dark body) .statistics-periods {
   background: rgb(255 255 255 / 8%);
+}
+
+:is(body.login-dark, html.login-dark body) .statistics-grid .control-panel-card {
+  border-color: rgb(255 255 255 / 12%);
+  background: linear-gradient(145deg, #1b2c38, #14212a);
+  box-shadow: 0 12px 28px rgb(0 0 0 / 16%);
 }
 
 :is(body.login-dark, html.login-dark body) .control-kpi strong,
