@@ -437,15 +437,20 @@ function saveUsers(users) {
 
 function getFriendlyErrorMessage(error) {
   const message = String(error?.message || error || "No se pudo completar la operacion.");
+  const normalized = message.toLowerCase();
   if (message.toLowerCase().includes("root puede gestionar usuarios")) {
     return "solo root puede gestionar usuarios";
   }
-  if (
-    message.includes("Usuario y contrasena incorrectos") ||
-    message.includes("Usuario o contrasena incorrectos")
-  ) {
+  if (normalized.includes("usuario y contrasena incorrectos") || normalized.includes("usuario o contrasena incorrectos")) {
     return "Usuario y contrasena incorrectos.";
   }
+  if (normalized.includes("cuenta bloqueada temporalmente")) return "Cuenta bloqueada temporalmente. Espera 15 minutos o pide a root que la autorice.";
+  if (normalized.includes("cuenta inhabilitada")) return "Cuenta inhabilitada. Contacta a root.";
+  if (normalized.includes("pendiente de root") || normalized.includes("root debe autorizar")) return "Cuenta pendiente de autorizacion de root.";
+  if (normalized.includes("sesion expirada") || normalized.includes("sesión expirada")) return "Sesion expirada. Inicia sesion nuevamente.";
+  if (normalized.includes("no autorizado") || normalized.includes("unauthorized")) return "No tienes permisos para realizar esta accion.";
+  if (normalized.includes("failed to fetch") || normalized.includes("networkerror") || normalized.includes("fetch")) return "No se pudo conectar con el servidor. Revisa tu conexion e intenta de nuevo.";
+  if (normalized.includes("server error") || normalized.includes("request id")) return "El servidor encontro un problema temporal. Intenta nuevamente en unos segundos.";
   return message
     .replace(/^.*Uncaught Error:\s*/s, "")
     .replace(/\s+at handler[\s\S]*$/s, "")
