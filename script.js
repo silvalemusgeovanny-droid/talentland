@@ -5588,7 +5588,7 @@ loginForm.addEventListener("submit", async (event) => {
   event.preventDefault();
 
   if (loginSubmitButton?.disabled) return;
-  const cooldownSeconds = Math.min(2 ** failedLoginAttemptsInView, 30);
+  const cooldownSeconds = failedLoginAttemptsInView >= 6 ? 60 : Math.min(2 ** failedLoginAttemptsInView, 30);
   if (cooldownSeconds > 1) {
     loginSubmitButton.disabled = true;
     let remaining = cooldownSeconds;
@@ -5612,6 +5612,9 @@ loginForm.addEventListener("submit", async (event) => {
     window.repairCloud?.registrarAuditoria("LOGIN", "Sesion iniciada", selectedUser.username);
   } catch (error) {
     failedLoginAttemptsInView += 1;
+    if (failedLoginAttemptsInView >= 6) {
+      credentialHint.textContent = "Demasiados intentos. Espera 60 segundos antes de volver a intentar.";
+    }
     credentialHint.textContent = getFriendlyErrorMessage(error);
     window.repairCloud?.registrarAuditoria("LOGIN_FALLIDO", "Intento de login fallido", usernameInput.value.trim());
     return;
