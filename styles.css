@@ -1329,6 +1329,55 @@ body.entry-panel-active :is(.repairs-form, .contacts-form) > textarea {
   overflow: auto;
 }
 
+.statistics-module {
+  gap: 16px;
+  width: min(100%, 1050px);
+  margin-inline: auto;
+}
+
+.statistics-hero,
+.statistics-controls,
+.stat-card,
+.statistics-list-group {
+  border: 1px solid var(--line);
+  box-shadow: 0 16px 40px rgb(17 24 32 / 8%);
+}
+
+.statistics-hero {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 15px;
+  align-items: center;
+  padding: clamp(18px, 3vw, 28px);
+  border-radius: 12px;
+  background: linear-gradient(125deg, #fff, rgb(15 79 106 / 8%));
+}
+
+.statistics-hero-icon {
+  display: grid;
+  width: 52px;
+  height: 52px;
+  place-items: center;
+  border: 1px solid rgb(15 79 106 / 20%);
+  border-radius: 15px;
+  background: rgb(15 79 106 / 10%);
+  color: var(--accent);
+}
+
+.statistics-hero-icon svg { width: 30px; height: 30px; fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.8; }
+.statistics-hero-copy { min-width: 0; }
+.statistics-hero h2 { margin: 3px 0 0; color: var(--ink); font-size: clamp(1.2rem, 2vw, 1.5rem); }
+.statistics-hero p { margin: 5px 0 0; color: var(--muted); font-size: .88rem; font-weight: 700; }
+.statistics-hero-badge { justify-self: end; padding: 7px 10px; border-radius: 999px; background: rgb(15 79 106 / 10%); color: var(--accent); font-size: .7rem; font-weight: 900; text-align: center; }
+
+.statistics-controls {
+  display: grid;
+  gap: 14px;
+  padding: 14px;
+  border-radius: 12px;
+  background: rgb(255 255 255 / 82%);
+}
+
 .statistics-grid {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
@@ -1345,9 +1394,9 @@ body.entry-panel-active :is(.repairs-form, .contacts-form) > textarea {
   display: grid;
   gap: 5px;
   min-height: 92px;
-  padding: 12px;
-  border-radius: 8px;
-  background: rgb(23 107 135 / 10%);
+  padding: 15px;
+  border-radius: 12px;
+  background: linear-gradient(145deg, #fff, rgb(15 79 106 / 6%));
 }
 
 .stat-card span,
@@ -1371,6 +1420,9 @@ body.entry-panel-active :is(.repairs-form, .contacts-form) > textarea {
 .statistics-list-group {
   display: grid;
   gap: 8px;
+  padding: 15px;
+  border-radius: 12px;
+  background: rgb(255 255 255 / 84%);
 }
 
 .statistics-list-group h3 {
@@ -1431,14 +1483,14 @@ body.entry-panel-active :is(.repairs-form, .contacts-form) > textarea {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(132px, 1fr));
   gap: 10px;
-  margin-bottom: 14px;
+  margin-bottom: 0;
 }
 
 .statistics-actions button {
   min-height: 44px;
   border: 1px solid rgb(15 79 106 / 18%);
-  border-radius: 8px;
-  background: #ffffff;
+  border-radius: 9px;
+  background: var(--soft);
   color: var(--accent);
   font-weight: 900;
   cursor: pointer;
@@ -1472,6 +1524,11 @@ body.entry-panel-active :is(.repairs-form, .contacts-form) > textarea {
   font-size: 0.9rem;
 }
 
+@media (max-width: 640px) {
+  .statistics-hero { grid-template-columns: auto minmax(0, 1fr); }
+  .statistics-hero-badge { grid-column: 1 / -1; justify-self: stretch; }
+}
+
 .health-module {
   display: none;
   gap: 16px;
@@ -1492,12 +1549,30 @@ body.entry-panel-active :is(.repairs-form, .contacts-form) > textarea {
 }
 
 .health-hero {
-  display: flex;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
   gap: 15px;
   align-items: center;
   padding: clamp(18px, 3vw, 28px);
   border-radius: 12px;
   background: linear-gradient(125deg, #fff, #f2faf5);
+}
+
+.health-hero-copy { min-width: 0; }
+
+.health-hero-actions {
+  display: grid;
+  justify-items: end;
+  gap: 6px;
+  margin-left: auto;
+}
+
+.health-hero-actions > span {
+  color: var(--muted);
+  font-size: .66rem;
+  font-weight: 800;
+  letter-spacing: .03em;
+  text-transform: uppercase;
 }
 
 .health-hero-icon {
@@ -1561,17 +1636,25 @@ body.entry-panel-active :is(.repairs-form, .contacts-form) > textarea {
 }
 
 .health-refresh-button {
-  align-self: center;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 36px;
   padding: 8px 12px;
-  border: 1px solid var(--line);
+  border: 1px solid var(--accent);
   border-radius: 8px;
-  background: var(--soft);
-  color: var(--accent);
+  background: var(--accent);
+  color: #fff;
   font: inherit;
   font-size: .76rem;
   font-weight: 900;
   cursor: pointer;
+  box-shadow: 0 6px 14px rgb(15 79 106 / 18%);
+  transition: transform .16s ease, box-shadow .16s ease;
 }
+.health-refresh-button:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 9px 18px rgb(15 79 106 / 24%); }
+.health-refresh-button svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 2; }
 .health-refresh-button:disabled { cursor: wait; opacity: .65; }
 .health-card-action { justify-self: start; padding: 6px 8px; border: 1px solid var(--line); border-radius: 7px; background: var(--soft); color: var(--accent); font: inherit; font-size: .7rem; font-weight: 900; cursor: pointer; }
 .health-card-action:disabled { cursor: wait; opacity: .65; }
@@ -1697,6 +1780,12 @@ body.entry-panel-active :is(.repairs-form, .contacts-form) > textarea {
 .health-history-list { display: grid; gap: 7px; margin-top: 14px; }
 .health-history-item { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 9px; align-items: center; padding: 9px; border: 1px solid var(--line); border-radius: 8px; background: var(--soft); }
 .health-history-item > span { color: #16a34a; font-size: .8rem; }.health-history-item.alert > span { color: #dc2626; }
+
+@media (max-width: 640px) {
+  .health-hero { grid-template-columns: auto minmax(0, 1fr); }
+  .health-hero-actions { grid-column: 1 / -1; justify-self: stretch; margin-left: 0; }
+  .health-refresh-button { width: 100%; }
+}
 .health-history-item strong, .health-history-item small { display: block; }.health-history-item strong { color: var(--ink); font-size: .77rem; }.health-history-item small { margin-top: 2px; color: var(--muted); font-size: .69rem; font-weight: 700; }
 
 :is(body.login-dark, html.login-dark body) .health-hero,
@@ -1769,6 +1858,30 @@ body.entry-panel-active :is(.repairs-form, .contacts-form) > textarea {
 :is(body.login-dark, html.login-dark body) .health-progress,
 :is(body.login-dark, html.login-dark body) .health-audit-item {
   background: #0f1820;
+}
+
+:is(body.login-dark, html.login-dark body) .statistics-hero,
+:is(body.login-dark, html.login-dark body) .statistics-controls,
+:is(body.login-dark, html.login-dark body) .statistics-list-group {
+  border-color: rgb(255 255 255 / 12%);
+  background: #17242e;
+  box-shadow: 0 16px 40px rgb(0 0 0 / 18%);
+}
+
+:is(body.login-dark, html.login-dark body) .statistics-hero h2,
+:is(body.login-dark, html.login-dark body) .statistics-list-group h3 {
+  color: #f4f8fa;
+}
+
+:is(body.login-dark, html.login-dark body) .statistics-hero p {
+  color: #a9b8c2;
+}
+
+:is(body.login-dark, html.login-dark body) .statistics-hero-icon,
+:is(body.login-dark, html.login-dark body) .statistics-hero-badge {
+  border-color: #3c5261;
+  background: #0f1820;
+  color: #91a9ba;
 }
 
 .control-dashboard {

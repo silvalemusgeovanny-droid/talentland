@@ -546,16 +546,15 @@
             <div class="compact-list database-list" id="databaseList"></div>
           </section>
 
-          <section class="module-panel statistics-module" id="statisticsModule">
-            <div class="daily-sales-header">
-              <div>
-                <span class="panel-kicker">Base de datos</span>
-                <strong id="statisticsSummary">Panel de control</strong>
-              </div>
-              <span id="statisticsHint">Solo admin y root</span>
-            </div>
+          <section class="module-panel statistics-module" id="statisticsModule" aria-labelledby="statisticsTitle">
+            <header class="statistics-hero">
+              <div class="statistics-hero-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 20V10h4v10M10 20V4h4v16M16 20v-7h4v7M2 20h20"/><path d="M5 7.5h4M11 2h4M17 10h4"/></svg></div>
+              <div class="statistics-hero-copy"><span class="panel-kicker">Centro de analisis</span><h2 id="statisticsTitle">Resumen operativo</h2><p id="statisticsSummary">Panel de control</p></div>
+              <span class="statistics-hero-badge" id="statisticsHint">Solo admin y root</span>
+            </header>
 
-            <div class="statistics-periods-bar">
+            <div class="statistics-controls">
+              <div class="statistics-periods-bar">
               <span>Ver por</span>
               <div class="statistics-periods" aria-label="Periodo de estadisticas">
                 <button type="button" data-statistics-period="day">Dia</button>
@@ -564,9 +563,9 @@
                 <button type="button" data-statistics-period="quarter">Trimestre</button>
                 <button type="button" data-statistics-period="year">Anual</button>
               </div>
-            </div>
+              </div>
 
-            <div class="statistics-actions" aria-label="Secciones de resumen">
+              <div class="statistics-actions" aria-label="Secciones de resumen">
               <button type="button" data-statistics-section="inventory">Inventario</button>
               <button type="button" data-statistics-section="repairs">Reparaciones</button>
               <button type="button" data-statistics-section="sales">Ventas</button>
@@ -576,6 +575,7 @@
               <button type="button" data-statistics-section="backups">Respaldos</button>
               <button type="button" data-statistics-section="alerts">Alertas</button>
               <button type="button" data-statistics-section="catalogPending">Pendientes</button>
+              </div>
             </div>
 
             <div class="statistics-grid" id="statisticsGrid"></div>
@@ -585,8 +585,8 @@
           <section class="module-panel health-module" id="healthModule" aria-labelledby="healthSystemTitle">
             <header class="health-hero">
               <div class="health-hero-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3 12h3l2.1-5.2L12 18l2.2-6H21"/><path d="M4 5.5A9 9 0 0 1 19.5 7M20 18.5A9 9 0 0 1 4.5 17"/></svg></div>
-              <div><span class="panel-kicker">Centro de observacion</span><h2 id="healthSystemTitle">Salud del sistema</h2><p>Consulta el estado operativo de los servicios conectados.</p></div>
-              <button class="health-refresh-button" id="healthRefreshButton" type="button">Actualizar</button>
+              <div class="health-hero-copy"><span class="panel-kicker">Centro de observacion</span><h2 id="healthSystemTitle">Salud del sistema</h2><p>Consulta el estado operativo de los servicios conectados.</p></div>
+              <div class="health-hero-actions"><span>Comprobacion manual</span><button class="health-refresh-button" id="healthRefreshButton" type="button"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M20 11a8 8 0 0 0-14.9-4L3 10"/><path d="M3 5v5h5"/><path d="M4 13a8 8 0 0 0 14.9 4L21 14"/><path d="M21 19v-5h-5"/></svg>Actualizar ahora</button></div>
             </header>
 
             <div class="health-overview-card">
