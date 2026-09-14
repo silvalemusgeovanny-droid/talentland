@@ -424,7 +424,8 @@ async function refreshPartsView() {
       ? "Datos sincronizados con base de datos."
       : partsHint.textContent;
   } catch (error) {
-    partsHint.textContent = `Modo local: ${error.message}`;
+    partsHint.textContent = `Error al consultar Convex: ${error.message || "respuesta no disponible"}`;
+    console.error("No se pudieron cargar los repuestos desde Convex", error);
   }
   renderPartTypeOptions();
   renderBrandOptions();
