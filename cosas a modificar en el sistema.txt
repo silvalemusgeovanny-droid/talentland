@@ -8,7 +8,14 @@ PENDIENTES DE SEGURIDAD Y MEJORAS
 6. Revisar los archivos XLSX almacenados en OneDrive por contener datos sensibles.
 7. Revisar periodicamente sesiones y tokens activos.
 8. Registrar intentos fallidos de login mediante un mecanismo backend protegido, con limite por IP/dispositivo, sin revelar si la cuenta existe ni permitir inundar la auditoria.
-9. Incorporar lectura de codigos de barras desde la camara del celular para consultar y guardar productos.
+9. Incorporar un lector de codigos de barras desde el celular:
+   - Agregar el campo codigoBarras a los productos.
+   - Crear una pagina movil "Escanear producto" que use la camara del telefono.
+   - Buscar el producto en Convex y mostrar nombre, precio y stock.
+   - Permitir guardar productos nuevos cuando el codigo no exista.
+   - Sincronizar inmediatamente los cambios para consultarlos desde la PC.
+   - Permitir ajustes de stock desde el celular.
+   - Incluir captura manual del codigo como alternativa si la camara no logra leerlo.
 10. Diferenciar el estado del bot en reposo (amarillo) del estado caido (rojo), manteniendo el heartbeat y los umbrales definidos.
 
 Nota:
