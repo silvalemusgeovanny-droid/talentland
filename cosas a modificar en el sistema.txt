@@ -1,23 +1,15 @@
 PENDIENTES DE SEGURIDAD Y MEJORAS
 
-Completado:
-- Migracion de contrasenas a scrypt.
-- Migracion automatica de hashes SHA-256 antiguos.
-- Logs excluidos del repositorio y eliminados del historial remoto.
-- Tabla real de facturas creada y conectada.
-- Token de sesion movido a sessionStorage.
-- Pruebas de sesion: 60/60.
-
-Pendiente:
 1. Revisar todos los usos de innerHTML para prevenir XSS.
 2. Confirmar que los datos de clientes, productos, modelos, reparaciones y notas usen escapeHtml.
 3. Reemplazar HTML dinamico innecesario por textContent.
 4. Agregar una politica CSP compatible con los scripts actuales.
 5. Probar entradas maliciosas como <script>alert(1)</script>.
 6. Revisar los archivos XLSX almacenados en OneDrive por contener datos sensibles.
-7. Rotar secretos de Telegram y APIs antes de pasar a produccion.
-8. Confirmar el cambio de las credenciales iniciales cuando el sistema entre en operacion.
-9. Revisar periodicamente sesiones y tokens activos.
+7. Revisar periodicamente sesiones y tokens activos.
+8. Registrar intentos fallidos de login mediante un mecanismo backend protegido, con limite por IP/dispositivo, sin revelar si la cuenta existe ni permitir inundar la auditoria.
+9. Incorporar lectura de codigos de barras desde la camara del celular para consultar y guardar productos.
+10. Diferenciar el estado del bot en reposo (amarillo) del estado caido (rojo), manteniendo el heartbeat y los umbrales definidos.
 
 Nota:
 - El sistema continuara funcionando con Convex y conexion a internet.
