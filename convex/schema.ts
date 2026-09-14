@@ -2,6 +2,12 @@ import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
 
 export default defineSchema({
+  consecutivos: defineTable({
+    key: v.string(),
+    value: v.number(),
+    updatedAt: v.string(),
+  }).index("by_key", ["key"]),
+
   usuarios: defineTable({
     username: v.string(),
     passwordHash: v.string(),

@@ -117,7 +117,6 @@ const sessionPanel = document.querySelector("#sessionPanel");
 const welcomeTitle = document.querySelector("#welcomeTitle");
 const accessSummary = document.querySelector("#accessSummary");
 const onlinePresence = document.querySelector("#onlinePresence");
-const permissionList = document.querySelector("#permissionList");
 const logoutButton = document.querySelector("#logoutButton");
 const logoutConfirmOverlay = document.querySelector("#logoutConfirmOverlay");
 const cancelLogoutButton = document.querySelector("#cancelLogoutButton");
@@ -704,9 +703,6 @@ function applyAuthenticatedUser(user, message = "Sesion iniciada correctamente."
   const roleProfile = getRoleProfile(currentUser.role);
   welcomeTitle.textContent = `Bienvenido, ${currentUser.name}`;
   accessSummary.textContent = `${roleProfile.label} - ${roleProfile.access}`;
-  permissionList.innerHTML = getUserModules(currentUser).map((moduleName) =>
-    `<li>${moduleLabels[moduleName] || moduleName}</li>`
-  ).join("");
   loginForm.hidden = true;
   sessionPanel.hidden = false;
   if (logoutButton) logoutButton.hidden = false;
@@ -4870,7 +4866,6 @@ function setModule(moduleName) {
   });
   modulePanels.forEach((panel) => {
     const isActive =
-      (moduleName === "permissions" && panel.id === "permissionsModule") ||
       (moduleName === "sales" && panel.id === "salesModule") ||
       (moduleName === "products" && panel.id === "productsModule") ||
       (moduleName === "parts" && panel.id === "partsModule") ||

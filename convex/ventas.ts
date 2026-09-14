@@ -1,10 +1,11 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 import { requireModuleRead, requireModuleWrite } from "./authorization";
+import { nextNumber } from "./consecutivos";
 
 const saleFields = {
   sourceId: v.optional(v.string()),
-  saleNumber: v.number(),
+  saleNumber: v.optional(v.number()),
   productId: v.string(),
   product: v.string(),
   productModel: v.string(),
@@ -41,7 +42,10 @@ export const create = mutation({
           .unique()
       : null;
     if (existing) return existing._id;
-    return await ctx.db.insert("ventas", sale);
+    return await ctx.db.insert("ventas", {
+      ...sale,
+      saleNumber: await nextNumber(ctx, "sales", "ventas", "saleNumber"),
+    });
   },
 });
 
