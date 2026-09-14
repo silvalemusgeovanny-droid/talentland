@@ -1054,6 +1054,21 @@ input[readonly] {
   display: block;
 }
 
+.panel-scroll-hint {
+  display: block;
+  margin: 18px auto 0;
+  border: 0;
+  background: transparent;
+  color: var(--muted, #71808a);
+  font-size: 24px;
+  line-height: 1;
+  opacity: .65;
+  cursor: pointer;
+  transition: opacity .2s, transform .2s;
+}
+.panel-scroll-hint:hover { opacity: 1; transform: translateY(2px); }
+.panel-scroll-hint[hidden] { display: none; }
+
 .compact-parts {
   display: none;
 }

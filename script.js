@@ -270,6 +270,7 @@ const statisticsLists = document.querySelector("#statisticsLists");
 const healthPermissionAudit = document.querySelector("#healthPermissionAudit");
 const healthPermissionAuditCount = document.querySelector("#healthPermissionAuditCount");
 const healthRefreshButton = document.querySelector("#healthRefreshButton");
+const healthScrollHint = document.querySelector("#healthScrollHint");
 const healthOverallDot = document.querySelector("#healthOverallDot");
 const healthOverallStatus = document.querySelector("#healthOverallStatus");
 const healthOverallDetail = document.querySelector("#healthOverallDetail");
@@ -293,6 +294,17 @@ const healthHistory = document.querySelector("#healthHistory");
 const healthHistoryCount = document.querySelector("#healthHistoryCount");
 let pendingHealthBotId = "";
 let healthRefreshTimer = null;
+
+function updateHealthScrollHint() {
+  if (!healthScrollHint || !sessionPanel) return;
+  const canScroll = sessionPanel.scrollHeight > sessionPanel.clientHeight + 8;
+  const atBottom = sessionPanel.scrollTop + sessionPanel.clientHeight >= sessionPanel.scrollHeight - 8;
+  healthScrollHint.hidden = !canScroll || atBottom;
+}
+
+healthScrollHint?.addEventListener("click", () => sessionPanel?.scrollBy({ top: Math.max(260, sessionPanel.clientHeight * .65), behavior: "smooth" }));
+sessionPanel?.addEventListener("scroll", updateHealthScrollHint, { passive: true });
+window.addEventListener("resize", updateHealthScrollHint);
 const statisticsPendingDot = document.querySelector("#statisticsPendingDot");
 const statisticsPeriodButtons = document.querySelectorAll("[data-statistics-period]");
 const statisticsSectionButtons = document.querySelectorAll("[data-statistics-section]");
@@ -5035,6 +5047,7 @@ function setModule(moduleName) {
     panel.classList.toggle("active", isActive);
   });
   if (moduleName === "sales") { setNextSaleNumber(); renderProducts(); updateSaleTotals(); renderSales(); }
+  if (moduleName === "health") window.requestAnimationFrame(updateHealthScrollHint);
   if (moduleName === "products") renderProducts();
   if (moduleName === "repairs") {
     setNextRepairNumber();
