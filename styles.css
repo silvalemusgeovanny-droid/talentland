@@ -1677,6 +1677,11 @@ body.entry-panel-active :is(.repairs-form, .contacts-form) > textarea {
 .health-audit-item { border-color: var(--line); background: var(--soft); }
 .health-audit-icon { background: rgb(15 79 106 / 10%); color: var(--accent); }
 .health-audit-alert .health-audit-icon { background: rgb(220 38 38 / 11%); color: #dc2626; }
+.health-history-card { margin-top: 12px; }
+.health-history-list { display: grid; gap: 7px; margin-top: 14px; }
+.health-history-item { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 9px; align-items: center; padding: 9px; border: 1px solid var(--line); border-radius: 8px; background: var(--soft); }
+.health-history-item > span { color: #16a34a; font-size: .8rem; }.health-history-item.alert > span { color: #dc2626; }
+.health-history-item strong, .health-history-item small { display: block; }.health-history-item strong { color: var(--ink); font-size: .77rem; }.health-history-item small { margin-top: 2px; color: var(--muted); font-size: .69rem; font-weight: 700; }
 
 :is(body.login-dark, html.login-dark body) .health-hero,
 :is(body.login-dark, html.login-dark body) .health-status-card,

@@ -76,6 +76,7 @@
     changeOwnPassword: (sessionToken, currentPassword, newPassword) =>
       callConvex("mutation", "auth:changeOwnPassword", { sessionToken, currentPassword, newPassword }),
     healthCheck: () => callConvex("query", "health:check", withSession()),
+    recordHealthCheck: (check) => callConvex("mutation", "health:record", withSession(check)),
     approveBotInstance: (instanceId) => callConvex("mutation", "botInstances:approve", withSession({ instanceId, allow: true })),
     registrarAuditoria: (tipo, descripcion, usuario = "sistema", datos = "") =>
       callConvex("mutation", "auditoria:registrar", withSession({ tipo, descripcion, usuario, datos })),

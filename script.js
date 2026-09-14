@@ -289,6 +289,8 @@ const healthSecurityPill = document.querySelector("#healthSecurityPill");
 const healthSecurityDetail = document.querySelector("#healthSecurityDetail");
 const healthRecentEvents = document.querySelector("#healthRecentEvents");
 const healthRecentEventCount = document.querySelector("#healthRecentEventCount");
+const healthHistory = document.querySelector("#healthHistory");
+const healthHistoryCount = document.querySelector("#healthHistoryCount");
 let pendingHealthBotId = "";
 const statisticsPendingDot = document.querySelector("#statisticsPendingDot");
 const statisticsPeriodButtons = document.querySelectorAll("[data-statistics-period]");
@@ -4842,6 +4844,20 @@ function renderHealthRecentEvents(events = []) {
   }).join("");
 }
 
+function renderHealthHistory(history = []) {
+  if (!healthHistory || !healthHistoryCount) return;
+  healthHistoryCount.textContent = `${history.length} revision${history.length === 1 ? "" : "es"}`;
+  if (!history.length) {
+    healthHistory.innerHTML = `<div class="health-empty-state"><span class="health-empty-icon">⌁</span><strong>Sin historial</strong><p>Las proximas revisiones quedaran registradas aqui.</p></div>`;
+    return;
+  }
+  healthHistory.innerHTML = history.map((entry) => {
+    const date = new Date(entry.createdAt).toLocaleString("es-MX", { dateStyle: "short", timeStyle: "short" });
+    const allHealthy = [entry.apiStatus, entry.botStatus, entry.backupStatus, entry.securityStatus].every((status) => status === "healthy" || status === "current");
+    return `<article class="health-history-item ${allHealthy ? "healthy" : "alert"}"><span>${allHealthy ? "●" : "●"}</span><div><strong>${escapeHtml(date)}</strong><small>API ${escapeHtml(String(entry.apiLatencyMs))} ms · Bot ${escapeHtml(entry.botStatus)} · Respaldo ${escapeHtml(entry.backupStatus)} · Seguridad ${escapeHtml(entry.securityStatus)}</small></div></article>`;
+  }).join("");
+}
+
 async function checkHealthApi() {
   if (!healthOverallStatus || !healthOverallDetail || !healthLastChecked) return;
   const checkedAt = new Date();
@@ -4871,6 +4887,7 @@ async function checkHealthApi() {
     const backup = result?.backup;
     const security = result?.security;
     renderHealthRecentEvents(result?.recentEvents || []);
+    renderHealthHistory(result?.history || []);
     if (bot?.status === "online") {
       const lastSeen = new Date(bot.lastSeen).toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit" });
       setHealthBotStatus("healthy", `${bot.hostname || "Bot"} activo · ultima senal ${lastSeen}.`);
@@ -4910,6 +4927,13 @@ async function checkHealthApi() {
     healthLastChecked.textContent = checkDate.toLocaleString("es-MX", { dateStyle: "medium", timeStyle: "short" });
     healthOverallDot?.classList.remove("healthy", "error", "neutral");
     healthOverallDot?.classList.add(overallStatus);
+    window.repairCloud.recordHealthCheck({
+      apiLatencyMs: latency,
+      apiStatus: status,
+      botStatus: bot?.status === "online" ? "healthy" : bot?.status === "offline" ? "error" : "neutral",
+      backupStatus: backup?.status === "current" ? "healthy" : backup?.status === "stale" ? "error" : "neutral",
+      securityStatus: security?.status === "healthy" ? "healthy" : security?.status === "alert" ? "error" : "neutral",
+    }).catch(() => {});
   } catch (error) {
     pendingHealthBotId = "";
     if (healthApproveBotButton) healthApproveBotButton.hidden = true;
@@ -4918,6 +4942,7 @@ async function checkHealthApi() {
     setHealthBackupStatus("error", "No fue posible consultar el estado de respaldos.");
     setHealthSecurityStatus("error", "No fue posible consultar eventos de seguridad.");
     renderHealthRecentEvents([]);
+    renderHealthHistory([]);
     healthOverallStatus.textContent = "Atencion requerida";
     healthOverallDetail.textContent = error.message || "La comprobacion no pudo completarse.";
     healthLastChecked.textContent = checkedAt.toLocaleString("es-MX", { dateStyle: "medium", timeStyle: "short" });

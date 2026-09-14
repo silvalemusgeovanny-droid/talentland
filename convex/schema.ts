@@ -8,6 +8,15 @@ export default defineSchema({
     updatedAt: v.string(),
   }).index("by_key", ["key"]),
 
+  saludHistorial: defineTable({
+    apiLatencyMs: v.number(),
+    apiStatus: v.string(),
+    botStatus: v.string(),
+    backupStatus: v.string(),
+    securityStatus: v.string(),
+    createdAt: v.string(),
+  }).index("by_created_at", ["createdAt"]),
+
   usuarios: defineTable({
     username: v.string(),
     passwordHash: v.string(),

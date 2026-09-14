@@ -1,6 +1,29 @@
-import { query } from "./_generated/server";
+import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 import { requireModuleRead } from "./authorization";
+import { requireRoot } from "./authorization";
+
+export const record = mutation({
+  args: {
+    sessionToken: v.string(),
+    apiLatencyMs: v.number(),
+    apiStatus: v.string(),
+    botStatus: v.string(),
+    backupStatus: v.string(),
+    securityStatus: v.string(),
+  },
+  handler: async (ctx, args) => {
+    await requireRoot(ctx, args.sessionToken);
+    await ctx.db.insert("saludHistorial", {
+      apiLatencyMs: Math.max(0, Math.round(args.apiLatencyMs)),
+      apiStatus: args.apiStatus,
+      botStatus: args.botStatus,
+      backupStatus: args.backupStatus,
+      securityStatus: args.securityStatus,
+      createdAt: new Date().toISOString(),
+    });
+  },
+});
 
 // Punto de comprobacion pequeño y autenticado. No expone datos operativos;
 // sirve para verificar que Convex, la API y la sesion siguen respondiendo.
@@ -68,6 +91,11 @@ export const check = query({
       )
       .slice(0, 6)
       .map((event) => ({ tipo: event.tipo, descripcion: event.descripcion, fecha: event.fecha }));
+    const history = await ctx.db
+      .query("saludHistorial")
+      .withIndex("by_created_at")
+      .order("desc")
+      .take(12);
     return {
       checkedAt: new Date(now).toISOString(),
       bot,
@@ -80,6 +108,7 @@ export const check = query({
       backup,
       security,
       recentEvents,
+      history,
     };
   },
 });
