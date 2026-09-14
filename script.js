@@ -113,6 +113,9 @@ const passwordInput = document.querySelector("#password");
 const passwordToggle = document.querySelector("#passwordToggle");
 const credentialHint = document.querySelector("#credentialHint");
 const loginForm = document.querySelector("#loginForm");
+const loginSubmitButton = loginForm?.querySelector('button[type="submit"]');
+let failedLoginAttemptsInView = 0;
+let loginCooldownTimer = null;
 const sessionPanel = document.querySelector("#sessionPanel");
 const welcomeTitle = document.querySelector("#welcomeTitle");
 const accessSummary = document.querySelector("#accessSummary");
@@ -5571,12 +5574,31 @@ importRepairsDatabaseButton?.addEventListener("click", async () => {
 loginForm.addEventListener("submit", async (event) => {
   event.preventDefault();
 
+  if (loginSubmitButton?.disabled) return;
+  const cooldownSeconds = Math.min(2 ** failedLoginAttemptsInView, 30);
+  if (cooldownSeconds > 1) {
+    loginSubmitButton.disabled = true;
+    let remaining = cooldownSeconds;
+    const originalLabel = loginSubmitButton.textContent;
+    loginSubmitButton.textContent = `Espera ${remaining}s`;
+    loginCooldownTimer = window.setInterval(() => {
+      remaining -= 1;
+      if (remaining <= 0) {
+        window.clearInterval(loginCooldownTimer);
+        loginSubmitButton.disabled = false;
+        loginSubmitButton.textContent = originalLabel;
+      } else loginSubmitButton.textContent = `Espera ${remaining}s`;
+    }, 1000);
+  }
+
   try {
     credentialHint.textContent = "Validando credenciales...";
     const selectedUser = await signIn(usernameInput.value, passwordInput.value);
     applyAuthenticatedUser(selectedUser);
+    failedLoginAttemptsInView = 0;
     window.repairCloud?.registrarAuditoria("LOGIN", "Sesion iniciada", selectedUser.username);
   } catch (error) {
+    failedLoginAttemptsInView += 1;
     credentialHint.textContent = getFriendlyErrorMessage(error);
     window.repairCloud?.registrarAuditoria("LOGIN_FALLIDO", "Intento de login fallido", usernameInput.value.trim());
     return;
