@@ -25,6 +25,36 @@ export const record = mutation({
   },
 });
 
+export const monitoringSummary = query({
+  args: { sessionToken: v.string() },
+  handler: async (ctx, args) => {
+    await requireRoot(ctx, args.sessionToken);
+    const now = Date.now();
+    const latestBackup = await ctx.db
+      .query("respaldos")
+      .withIndex("by_created_at")
+      .order("desc")
+      .first();
+    const securitySince = new Date(now - 24 * 60 * 60 * 1000).toISOString();
+    const recentEvents = await ctx.db
+      .query("auditoria")
+      .withIndex("by_fecha", (q) => q.gte("fecha", securitySince))
+      .collect();
+    const failedLogins = recentEvents.filter((event) =>
+      ["LOGIN_FALLIDO", "VERIFICACION_PRIVILEGIADA_FALLIDA", "VERIFICACION_PRIVILEGIADA_BLOQUEADA"].includes(event.tipo)
+    ).length;
+    const blockedUsers = recentEvents.filter((event) => event.tipo === "USUARIO_BLOQUEADO").length;
+    const alerts = [] as { code: string; message: string }[];
+    if (latestBackup && now - new Date(latestBackup.createdAt).getTime() > 26 * 60 * 60 * 1000) {
+      alerts.push({ code: "BACKUP_STALE", message: "El ultimo respaldo registrado tiene mas de 26 horas." });
+    }
+    if (failedLogins || blockedUsers) {
+      alerts.push({ code: "SECURITY_ALERT", message: `Seguridad: ${failedLogins} intentos fallidos y ${blockedUsers} bloqueos en las ultimas 24 horas.` });
+    }
+    return { alerts };
+  },
+});
+
 // Punto de comprobacion pequeño y autenticado. No expone datos operativos;
 // sirve para verificar que Convex, la API y la sesion siguen respondiendo.
 export const check = query({

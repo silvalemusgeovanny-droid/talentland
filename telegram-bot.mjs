@@ -37,6 +37,9 @@ const NOTIFICATIONS_DAILY_HOUR = Number.isFinite(Number(process.env.NOTIFICATION
   : null;
 const TELEGRAM_APP_USERNAME = process.env.TELEGRAM_APP_USERNAME;
 const TELEGRAM_APP_PASSWORD = process.env.TELEGRAM_APP_PASSWORD;
+const HEALTH_ALERTS_ENABLED = process.env.HEALTH_ALERTS_ENABLED !== "false";
+const HEALTH_ALERT_INTERVAL_MS = Math.max(60_000, Number(process.env.HEALTH_ALERT_INTERVAL_MS || 300_000));
+const activeHealthAlerts = new Map();
 const KNOWN_BRANDS = new Map([
   ["apple", "apple"],
   ["iphone", "apple"],
@@ -283,9 +286,11 @@ async function main() {
   if (botMachineId) {
     setInterval(() => {
       convexClient.mutation(api.botInstances.heartbeat, { machineId: botMachineId })
+        .then((status) => { BOT_APPROVED = Boolean(status.allowed); })
         .catch((error) => logWarn("convex", "No se pudo actualizar el heartbeat del bot.", formatErrorDetails(error)));
     }, 30_000);
   }
+  startHealthAlertMonitoring(() => BOT_APPROVED);
 
   process.on("SIGINT", () => shutdown("SIGINT"));
   process.on("SIGTERM", () => shutdown("SIGTERM"));
@@ -338,6 +343,36 @@ function startNotificationScheduler() {
     ? `cada ${Math.round(NOTIFICATIONS_INTERVAL_MINUTES * 60)} seg`
     : `cada ${NOTIFICATIONS_INTERVAL_MINUTES} min`;
   logInfo("notificaciones", `Notificaciones proactivas activadas (${intervalLabel}).`);
+}
+
+function startHealthAlertMonitoring(isApproved) {
+  if (!HEALTH_ALERTS_ENABLED || !ADMIN_CHAT_ID) return;
+  const run = () => {
+    if (!isApproved()) return;
+    return checkHealthAlerts().catch((error) =>
+    logWarn("salud", "No se pudo revisar alertas de salud.", formatErrorDetails(error))
+    );
+  };
+  run();
+  setInterval(run, HEALTH_ALERT_INTERVAL_MS);
+}
+
+async function checkHealthAlerts() {
+  await ensureConvexSession();
+  const result = await convex.query(api.health.monitoringSummary, { sessionToken: convexSessionToken });
+  const currentAlerts = new Map((result.alerts || []).map((alert) => [alert.code, alert.message]));
+  for (const [code, message] of currentAlerts) {
+    if (activeHealthAlerts.has(code)) continue;
+    await sendMessage(ADMIN_CHAT_ID, `⚠️ Salud del sistema\n${message}`);
+    activeHealthAlerts.set(code, message);
+    recordBotAuditEvent("HEALTH_ALERTA_ENVIADA", `Alerta de salud enviada: ${code}`, { code });
+  }
+  for (const [code] of activeHealthAlerts) {
+    if (currentAlerts.has(code)) continue;
+    await sendMessage(ADMIN_CHAT_ID, `✅ Salud del sistema\nSe recupero: ${code}.`);
+    activeHealthAlerts.delete(code);
+    recordBotAuditEvent("HEALTH_ALERTA_RECUPERADA", `Alerta de salud recuperada: ${code}`, { code });
+  }
 }
 
 async function runNotificationsCheck() {
