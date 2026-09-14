@@ -280,6 +280,9 @@ const healthApiDetail = document.querySelector("#healthApiDetail");
 const healthBotCard = document.querySelector("#healthBotCard");
 const healthBotPill = document.querySelector("#healthBotPill");
 const healthBotDetail = document.querySelector("#healthBotDetail");
+const healthBackupCard = document.querySelector("#healthBackupCard");
+const healthBackupPill = document.querySelector("#healthBackupPill");
+const healthBackupDetail = document.querySelector("#healthBackupDetail");
 const statisticsPendingDot = document.querySelector("#statisticsPendingDot");
 const statisticsPeriodButtons = document.querySelectorAll("[data-statistics-period]");
 const statisticsSectionButtons = document.querySelectorAll("[data-statistics-section]");
@@ -4796,6 +4799,17 @@ function setHealthBotStatus(status, detail) {
   healthBotDetail.textContent = detail;
 }
 
+function setHealthBackupStatus(status, detail) {
+  if (!healthBackupCard || !healthBackupPill || !healthBackupDetail) return;
+  const labels = { healthy: "Vigente", neutral: "Sin historial", error: "Atrasado" };
+  healthBackupCard.classList.remove("healthy", "warning", "neutral", "error");
+  healthBackupPill.classList.remove("healthy", "warning", "neutral", "error");
+  healthBackupCard.classList.add(status);
+  healthBackupPill.classList.add(status);
+  healthBackupPill.innerHTML = `<i></i> ${labels[status] || labels.neutral}`;
+  healthBackupDetail.textContent = detail;
+}
+
 async function checkHealthApi() {
   if (!healthOverallStatus || !healthOverallDetail || !healthLastChecked) return;
   const checkedAt = new Date();
@@ -4821,6 +4835,7 @@ async function checkHealthApi() {
     const status = latency > 1500 ? "error" : "healthy";
     const checkDate = result?.checkedAt ? new Date(result.checkedAt) : checkedAt;
     const bot = result?.bot;
+    const backup = result?.backup;
     if (bot?.status === "online") {
       const lastSeen = new Date(bot.lastSeen).toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit" });
       setHealthBotStatus("healthy", `${bot.hostname || "Bot"} activo · ultima senal ${lastSeen}.`);
@@ -4829,13 +4844,22 @@ async function checkHealthApi() {
     } else {
       setHealthBotStatus("neutral", "No hay una instancia aprobada registrada.");
     }
-    const overallStatus = status === "error" || bot?.status === "offline" ? "error" : "healthy";
+    if (backup?.status === "current" || backup?.status === "stale") {
+      const createdAt = new Date(backup.createdAt).toLocaleString("es-MX", { dateStyle: "medium", timeStyle: "short" });
+      const records = Number(backup.recordCount || 0).toLocaleString("es-MX");
+      setHealthBackupStatus(backup.status === "current" ? "healthy" : "error", `${backup.cadence} · ${records} registros · ${createdAt}.`);
+    } else {
+      setHealthBackupStatus("neutral", "No hay respaldos registrados todavia.");
+    }
+    const overallStatus = status === "error" || bot?.status === "offline" || backup?.status === "stale" ? "error" : "healthy";
     setHealthApiStatus(status, `Respondio en ${latency} ms.`);
     healthOverallStatus.textContent = overallStatus === "healthy" ? "Todo en orden" : "Atencion requerida";
     healthOverallDetail.textContent = overallStatus === "healthy"
       ? "Los servicios configurados responden correctamente."
       : bot?.status === "offline"
         ? "El bot no ha enviado una senal reciente."
+        : backup?.status === "stale"
+          ? "El ultimo respaldo registrado esta atrasado."
         : "Convex responde, pero la consulta tardo mas de lo habitual.";
     healthLastChecked.textContent = checkDate.toLocaleString("es-MX", { dateStyle: "medium", timeStyle: "short" });
     healthOverallDot?.classList.remove("healthy", "error", "neutral");
@@ -4843,6 +4867,7 @@ async function checkHealthApi() {
   } catch (error) {
     setHealthApiStatus("error", "No fue posible obtener respuesta de Convex.");
     setHealthBotStatus("error", "No fue posible consultar el estado del bot.");
+    setHealthBackupStatus("error", "No fue posible consultar el estado de respaldos.");
     healthOverallStatus.textContent = "Atencion requerida";
     healthOverallDetail.textContent = error.message || "La comprobacion no pudo completarse.";
     healthLastChecked.textContent = checkedAt.toLocaleString("es-MX", { dateStyle: "medium", timeStyle: "short" });

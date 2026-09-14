@@ -23,6 +23,20 @@ export const check = query({
           version: latestApprovedBot.botVersion || "Sin version",
         }
       : { status: "unconfigured" };
-    return { checkedAt: new Date(now).toISOString(), bot };
+    const latestBackup = await ctx.db
+      .query("respaldos")
+      .withIndex("by_created_at")
+      .order("desc")
+      .first();
+    const backup = latestBackup
+      ? {
+          status: now - new Date(latestBackup.createdAt).getTime() <= 26 * 60 * 60 * 1000 ? "current" : "stale",
+          createdAt: latestBackup.createdAt,
+          cadence: latestBackup.cadence,
+          recordCount: latestBackup.recordCount,
+          bytes: latestBackup.bytes,
+        }
+      : { status: "unconfigured" };
+    return { checkedAt: new Date(now).toISOString(), bot, backup };
   },
 });
