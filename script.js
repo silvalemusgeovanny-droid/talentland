@@ -3894,12 +3894,26 @@ function renderPendingRepairHistory(repairs) {
 }
 
 function renderUserSecurityHistory(logs) {
-  const rows = logs.slice(0, 10);
+  const grouped = [];
+  const groups = new Map();
+  logs.forEach((log) => {
+    const data = parseAuditData(log);
+    const username = data.username || log.usuario || "usuario";
+    const key = log.tipo === "LOGIN_FALLIDO" ? `${log.tipo}:${username}` : `${log.tipo}:${log._id || log.fecha}`;
+    if (log.tipo === "LOGIN_FALLIDO" && groups.has(key)) {
+      groups.get(key).count += 1;
+    } else {
+      const item = { log, username, count: 1 };
+      groups.set(key, item);
+      grouped.push(item);
+    }
+  });
+  const rows = grouped.slice(0, 20);
   return `
     <section class="statistics-list-group">
       <h3>Seguridad de usuarios</h3>
       <div class="compact-list statistics-list">
-        ${rows.length ? rows.map((log) => {
+        ${rows.length ? rows.map(({ log, username, count }) => {
           const data = parseAuditData(log);
           const labels = {
             LOGIN_EXITOSO: "Login exitoso",
@@ -3910,10 +3924,9 @@ function renderUserSecurityHistory(logs) {
             USUARIO_INHABILITADO: "Usuario inhabilitado",
             CONTRASENA_CAMBIADA: "Contrasena cambiada",
           };
-          const username = data.username || log.usuario || "usuario";
           return `
             <article class="compact-part-item">
-              <strong>${escapeHtml(labels[log.tipo] || log.tipo)} - ${escapeHtml(username)}</strong>
+              <strong>${escapeHtml(labels[log.tipo] || log.tipo)} - ${escapeHtml(username)}${count > 5 ? ` (x${count})` : ""}</strong>
               <span>${escapeHtml(formatRepairDateTimeInput(log.fecha))} | ${escapeHtml(log.usuario || "sistema")}</span>
               <span>${escapeHtml(log.descripcion || "")}${data.failedLoginCount ? ` | Intentos ${Number(data.failedLoginCount)}` : ""}</span>
             </article>
