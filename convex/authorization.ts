@@ -4,9 +4,9 @@ const permissionDeniedMessage = "No tienes permiso para realizar esta operacion.
 const expiredSessionMessage = "Sesion expirada. Inicia sesion nuevamente.";
 
 const defaultModulesByRole: Record<string, string[]> = {
-  root: ["permissions", "sales", "products", "parts", "partsCost", "partsCustomerPrice", "repairs", "contacts", "notes", "statistics", "database", "users"],
-  admin: ["permissions", "sales", "products", "parts", "partsCost", "partsCustomerPrice", "repairs", "contacts", "notes", "statistics", "database"],
-  user: ["permissions", "sales", "parts", "partsCustomerPrice", "repairs", "notes", "statistics"],
+  root: ["permissions", "sales", "products", "parts", "partsCost", "partsCustomerPrice", "repairs", "contacts", "notes", "statistics", "database", "users", "health"],
+  admin: ["permissions", "sales", "products", "parts", "partsCost", "partsCustomerPrice", "repairs", "contacts", "notes", "statistics", "database", "health"],
+  user: ["permissions", "sales", "parts", "partsCustomerPrice", "repairs", "notes", "statistics", "health"],
   activador: ["parts", "partsCustomerPrice"],
 };
 

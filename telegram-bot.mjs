@@ -591,6 +591,9 @@ async function handleUpdate(update) {
       case "/alerta":
         await sendManualNotificationCheck(chatId);
         break;
+      case "/salud":
+        await sendHealthCheck(chatId);
+        break;
       case "/reparaciones":
       case "/reparacion":
       case "/notas":
@@ -709,6 +712,11 @@ function buildFriendlyMenu(user) {
   if (can("statistics")) {
     groups.push(friendlyCommandGroup("📊", "Resumen", [
       ["/resumen", "reporte del día"],
+    ]));
+  }
+  if (can("health")) {
+    groups.push(friendlyCommandGroup("🏥", "Salud del sistema", [
+      ["/salud", "panel de salud completo"],
     ]));
   }
   if (["parts", "repairs", "statistics", "notes"].some((module) => can(module))) {
@@ -895,6 +903,36 @@ async function operationalReport(chatId, summary = false) {
 }
 async function sendDailySummary(chatId) { await operationalReport(chatId, true); }
 async function sendOperationalAlerts(chatId) { await operationalReport(chatId); }
+
+async function sendHealthCheck(chatId) {
+  const session = await requireChatModule(chatId, 'health');
+  const convexClient = globalThis.convexHttpClient;
+  if (!convexClient) {
+    await sendMessage(chatId, "Cliente Convex no disponible.");
+    return;
+  }
+  try {
+    const res = await convexClient.query(api.health.check, { sessionToken: session.sessionToken });
+    const lines = [
+      `🏥 *Panel de Salud* (${new Date(res.checkedAt).toLocaleString()})`,
+      "",
+      `🤖 *Bot:* ${res.bot?.status === "online" ? "✅ Online" : res.bot?.status === "offline" ? "❌ Offline" : "⚙️ Sin configurar"} ${res.bot?.hostname ? `(${res.bot.hostname})` : ""} ${res.bot?.version ? `v${res.bot.version}` : ""}`,
+      `💾 *Backup:* ${res.backup?.status === "current" ? "✅ Actual" : res.backup?.status === "stale" ? "⚠️ Antiguo" : "⚙️ Sin configurar"} ${res.backup?.cadence ? `(${res.backup.cadence})` : ""}`,
+      `🔒 *Seguridad:* ${res.security?.status === "healthy" ? "✅ Saludable" : "⚠️ Alerta"} (${res.security?.failedLogins || 0} fallidos, ${res.security?.blockedUsers || 0} bloqueos 24h)`,
+    ];
+    if (res.pendingBot) {
+      lines.push(`⏳ *Instancia pendiente:* ${res.pendingBot.hostname} (v${res.pendingBot.version || "?"}) — requiere aprobación root`);
+    }
+    if (res.recentEvents?.length) {
+      lines.push("", "📋 *Eventos recientes:*");
+      res.recentEvents.slice(0, 5).forEach((e) => lines.push(`• ${e.tipo}: ${e.descripcion?.slice(0, 80)}`));
+    }
+    await sendMessage(chatId, lines.join("\n"), { parse_mode: "Markdown" });
+  } catch (error) {
+    logError("salud", "Fallo al consultar panel de salud.", error);
+    await sendMessage(chatId, "No se pudo obtener el estado de salud.");
+  }
+}
 async function sendLowStock(chatId) {
   const parts = getLowStockParts(await listPartsForBot(chatId)).slice(0, MAX_RESULTS);
   await sendMessage(chatId, parts.length ? formatShortPartList('Stock bajo', parts) : 'No hay repuestos con stock bajo.');
