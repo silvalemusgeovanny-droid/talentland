@@ -277,6 +277,9 @@ const healthLastChecked = document.querySelector("#healthLastChecked");
 const healthApiCard = document.querySelector("#healthApiCard");
 const healthApiPill = document.querySelector("#healthApiPill");
 const healthApiDetail = document.querySelector("#healthApiDetail");
+const healthBotCard = document.querySelector("#healthBotCard");
+const healthBotPill = document.querySelector("#healthBotPill");
+const healthBotDetail = document.querySelector("#healthBotDetail");
 const statisticsPendingDot = document.querySelector("#statisticsPendingDot");
 const statisticsPeriodButtons = document.querySelectorAll("[data-statistics-period]");
 const statisticsSectionButtons = document.querySelectorAll("[data-statistics-section]");
@@ -4782,6 +4785,17 @@ function setHealthApiStatus(status, detail) {
   healthApiDetail.textContent = detail;
 }
 
+function setHealthBotStatus(status, detail) {
+  if (!healthBotCard || !healthBotPill || !healthBotDetail) return;
+  const labels = { healthy: "Operativo", warning: "Sin conexion", neutral: "Sin configurar", error: "Error" };
+  healthBotCard.classList.remove("healthy", "warning", "neutral", "error");
+  healthBotPill.classList.remove("healthy", "warning", "neutral", "error");
+  healthBotCard.classList.add(status);
+  healthBotPill.classList.add(status);
+  healthBotPill.innerHTML = `<i></i> ${labels[status] || labels.neutral}`;
+  healthBotDetail.textContent = detail;
+}
+
 async function checkHealthApi() {
   if (!healthOverallStatus || !healthOverallDetail || !healthLastChecked) return;
   const checkedAt = new Date();
@@ -4790,7 +4804,8 @@ async function checkHealthApi() {
     healthOverallStatus.textContent = "Requiere configuracion";
     healthOverallDetail.textContent = "Agrega la URL de Convex para habilitar las comprobaciones.";
     healthLastChecked.textContent = checkedAt.toLocaleString("es-MX", { dateStyle: "medium", timeStyle: "short" });
-    healthOverallDot?.classList.remove("healthy");
+    healthOverallDot?.classList.remove("healthy", "error", "neutral");
+    healthOverallDot?.classList.add("error");
     if (healthRefreshButton) healthRefreshButton.disabled = false;
     return;
   }
@@ -4803,19 +4818,36 @@ async function checkHealthApi() {
   try {
     const result = await window.repairCloud.healthCheck();
     const latency = Math.round(performance.now() - startedAt);
-    const status = latency > 1500 ? "warning" : "healthy";
+    const status = latency > 1500 ? "error" : "healthy";
     const checkDate = result?.checkedAt ? new Date(result.checkedAt) : checkedAt;
+    const bot = result?.bot;
+    if (bot?.status === "online") {
+      const lastSeen = new Date(bot.lastSeen).toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit" });
+      setHealthBotStatus("healthy", `${bot.hostname || "Bot"} activo · ultima senal ${lastSeen}.`);
+    } else if (bot?.status === "offline") {
+      setHealthBotStatus("error", `Ultima senal: ${new Date(bot.lastSeen).toLocaleString("es-MX", { dateStyle: "medium", timeStyle: "short" })}.`);
+    } else {
+      setHealthBotStatus("neutral", "No hay una instancia aprobada registrada.");
+    }
+    const overallStatus = status === "error" || bot?.status === "offline" ? "error" : "healthy";
     setHealthApiStatus(status, `Respondio en ${latency} ms.`);
-    healthOverallStatus.textContent = status === "healthy" ? "Todo en orden" : "Servicio con demora";
-    healthOverallDetail.textContent = status === "healthy" ? "Convex y la API responden correctamente." : "Convex responde, pero la consulta tardo mas de lo habitual.";
+    healthOverallStatus.textContent = overallStatus === "healthy" ? "Todo en orden" : "Atencion requerida";
+    healthOverallDetail.textContent = overallStatus === "healthy"
+      ? "Los servicios configurados responden correctamente."
+      : bot?.status === "offline"
+        ? "El bot no ha enviado una senal reciente."
+        : "Convex responde, pero la consulta tardo mas de lo habitual.";
     healthLastChecked.textContent = checkDate.toLocaleString("es-MX", { dateStyle: "medium", timeStyle: "short" });
-    healthOverallDot?.classList.toggle("healthy", status === "healthy");
+    healthOverallDot?.classList.remove("healthy", "error", "neutral");
+    healthOverallDot?.classList.add(overallStatus);
   } catch (error) {
     setHealthApiStatus("error", "No fue posible obtener respuesta de Convex.");
+    setHealthBotStatus("error", "No fue posible consultar el estado del bot.");
     healthOverallStatus.textContent = "Atencion requerida";
     healthOverallDetail.textContent = error.message || "La comprobacion no pudo completarse.";
     healthLastChecked.textContent = checkedAt.toLocaleString("es-MX", { dateStyle: "medium", timeStyle: "short" });
-    healthOverallDot?.classList.remove("healthy");
+    healthOverallDot?.classList.remove("healthy", "neutral");
+    healthOverallDot?.classList.add("error");
   } finally {
     if (healthRefreshButton) healthRefreshButton.disabled = false;
   }

@@ -49,6 +49,19 @@ export const getMyStatus = query({
   },
 });
 
+export const heartbeat = mutation({
+  args: { machineId: v.string() },
+  handler: async (ctx, args) => {
+    const instance = await ctx.db
+      .query("botInstances")
+      .withIndex("by_machine", (q) => q.eq("machineId", args.machineId))
+      .unique();
+    if (!instance) return { registered: false };
+    await ctx.db.patch(instance._id, { lastSeen: Date.now() });
+    return { registered: true, allowed: instance.allowed };
+  },
+});
+
 export const approve = mutation({
   args: { instanceId: v.id("botInstances"), allow: v.boolean() },
   handler: async (ctx, args) => {

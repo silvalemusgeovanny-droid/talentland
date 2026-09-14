@@ -10,6 +10,19 @@ export const check = query({
   },
   handler: async (ctx, args) => {
     await requireModuleRead(ctx, args.sessionToken, "health");
-    return { checkedAt: new Date().toISOString() };
+    const now = Date.now();
+    const instances = await ctx.db.query("botInstances").take(100);
+    const latestApprovedBot = instances
+      .filter((instance) => instance.allowed)
+      .sort((left, right) => right.lastSeen - left.lastSeen)[0];
+    const bot = latestApprovedBot
+      ? {
+          status: now - latestApprovedBot.lastSeen <= 90_000 ? "online" : "offline",
+          lastSeen: latestApprovedBot.lastSeen,
+          hostname: latestApprovedBot.hostname,
+          version: latestApprovedBot.botVersion || "Sin version",
+        }
+      : { status: "unconfigured" };
+    return { checkedAt: new Date(now).toISOString(), bot };
   },
 });

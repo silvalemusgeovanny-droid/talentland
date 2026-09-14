@@ -259,8 +259,10 @@ async function main() {
   globalThis.convexHttpClient = convexClient;
 
   let BOT_APPROVED = true;
+  let botMachineId = "";
   try {
     const fp = machineFingerprint();
+    botMachineId = fp.machineId;
     const ip = await fetch("https://api.ipify.org").then(r => r.text()).catch(() => "desconocida");
     const res = await convexClient.mutation(api.botInstances.register, {
       ...fp,
@@ -276,6 +278,13 @@ async function main() {
     }
   } catch (error) {
     logError("seguridad", "Fallo registro de instancia, continuando en modo abierto.", error);
+  }
+
+  if (botMachineId) {
+    setInterval(() => {
+      convexClient.mutation(api.botInstances.heartbeat, { machineId: botMachineId })
+        .catch((error) => logWarn("convex", "No se pudo actualizar el heartbeat del bot.", formatErrorDetails(error)));
+    }, 30_000);
   }
 
   process.on("SIGINT", () => shutdown("SIGINT"));

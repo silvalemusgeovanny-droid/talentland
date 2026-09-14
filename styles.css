@@ -1558,8 +1558,8 @@ body.entry-panel-active :is(.repairs-form, .contacts-form) > textarea {
   cursor: pointer;
 }
 .health-refresh-button:disabled { cursor: wait; opacity: .65; }
-.health-status-card.error { border-top-color: var(--accent-2); }
-.health-pill.error { background: rgb(211 95 45 / 11%); color: var(--accent-2); }
+.health-status-card.error { border-top-color: #dc2626; }
+.health-pill.error { background: rgb(220 38 38 / 11%); color: #dc2626; }
 
 .health-overview-card {
   display: flex;
@@ -1575,6 +1575,8 @@ body.entry-panel-active :is(.repairs-form, .contacts-form) > textarea {
 .health-eyebrow { display: flex; align-items: center; gap: 7px; color: #247044; font-size: .76rem; font-weight: 900; text-transform: uppercase; letter-spacing: .06em; }
 .health-status-dot, .health-pill i { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
 .health-status-dot.healthy { color: #16a34a; box-shadow: 0 0 0 4px rgb(22 163 74 / 12%); }
+.health-status-dot.error { color: #dc2626; box-shadow: 0 0 0 4px rgb(220 38 38 / 12%); }
+.health-status-dot.neutral { color: #71808a; box-shadow: none; }
 .health-overview-card strong { display: block; margin-top: 5px; color: #116337; font-size: 1.25rem; }
 .health-overview-meta { min-width: 105px; padding-left: 18px; border-left: 1px solid rgb(22 163 74 / 18%); }
 .health-overview-meta span, .health-overview-meta strong { display: block; color: var(--muted); font-size: .76rem; font-weight: 800; }
