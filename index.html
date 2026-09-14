@@ -581,18 +581,18 @@
           <section class="module-panel health-module" id="healthModule" aria-labelledby="healthSystemTitle">
             <header class="health-hero">
               <div class="health-hero-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3 12h3l2.1-5.2L12 18l2.2-6H21"/><path d="M4 5.5A9 9 0 0 1 19.5 7M20 18.5A9 9 0 0 1 4.5 17"/></svg></div>
-              <div><span class="panel-kicker">Centro de observacion</span><h2 id="healthSystemTitle">Salud del sistema</h2><p>Vista de diseno. Las comprobaciones y alertas se conectaran paso a paso.</p></div>
-              <span class="health-preview-badge">Vista previa</span>
+              <div><span class="panel-kicker">Centro de observacion</span><h2 id="healthSystemTitle">Salud del sistema</h2><p>Consulta el estado operativo de los servicios conectados.</p></div>
+              <button class="health-refresh-button" id="healthRefreshButton" type="button">Actualizar</button>
             </header>
 
             <div class="health-overview-card">
-              <div><span class="health-eyebrow"><i class="health-status-dot healthy"></i> Estado general</span><strong>Todo en orden</strong><p>Este estado es ilustrativo mientras se activa la monitorizacion.</p></div>
-              <div class="health-overview-meta"><span>Ultima revision</span><strong>—</strong></div>
+              <div><span class="health-eyebrow"><i class="health-status-dot neutral" id="healthOverallDot"></i> Estado general</span><strong id="healthOverallStatus">Sin revisar</strong><p id="healthOverallDetail">Actualiza para comprobar los servicios configurados.</p></div>
+              <div class="health-overview-meta"><span>Ultima revision</span><strong id="healthLastChecked">—</strong></div>
             </div>
 
             <div class="health-status-grid">
-              <article class="health-status-card healthy"><div class="health-card-top"><span class="health-card-icon">API</span><span class="health-pill healthy"><i></i> Operativo</span></div><strong>Convex y API</strong><p>Disponibilidad y tiempo de respuesta.</p><small>Sin mediciones todavia</small></article>
-              <article class="health-status-card healthy"><div class="health-card-top"><span class="health-card-icon">TG</span><span class="health-pill healthy"><i></i> Operativo</span></div><strong>Bot de Telegram</strong><p>Conexion, polling y notificaciones.</p><small>Sin mediciones todavia</small></article>
+              <article class="health-status-card neutral" id="healthApiCard"><div class="health-card-top"><span class="health-card-icon">API</span><span class="health-pill neutral" id="healthApiPill"><i></i> Sin revisar</span></div><strong>Convex y API</strong><p>Disponibilidad y tiempo de respuesta.</p><small id="healthApiDetail">Sin mediciones todavia</small></article>
+              <article class="health-status-card warning"><div class="health-card-top"><span class="health-card-icon">TG</span><span class="health-pill warning"><i></i> Pendiente</span></div><strong>Bot de Telegram</strong><p>Conexion, polling y notificaciones.</p><small>Se conectara en una fase posterior</small></article>
               <article class="health-status-card warning"><div class="health-card-top"><span class="health-card-icon">BK</span><span class="health-pill warning"><i></i> Pendiente</span></div><strong>Respaldos</strong><p>Ultimo respaldo y resultado programado.</p><small>Se activara en una fase posterior</small></article>
               <article class="health-status-card neutral"><div class="health-card-top"><span class="health-card-icon">SH</span><span class="health-pill neutral"><i></i> Sin datos</span></div><strong>Seguridad</strong><p>Accesos fallidos y actividad inusual.</p><small>Sin reglas configuradas</small></article>
             </div>

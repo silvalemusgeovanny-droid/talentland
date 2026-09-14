@@ -270,6 +270,14 @@ const statisticsGrid = document.querySelector("#statisticsGrid");
 const statisticsLists = document.querySelector("#statisticsLists");
 const healthPermissionAudit = document.querySelector("#healthPermissionAudit");
 const healthPermissionAuditCount = document.querySelector("#healthPermissionAuditCount");
+const healthRefreshButton = document.querySelector("#healthRefreshButton");
+const healthOverallDot = document.querySelector("#healthOverallDot");
+const healthOverallStatus = document.querySelector("#healthOverallStatus");
+const healthOverallDetail = document.querySelector("#healthOverallDetail");
+const healthLastChecked = document.querySelector("#healthLastChecked");
+const healthApiCard = document.querySelector("#healthApiCard");
+const healthApiPill = document.querySelector("#healthApiPill");
+const healthApiDetail = document.querySelector("#healthApiDetail");
 const statisticsPendingDot = document.querySelector("#statisticsPendingDot");
 const statisticsPeriodButtons = document.querySelectorAll("[data-statistics-period]");
 const statisticsSectionButtons = document.querySelectorAll("[data-statistics-section]");
@@ -4767,6 +4775,56 @@ function formatPermissionModules(modules = []) {
   return modules.map((moduleName) => moduleLabels[moduleName] || moduleName).join(", ");
 }
 
+function setHealthApiStatus(status, detail) {
+  if (!healthApiCard || !healthApiPill || !healthApiDetail) return;
+  const labels = { healthy: "Operativo", warning: "Con demora", neutral: "Sin revisar", error: "No disponible" };
+  healthApiCard.classList.remove("healthy", "warning", "neutral", "error");
+  healthApiPill.classList.remove("healthy", "warning", "neutral", "error");
+  healthApiCard.classList.add(status);
+  healthApiPill.classList.add(status);
+  healthApiPill.innerHTML = `<i></i> ${labels[status] || labels.neutral}`;
+  healthApiDetail.textContent = detail;
+}
+
+async function checkHealthApi() {
+  if (!healthOverallStatus || !healthOverallDetail || !healthLastChecked) return;
+  const checkedAt = new Date();
+  if (!window.repairCloud?.isConfigured()) {
+    setHealthApiStatus("error", "Convex no esta configurado en este navegador.");
+    healthOverallStatus.textContent = "Requiere configuracion";
+    healthOverallDetail.textContent = "Agrega la URL de Convex para habilitar las comprobaciones.";
+    healthLastChecked.textContent = checkedAt.toLocaleString("es-MX", { dateStyle: "medium", timeStyle: "short" });
+    healthOverallDot?.classList.remove("healthy");
+    if (healthRefreshButton) healthRefreshButton.disabled = false;
+    return;
+  }
+
+  if (healthRefreshButton) healthRefreshButton.disabled = true;
+  setHealthApiStatus("neutral", "Comprobando disponibilidad...");
+  healthOverallStatus.textContent = "Comprobando";
+  healthOverallDetail.textContent = "Se esta consultando Convex.";
+  const startedAt = performance.now();
+  try {
+    const result = await window.repairCloud.healthCheck();
+    const latency = Math.round(performance.now() - startedAt);
+    const status = latency > 1500 ? "warning" : "healthy";
+    const checkDate = result?.checkedAt ? new Date(result.checkedAt) : checkedAt;
+    setHealthApiStatus(status, `Respondio en ${latency} ms.`);
+    healthOverallStatus.textContent = status === "healthy" ? "Todo en orden" : "Servicio con demora";
+    healthOverallDetail.textContent = status === "healthy" ? "Convex y la API responden correctamente." : "Convex responde, pero la consulta tardo mas de lo habitual.";
+    healthLastChecked.textContent = checkDate.toLocaleString("es-MX", { dateStyle: "medium", timeStyle: "short" });
+    healthOverallDot?.classList.toggle("healthy", status === "healthy");
+  } catch (error) {
+    setHealthApiStatus("error", "No fue posible obtener respuesta de Convex.");
+    healthOverallStatus.textContent = "Atencion requerida";
+    healthOverallDetail.textContent = error.message || "La comprobacion no pudo completarse.";
+    healthLastChecked.textContent = checkedAt.toLocaleString("es-MX", { dateStyle: "medium", timeStyle: "short" });
+    healthOverallDot?.classList.remove("healthy");
+  } finally {
+    if (healthRefreshButton) healthRefreshButton.disabled = false;
+  }
+}
+
 async function renderHealthPermissionAudit() {
   if (!healthPermissionAudit || !healthPermissionAuditCount) return;
   if (!canAccessModule("health")) return;
@@ -4835,7 +4893,10 @@ function setModule(moduleName) {
   }
   if (moduleName === "database") renderDatabase();
   if (moduleName === "statistics") renderStatistics();
-  if (moduleName === "health") renderHealthPermissionAudit();
+  if (moduleName === "health") {
+    renderHealthPermissionAudit();
+    checkHealthApi();
+  }
   if (moduleName === "contacts") renderContacts();
   if (moduleName === "users") renderUsers();
   if (moduleName === "parts") refreshQuickPartsView();
@@ -4850,6 +4911,7 @@ function setModule(moduleName) {
 }
 
 tabButtons.forEach((button) => button.addEventListener("click", () => setTheme(button.dataset.theme)));
+healthRefreshButton?.addEventListener("click", () => checkHealthApi());
 moduleTabs.forEach((button) => button.addEventListener("click", () => {
   if (button.dataset.module === "parts") {
     window.location.href = "repuestos.html";
