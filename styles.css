@@ -1054,6 +1054,10 @@ input[readonly] {
   display: block;
 }
 
+.module-page-nav { display: flex; flex-wrap: wrap; gap: 8px; margin: -4px 0 16px; }
+.module-page-nav a { padding: 8px 12px; border: 1px solid var(--line); border-radius: 8px; color: var(--muted); background: var(--soft); font-size: .78rem; font-weight: 900; text-decoration: none; }
+.module-page-nav a.active, .module-page-nav a:hover { color: var(--accent); border-color: var(--accent); background: rgb(15 79 106 / 8%); }
+
 .panel-scroll-hint {
   display: block;
   margin: 18px auto 0;
