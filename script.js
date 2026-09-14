@@ -4404,6 +4404,7 @@ async function renderStatistics() {
 }
 
 async function renderUsers() {
+  const passwordAudit = document.querySelector("#usersPasswordAudit");
   if (!canAccessModule("users")) {
     usersList.innerHTML = `<p class="hint">Solo root puede ver este panel.</p>`;
     return;
@@ -4447,6 +4448,15 @@ async function renderUsers() {
       </div>
     </article>
   `).join("");
+  if (passwordAudit && window.repairCloud?.isConfigured()) {
+    try {
+      const auditLogs = await window.repairCloud.obtenerAuditoria();
+      const changes = auditLogs.filter((log) => log.tipo === "CONTRASENA_CAMBIADA").slice(0, 10);
+      passwordAudit.innerHTML = changes.length ? changes.map((log) => `<article class="compact-part-item"><strong>Contrasena cambiada - ${escapeHtml(log.usuario || "usuario")}</strong><span>${escapeHtml(formatRepairDateTimeInput(log.fecha))}</span></article>`).join("") : `<p class="hint">Todavia no hay cambios de contrasena registrados.</p>`;
+    } catch (error) {
+      passwordAudit.innerHTML = `<p class="hint">No se pudo consultar la auditoria.</p>`;
+    }
+  }
 }
 
 function getRoleDefaultModules(role) {
