@@ -292,6 +292,7 @@ const healthRecentEventCount = document.querySelector("#healthRecentEventCount")
 const healthHistory = document.querySelector("#healthHistory");
 const healthHistoryCount = document.querySelector("#healthHistoryCount");
 let pendingHealthBotId = "";
+let healthRefreshTimer = null;
 const statisticsPendingDot = document.querySelector("#statisticsPendingDot");
 const statisticsPeriodButtons = document.querySelectorAll("[data-statistics-period]");
 const statisticsSectionButtons = document.querySelectorAll("[data-statistics-section]");
@@ -4788,7 +4789,7 @@ function formatPermissionModules(modules = []) {
 
 function setHealthApiStatus(status, detail) {
   if (!healthApiCard || !healthApiPill || !healthApiDetail) return;
-  const labels = { healthy: "Operativo", warning: "Con demora", neutral: "Sin revisar", error: "No disponible" };
+  const labels = { healthy: "Operativo", warning: "En revisión", neutral: "Sin revisar", error: "No disponible" };
   healthApiCard.classList.remove("healthy", "warning", "neutral", "error");
   healthApiPill.classList.remove("healthy", "warning", "neutral", "error");
   healthApiCard.classList.add(status);
@@ -4799,7 +4800,7 @@ function setHealthApiStatus(status, detail) {
 
 function setHealthBotStatus(status, detail) {
   if (!healthBotCard || !healthBotPill || !healthBotDetail) return;
-  const labels = { healthy: "Operativo", warning: "Sin conexion", neutral: "Sin configurar", error: "Error" };
+  const labels = { healthy: "Operativo", warning: "Iniciando / pendiente", neutral: "Sin configurar", error: "Error" };
   healthBotCard.classList.remove("healthy", "warning", "neutral", "error");
   healthBotPill.classList.remove("healthy", "warning", "neutral", "error");
   healthBotCard.classList.add(status);
@@ -4810,7 +4811,7 @@ function setHealthBotStatus(status, detail) {
 
 function setHealthBackupStatus(status, detail) {
   if (!healthBackupCard || !healthBackupPill || !healthBackupDetail) return;
-  const labels = { healthy: "Vigente", warning: "Sin configurar", neutral: "Sin historial", error: "Atrasado" };
+  const labels = { healthy: "Vigente", warning: "Pendiente", neutral: "Sin historial", error: "Atrasado" };
   healthBackupCard.classList.remove("healthy", "warning", "neutral", "error");
   healthBackupPill.classList.remove("healthy", "warning", "neutral", "error");
   healthBackupCard.classList.add(status);
@@ -4874,9 +4875,11 @@ async function checkHealthApi() {
   }
 
   if (healthRefreshButton) healthRefreshButton.disabled = true;
-  setHealthApiStatus("neutral", "Comprobando disponibilidad...");
+  setHealthApiStatus("warning", "Comprobando disponibilidad...");
   healthOverallStatus.textContent = "Comprobando";
   healthOverallDetail.textContent = "Se esta consultando Convex.";
+  healthOverallDot?.classList.remove("healthy", "warning", "error", "neutral");
+  healthOverallDot?.classList.add("warning");
   const startedAt = performance.now();
   try {
     const result = await window.repairCloud.healthCheck();
@@ -4997,6 +5000,10 @@ function setModule(moduleName) {
     moduleName = getAllowedModules()[0] || "permissions";
   }
   saveActiveModule(moduleName);
+  if (healthRefreshTimer) {
+    clearInterval(healthRefreshTimer);
+    healthRefreshTimer = null;
+  }
   document.body.classList.toggle("entry-panel-active", ["sales", "products", "parts", "repairs", "contacts"].includes(moduleName));
   sessionPanel.classList.toggle("control-panel-wide", ["statistics", "health"].includes(moduleName));
   moduleTabs.forEach((button) => {
@@ -5031,6 +5038,9 @@ function setModule(moduleName) {
   if (moduleName === "health") {
     renderHealthPermissionAudit();
     checkHealthApi();
+    healthRefreshTimer = window.setInterval(() => {
+      if (currentUser && canAccessModule("health")) checkHealthApi();
+    }, 60_000);
   }
   if (moduleName === "contacts") renderContacts();
   if (moduleName === "users") renderUsers();
