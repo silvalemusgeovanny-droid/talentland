@@ -42,6 +42,27 @@ export const registrarBot = mutation({
   },
 });
 
+// Registra fallos tecnicos enviados por la aplicacion web. La sesion permite
+// atribuirlos, sin dar al navegador acceso directo a la tabla de auditoria.
+export const registrarErrorSistema = mutation({
+  args: {
+    sessionToken: v.string(),
+    origen: v.string(),
+    mensaje: v.string(),
+    contexto: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const user = await requireActiveSession(ctx, args.sessionToken);
+    await ctx.db.insert("auditoria", {
+      tipo: "SISTEMA_ERROR_CLIENTE",
+      descripcion: `[${args.origen.slice(0, 80)}] ${args.mensaje.slice(0, 500)}`,
+      usuario: user.username,
+      datos: (args.contexto || "").slice(0, 1_000),
+      fecha: new Date().toISOString(),
+    });
+  },
+});
+
 export const obtener = query({
   args: {
     sessionToken: v.string(),

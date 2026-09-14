@@ -4889,7 +4889,7 @@ function renderHealthRecentEvents(events = []) {
   healthRecentEvents.innerHTML = events.map((event) => {
     const date = event.fecha ? new Date(event.fecha).toLocaleString("es-MX", { dateStyle: "medium", timeStyle: "short" }) : "Sin fecha";
     const eventType = String(event.tipo || "EVENTO");
-    const isAlert = ["LOGIN_FALLIDO", "USUARIO_BLOQUEADO", "VERIFICACION_PRIVILEGIADA_FALLIDA", "VERIFICACION_PRIVILEGIADA_BLOQUEADA"].includes(eventType);
+    const isAlert = eventType.startsWith("SISTEMA_ERROR_") || ["LOGIN_FALLIDO", "USUARIO_BLOQUEADO", "VERIFICACION_PRIVILEGIADA_FALLIDA", "VERIFICACION_PRIVILEGIADA_BLOQUEADA"].includes(eventType);
     return `<article class="health-audit-item${isAlert ? " health-audit-alert" : ""}"><span class="health-audit-icon">${isAlert ? "!" : "•"}</span><div><strong>${escapeHtml(eventType.replaceAll("_", " "))}</strong><p>${escapeHtml(event.descripcion || "Evento registrado")}</p><small>${escapeHtml(date)}</small></div></article>`;
   }).join("");
 }

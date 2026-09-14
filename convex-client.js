@@ -1,4 +1,6 @@
 (function () {
+  let reportingSystemError = false;
+
   function getConvexUrl() {
     return String(window.CONVEX_URL || "").replace(/\/$/, "");
   }
@@ -42,7 +44,9 @@
         : rawMessage.includes("Usuario o contrasena incorrectos")
           ? "Usuario y contrasena incorrectos."
           : rawMessage.replace(/^.*Uncaught Error:\s*/s, "").replace(/\s+at handler[\s\S]*$/s, "").trim();
-      throw new Error(cleanMessage || "Convex no pudo completar la operacion.");
+      const error = new Error(cleanMessage || "Convex no pudo completar la operacion.");
+      if (path !== "auditoria:registrarErrorSistema") reportSystemError(`Convex: ${path}`, error);
+      throw error;
     }
     return result.value;
   }
@@ -51,6 +55,35 @@
     const sessionToken = window.repairApp.session.getToken() || "";
     return { ...args, sessionToken };
   }
+
+  function safeErrorText(error) {
+    return String(error?.message || error || "Error desconocido")
+      .replace(/(token|password|contrasena|api.?key|secret)\s*[:=]\s*[^\s,;]+/gi, "$1=[redacted]")
+      .replace(/https?:\/\/[^\s]+/gi, "[url]")
+      .slice(0, 500);
+  }
+
+  function reportSystemError(origin, error, context = {}) {
+    const sessionToken = window.repairApp?.session?.getToken?.() || "";
+    if (reportingSystemError || !getConvexUrl() || !sessionToken) return;
+    reportingSystemError = true;
+    callConvex("mutation", "auditoria:registrarErrorSistema", {
+      sessionToken,
+      origen: String(origin || "navegador"),
+      mensaje: safeErrorText(error),
+      contexto: JSON.stringify(context).slice(0, 1_000),
+    }).catch(() => {}).finally(() => {
+      reportingSystemError = false;
+    });
+  }
+
+  window.addEventListener("error", (event) => {
+    reportSystemError("navegador", event.error || event.message, {
+      archivo: event.filename ? String(event.filename).split("/").pop() : "",
+      linea: event.lineno || 0,
+    });
+  });
+  window.addEventListener("unhandledrejection", (event) => reportSystemError("promesa sin manejar", event.reason));
 
   window.repairCloud = {
     isConfigured: () => Boolean(getConvexUrl()),
@@ -80,6 +113,8 @@
     approveBotInstance: (instanceId) => callConvex("mutation", "botInstances:approve", withSession({ instanceId, allow: true })),
     registrarAuditoria: (tipo, descripcion, usuario = "sistema", datos = "") =>
       callConvex("mutation", "auditoria:registrar", withSession({ tipo, descripcion, usuario, datos })),
+    registrarErrorSistema: (origen, error, contexto = {}) =>
+      reportSystemError(origen, error, contexto),
     obtenerAuditoria: () => callConvex("query", "auditoria:obtener", withSession()),
     listNotes: () => callConvex("query", "notas:list", withSession({})),
     createNote: (note) => callConvex("mutation", "notas:create", withSession(note)),

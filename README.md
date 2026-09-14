@@ -509,6 +509,13 @@ el bot registra el fallo y reintenta tras 2,5 segundos.
 
 En primer plano: `npm.cmd run bot:telegram`. Detener con `Ctrl+C`.
 Para ejecutarlo en segundo plano, abrir `iniciar-bot-telegram.bat`.
+
+Para que se inicie con Windows sin mostrar una ventana de CMD, crea o cambia el
+acceso directo de la carpeta de Inicio para que apunte a
+`iniciar-bot-telegram-silencioso.vbs` (no al archivo `.bat`). El lanzador oculta
+la ventana y el bot conserva sus registros en `telegram-bot.out.log` y
+`telegram-bot.err.log`. El archivo `.bat` se mantiene para iniciarlo manualmente
+y poder ver mensajes de diagnóstico cuando sea necesario.
 Para detener esa instancia, abrir `detener-bot-telegram.bat`.
 Los scripts usan `.telegram-bot.pid` para identificar el proceso y escriben
 `telegram-bot.out.log` y `telegram-bot.err.log`. Evitar iniciar varias instancias

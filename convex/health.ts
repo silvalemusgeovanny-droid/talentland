@@ -17,6 +17,19 @@ export const record = mutation({
     // delegue ese modulo puede dejar constancia de sus revisiones, sin darle
     // privilegios de administracion total.
     await requireModuleWrite(ctx, args.sessionToken, "health");
+    const latest = await ctx.db
+      .query("saludHistorial")
+      .withIndex("by_created_at")
+      .order("desc")
+      .first();
+    const sameStatus = latest &&
+      latest.apiStatus === args.apiStatus &&
+      latest.botStatus === args.botStatus &&
+      latest.backupStatus === args.backupStatus &&
+      latest.securityStatus === args.securityStatus;
+    const checkedRecently = latest &&
+      Date.now() - new Date(latest.createdAt).getTime() < 15 * 60 * 1000;
+    if (sameStatus && checkedRecently) return { recorded: false };
     await ctx.db.insert("saludHistorial", {
       apiLatencyMs: Math.max(0, Math.round(args.apiLatencyMs)),
       apiStatus: args.apiStatus,
@@ -25,6 +38,7 @@ export const record = mutation({
       securityStatus: args.securityStatus,
       createdAt: new Date().toISOString(),
     });
+    return { recorded: true };
   },
 });
 
@@ -48,8 +62,16 @@ export const monitoringSummary = query({
     ).length;
     const blockedUsers = recentEvents.filter((event) => event.tipo === "USUARIO_BLOQUEADO").length;
     const alerts = [] as { code: string; message: string }[];
-    if (latestBackup && now - new Date(latestBackup.createdAt).getTime() > 26 * 60 * 60 * 1000) {
+    if (!latestBackup) {
+      alerts.push({ code: "BACKUP_MISSING", message: "No hay respaldos registrados en el sistema." });
+    } else if (now - new Date(latestBackup.createdAt).getTime() > 26 * 60 * 60 * 1000) {
       alerts.push({ code: "BACKUP_STALE", message: "El ultimo respaldo registrado tiene mas de 26 horas." });
+    }
+    const latestBot = (await ctx.db.query("botInstances").take(100))
+      .filter((instance) => instance.allowed)
+      .sort((left, right) => right.lastSeen - left.lastSeen)[0];
+    if (latestBot && now - latestBot.lastSeen > 90_000) {
+      alerts.push({ code: "BOT_OFFLINE", message: "El bot de Telegram no ha enviado una senal reciente." });
     }
     if (failedLogins || blockedUsers) {
       alerts.push({ code: "SECURITY_ALERT", message: `Seguridad: ${failedLogins} intentos fallidos y ${blockedUsers} bloqueos en las ultimas 24 horas.` });
@@ -148,6 +170,7 @@ export const check = query({
       .filter((event) =>
         event.tipo.startsWith("BACKUP_") ||
         event.tipo.startsWith("BOT_") ||
+        event.tipo.startsWith("SISTEMA_ERROR_") ||
         event.tipo.startsWith("LOGIN_") ||
         event.tipo === "USUARIO_BLOQUEADO" ||
         event.tipo.startsWith("PERMISOS_")
