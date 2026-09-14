@@ -75,3 +75,9 @@ export const approve = mutation({
     return { ok: true };
   },
 });
+
+export const listAll = query({
+  handler: async (ctx) => {
+    return ctx.db.query("botInstances").collect();
+  },
+});
