@@ -919,7 +919,7 @@ input[readonly] {
   gap: 10px;
   align-items: center;
   justify-content: flex-start;
-  min-width: 145px;
+  min-width: 0;
   max-width: calc(20% - 10px);
   min-height: 72px;
   padding: 10px 13px;
@@ -930,7 +930,7 @@ input[readonly] {
   cursor: pointer;
   font-size: 0.82rem;
   font-weight: 900;
-  white-space: nowrap;
+  white-space: normal;
   box-shadow: 0 7px 18px rgb(17 24 32 / 7%);
   transition: transform 150ms ease, border-color 150ms ease, box-shadow 150ms ease;
 }
@@ -3919,8 +3919,13 @@ tbody tr:hover {
 
 @media (max-width: 860px) {
   .module-tab {
-    flex-basis: calc(33.333% - 12px);
-    max-width: calc(33.333% - 10px);
+    flex-basis: calc(50% - 12px);
+    max-width: calc(50% - 10px);
+  }
+
+  .module-tab > span:last-child {
+    min-width: 0;
+    overflow-wrap: anywhere;
   }
 
   .parts-table th:nth-child(4),
