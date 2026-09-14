@@ -61,6 +61,15 @@ async function loadSales() {
   return getLocalSales();
 }
 
+async function waitForSessionRestore() {
+  const storedUser = window.repairApp?.session?.getUser?.();
+  const token = window.repairApp?.session?.getToken?.();
+  if (!window.repairCloud?.isConfigured() || !token || storedUser) return;
+  try {
+    await window.repairCloud.currentSession(token);
+  } catch {}
+}
+
 function filterSales(sales, search) {
   const term = search.trim().toLowerCase();
   if (!term) return sales;
@@ -99,6 +108,7 @@ function renderSales(sales) {
 
 async function refreshSales() {
   try {
+    await waitForSessionRestore();
     const sales = await loadSales();
     renderSales(filterSales(sales, saleSearch.value));
   } catch (error) {
