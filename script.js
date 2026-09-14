@@ -3356,7 +3356,7 @@ function renderRepairsList(repairs) {
             <button class="edit-button icon-action-button icon-edit-button" type="button" data-repair-id="${escapeHtml(repairId)}" aria-label="Editar reparacion #${escapeHtml(repair.repairNumber || "")}" title="Editar">Editar</button>
             <button class="delete-button icon-action-button icon-delete-button" type="button" data-repair-id="${escapeHtml(repairId)}" aria-label="Eliminar reparacion #${escapeHtml(repair.repairNumber || "")}" title="Eliminar">Eliminar</button>
             <button class="edit-button icon-action-button icon-invoice-button" type="button" data-invoice-repair-id="${escapeHtml(repairId)}" aria-label="Generar factura de reparacion #${escapeHtml(repair.repairNumber || "")}" title="Factura">Factura</button>
-            <button class="secondary-button" type="button" data-edit-status-repair-id="${escapeHtml(repairId)}">Editar estado</button>
+        <button class="secondary-button icon-action-button status-icon-button" type="button" data-edit-status-repair-id="${escapeHtml(repairId)}" aria-label="Editar estado de reparacion #${escapeHtml(repair.repairNumber || "")}" title="Editar estado">✎</button>
           </div>
         ` : "";
     return `
@@ -3453,7 +3453,7 @@ async function renderSideRepairs() {
       <span>${escapeHtml([repair.brand, repair.model].filter(Boolean).join(" ") || repair.deviceType || "Equipo")}</span>
       <span>${escapeHtml(repair.repairType || "Reparacion")} | ${escapeHtml(repair.status || "En proceso")}</span>
       <b>${formatCurrency(Number(repair.repairPrice) || 0)}</b>
-      <button class="secondary-button" type="button" data-edit-side-repair-id="${escapeHtml(getRepairRecordId(repair))}">Editar estado</button>
+      <button class="secondary-button side-status-button" type="button" data-edit-side-repair-id="${escapeHtml(getRepairRecordId(repair))}">Editar estado</button>
     </article>
   `).join("");
 }
