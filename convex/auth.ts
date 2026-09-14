@@ -2,7 +2,7 @@ import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 import { scryptAsync } from "@noble/hashes/scrypt.js";
 
-const sessionDurationMs = 1000 * 60 * 60 * 12;
+const sessionDurationMs = 1000 * 60 * 60 * 3;
 const activePresenceMs = 1000 * 60;
 const maxFailedLoginAttempts = 5;
 const lockDurationMs = 1000 * 60 * 15;
@@ -381,6 +381,23 @@ export const heartbeatPresence = mutation({
     }
 
     return await getActivePresence(ctx);
+  },
+});
+
+// La presencia no renueva la sesion: solo una interaccion explicita del
+// usuario puede extender su vigencia, para respetar el cierre por inactividad.
+export const touchSession = mutation({
+  args: { sessionToken: v.string() },
+  handler: async (ctx, args) => {
+    const tokenHash = await sha256(args.sessionToken);
+    const session = await ctx.db.query("sesiones").withIndex("by_token_hash", (q) => q.eq("tokenHash", tokenHash)).unique();
+    if (!session || session.expiresAt < Date.now()) return { active: false };
+    const user = await ctx.db.get(session.userId);
+    if (!user || !user.active || getAccountStatus(user) !== "active") return { active: false };
+
+    const now = Date.now();
+    await ctx.db.patch(session._id, { expiresAt: now + sessionDurationMs, lastSeenAt: new Date(now).toISOString() });
+    return { active: true };
   },
 });
 

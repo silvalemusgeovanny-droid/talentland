@@ -380,6 +380,11 @@ let activeStatisticsPeriod = "month";
 let activeStatisticsSection = "";
 let statisticsRenderRequestId = 0;
 const presenceHeartbeatMs = 25000;
+const sessionInactivityMs = 3 * 60 * 60 * 1000;
+const sessionTouchThrottleMs = 30 * 1000;
+let sessionInactivityTimer = null;
+let sessionExpiryCheckTimer = null;
+let lastSessionTouchAt = 0;
 const repairStatusReminderIntervalMs = 30 * 60 * 1000;
 const repairStatusReminderLeadMs = 60 * 60 * 1000;
 
@@ -536,12 +541,73 @@ function resetLoginLayout() {
 function showLoggedOutView(message) {
   appSession.clear();
   currentUser = null;
+  stopInactivityWatch();
   stopPresenceUpdates();
   sessionPanel.hidden = true;
   loginForm.hidden = false;
   if (logoutButton) logoutButton.hidden = true;
   resetLoginLayout();
   credentialHint.textContent = message;
+}
+
+function stopInactivityWatch() {
+  if (sessionInactivityTimer) clearTimeout(sessionInactivityTimer);
+  if (sessionExpiryCheckTimer) clearInterval(sessionExpiryCheckTimer);
+  sessionInactivityTimer = null;
+  sessionExpiryCheckTimer = null;
+  lastSessionTouchAt = 0;
+}
+
+function scheduleInactivityLogout() {
+  if (sessionInactivityTimer) clearTimeout(sessionInactivityTimer);
+  sessionInactivityTimer = setTimeout(() => {
+    showLoggedOutView("Tu sesion se cerro despues de 3 horas sin actividad.");
+  }, sessionInactivityMs);
+}
+
+async function checkSessionStillActive() {
+  if (!currentUser || !window.repairCloud?.isConfigured()) return;
+  const sessionToken = getSavedSessionToken();
+  if (!sessionToken) return;
+  try {
+    const user = await window.repairCloud.currentSession(sessionToken);
+    if (!user) showLoggedOutView("Tu sesion se cerro despues de 3 horas sin actividad.");
+  } catch {
+    // No se cierra por una falla temporal de conectividad.
+  }
+}
+
+function startInactivityWatch() {
+  stopInactivityWatch();
+  scheduleInactivityLogout();
+  if (window.repairCloud?.isConfigured()) {
+    sessionExpiryCheckTimer = setInterval(checkSessionStillActive, 60 * 1000);
+  }
+}
+
+async function renewSessionFromActivity() {
+  if (!currentUser || !window.repairCloud?.isConfigured()) return;
+  const sessionToken = getSavedSessionToken();
+  if (!sessionToken) return;
+  try {
+    const result = await window.repairCloud.touchSession(sessionToken);
+    if (!result?.active) showLoggedOutView("Tu sesion expiro. Inicia sesion nuevamente.");
+  } catch {
+    // Una interrupcion temporal de red no debe cerrar una sesion valida.
+  }
+}
+
+function registerSessionActivity() {
+  if (!currentUser) return;
+  scheduleInactivityLogout();
+  const now = Date.now();
+  if (now - lastSessionTouchAt < sessionTouchThrottleMs) return;
+  lastSessionTouchAt = now;
+  renewSessionFromActivity();
+}
+
+for (const eventName of ["pointerdown", "keydown", "touchstart"]) {
+  window.addEventListener(eventName, registerSessionActivity, { passive: true });
 }
 
 function finishSessionRestore() {
@@ -617,6 +683,7 @@ function validateLocalPasswordPolicy(password) {
 }
 
 async function endSessionForPasswordChange(message) {
+  stopInactivityWatch();
   stopPresenceUpdates();
   await appSession.logout();
   currentUser = null;
@@ -731,6 +798,7 @@ function applyAuthenticatedUser(user, message = "Sesion iniciada correctamente."
   );
   currentUser = { ...(localUser || {}), ...user };
   saveCurrentUser(currentUser);
+  startInactivityWatch();
   if (currentUser.role === "activador" && !currentUser.mustChangePassword) {
     window.location.replace("repuestos.html");
     return;
@@ -771,6 +839,7 @@ function closeLogoutConfirmation() {
 }
 
 async function performLogout() {
+  stopInactivityWatch();
   stopPresenceUpdates();
   stopRepairStatusReminder();
   const { remoteError } = await appSession.logout();

@@ -98,6 +98,7 @@
       callConvex("mutation", "auth:login", { username, password, sessionToken }),
     currentSession: (sessionToken) => callConvex("query", "auth:currentSession", { sessionToken }),
     heartbeatPresence: (sessionToken) => callConvex("mutation", "auth:heartbeatPresence", { sessionToken }),
+    touchSession: (sessionToken) => callConvex("mutation", "auth:touchSession", { sessionToken }),
     logout: (sessionToken) => callConvex("mutation", "auth:logout", { sessionToken }),
     verifyAdmin: (username, password) => callConvex("mutation", "auth:verifyAdmin", { username, password }),
     verifyRoot: (username, password) => callConvex("mutation", "auth:verifyRoot", { username, password }),
