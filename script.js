@@ -4484,8 +4484,13 @@ async function renderUsers() {
   if (passwordAudit && window.repairCloud?.isConfigured()) {
     try {
       const auditLogs = await window.repairCloud.obtenerAuditoria();
-      const changes = auditLogs.filter((log) => log.tipo === "CONTRASENA_CAMBIADA").slice(0, 10);
-      passwordAudit.innerHTML = changes.length ? changes.map((log) => `<article class="compact-part-item"><strong>Contrasena cambiada - ${escapeHtml(log.usuario || "usuario")}</strong><span>${escapeHtml(formatRepairDateTimeInput(log.fecha))}</span></article>`).join("") : `<p class="hint">Todavia no hay cambios de contrasena registrados.</p>`;
+      const securityLogs = auditLogs.filter((log) => ["CONTRASENA_CAMBIADA", "LOGIN_FALLIDO"].includes(log.tipo)).slice(0, 30);
+      passwordAudit.innerHTML = securityLogs.length ? securityLogs.map((log) => {
+        const data = parseAuditData(log);
+        const username = data.username || log.usuario || "usuario no identificado";
+        const label = log.tipo === "LOGIN_FALLIDO" ? "Login fallido" : "Contrasena cambiada";
+        return `<article class="compact-part-item"><strong>${label} - ${escapeHtml(username)}</strong><span>${escapeHtml(formatRepairDateTimeInput(log.fecha))}</span></article>`;
+      }).join("") : `<p class="hint">Todavia no hay eventos de seguridad registrados.</p>`;
     } catch (error) {
       passwordAudit.innerHTML = `<p class="hint">No se pudo consultar la auditoria.</p>`;
     }
