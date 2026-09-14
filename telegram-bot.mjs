@@ -1,7 +1,10 @@
 import { canAccess, userModules, availableCommands } from './bot-access.js';
-import { readFileSync, existsSync } from "node:fs";
-import { resolve } from "node:path";
-import { pathToFileURL } from "node:url";
+import { spawnSync } from "node:child_process";
+import { readFileSync, existsSync, readdirSync, statSync, realpathSync } from "node:fs";
+import { resolve, extname } from "node:path";
+import { pathToFileURL, fileURLToPath } from "node:url";
+import { createHash } from "node:crypto";
+import { networkInterfaces, hostname } from "node:os";
 import { ConvexHttpClient } from "convex/browser";
 import { api } from "./convex/_generated/api.js";
 
@@ -23,9 +26,20 @@ const GEMINI_FETCH_TIMEOUT_MS = Number(process.env.GEMINI_FETCH_TIMEOUT_MS || 25
 const EXA_FETCH_TIMEOUT_MS = Number(process.env.EXA_FETCH_TIMEOUT_MS || 12000);
 const REQUIRE_AUTH = process.env.TELEGRAM_REQUIRE_AUTH !== "false";
 const SILENT_UNAUTHORIZED = process.env.TELEGRAM_SILENT_UNAUTHORIZED !== "false";
+const ADMIN_CHAT_ID = process.env.TELEGRAM_ADMIN_CHAT_ID
+  ? String(process.env.TELEGRAM_ADMIN_CHAT_ID)
+  : (Array.from(ALLOWED_CHAT_IDS)[0] || "");
 const CONVERSATION_MEMORY_LIMIT = Number(process.env.CONVERSATION_MEMORY_LIMIT || 8);
+const NOTIFICATIONS_ENABLED = process.env.NOTIFICATIONS_ENABLED === "true";
+const NOTIFICATIONS_INTERVAL_MINUTES = Number(process.env.NOTIFICATIONS_INTERVAL_MINUTES || 30);
+const NOTIFICATIONS_DAILY_HOUR = Number.isFinite(Number(process.env.NOTIFICATIONS_DAILY_HOUR))
+  ? Number(process.env.NOTIFICATIONS_DAILY_HOUR)
+  : null;
 const TELEGRAM_APP_USERNAME = process.env.TELEGRAM_APP_USERNAME;
 const TELEGRAM_APP_PASSWORD = process.env.TELEGRAM_APP_PASSWORD;
+const HEALTH_ALERTS_ENABLED = process.env.HEALTH_ALERTS_ENABLED !== "false";
+const HEALTH_ALERT_INTERVAL_MS = Math.max(60_000, Number(process.env.HEALTH_ALERT_INTERVAL_MS || 300_000));
+const activeHealthAlerts = new Map();
 const KNOWN_BRANDS = new Map([
   ["apple", "apple"],
   ["iphone", "apple"],
@@ -68,13 +82,13 @@ const forceReplyMarkup = {
 };
 const BOT_RESPONSE_GUIDELINES = [
   "Eres un asistente tecnico y profesional para Doctor Movil.",
-  "Responde en espanol mexicano, con tono formal, claro y directo.",
-  "No uses bromas, lenguaje casual excesivo ni suposiciones no verificadas.",
+  "Responde en espanol mexicano, con tono cercano y natural; varia tus respuestas y evita repetir formulas. Se claro, breve y profesional.",
+  "Puedes usar algun emoji y un toque de calidez sin exagerar. No uses suposiciones no verificadas ni inventes datos.",
   "Tu fuente principal para inventario, stock y precios es Convex.",
   "No inventes productos, precios, disponibilidad, caracteristicas ni procedimientos.",
-  "Si un producto o dato no aparece en el inventario interno, responde: No encontre ese dato registrado en inventario.",
+  "Si un producto o dato no aparece en el inventario interno, responde con brevedad que no lo encontraste en inventario.",
   "Si falta informacion para responder, pide una aclaracion concreta.",
-  "Si no entiendes el contexto, responde: No entiendo completamente el contexto de tu solicitud. Por favor proporciona mas detalles.",
+  "Si no entiendes el contexto, pide una aclaracion concreta y breve.",
   "Para preguntas simples, responde breve. Para problemas tecnicos, usa pasos ordenados.",
   "No solicites ni reveles credenciales, contrasenas, tokens, datos privados o informacion sensible.",
   "Si una solicitud requiere revision humana, indicalo de forma clara.",
@@ -138,12 +152,40 @@ const INTENT_TYPES = {
   UNKNOWN: "unknown",
 };
 
+const pick = (options) => options[Math.floor(Math.random() * options.length)];
+
+const GREETING_PHRASES = [
+  "¡Hola! 👋 Soy el asistente de Doctor Móvil. ¿En qué te ayudo hoy?",
+  "Buen día 👋 Aquí estoy para lo que necesites: piezas, precios o reparaciones.",
+  "¡Qué tal! ✨ ¿Buscas una pieza, un precio o el estado de una reparación?",
+];
+const UNKNOWN_COMMAND_PHRASES = [
+  "No sé hacer eso todavía 🤔 De esto sí te puedo ayudar 👉 /menu",
+  "Eso no está en mi repertorio por ahora. Para ver mis opciones usa /menu",
+  "Todavía no aprendo eso. Lo que sí sé hacer lo encuentras en /menu",
+];
+const MISSING_CONTEXT_PHRASES = [
+  "No me quedó claro del todo 🤔 Dame un poco más de detalle y te respondo.",
+  "¿Me das un poco más de información? Así te respondo con precisión.",
+];
+const NO_RESULTS_PHRASES = [
+  "No encontré resultados para eso 📭 Prueba con otra marca, modelo o palabra.",
+  "No tengo registrado eso todavía. Prueba con otra búsqueda, por ejemplo una marca o modelo.",
+];
+const CANCELLED_PHRASES = [
+  "Listo, acción cancelada 👍",
+  "Cancelado. Dime si necesitas algo más.",
+];
+
 let offset = 0;
 const conversationHistoryByChat = new Map();
 const pendingIntentByChat = new Map();
 const userSessionByChat = new Map();
 const convexSessionToken = crypto.randomUUID();
 let convexSessionReady = false;
+const lastNotificationFingerprintByChat = new Map();
+const lastDailySummaryByChat = new Map();
+const newRepairNotifiedAtByChat = new Map();
 const PART_GENERIC_WORDS = new Set([
   "hay",
   "tienes",
@@ -202,6 +244,8 @@ if (isDirectRun && process.argv.includes("--self-test")) {
 }
 
 async function main() {
+  releaseStaleBotInstances();
+
   logInfo("telegram", "Bot de Telegram iniciado.");
   recordBotAuditEvent("BOT_INICIO", "Bot de Telegram iniciado.", { pid: process.pid });
   if (ALLOWED_CHAT_IDS.size === 0) {
@@ -214,8 +258,44 @@ async function main() {
     logWarn("exa", "EXA_API_KEY no esta definido: /ia solo usara contexto interno de Convex.");
   }
 
+  const convexClient = new ConvexHttpClient(CONVEX_URL);
+  globalThis.convexHttpClient = convexClient;
+
+  let BOT_APPROVED = true;
+  let botMachineId = "";
+  try {
+    const fp = machineFingerprint();
+    botMachineId = fp.machineId;
+    const ip = await fetch("https://api.ipify.org").then(r => r.text()).catch(() => "desconocida");
+    const res = await convexClient.mutation(api.botInstances.register, {
+      ...fp,
+      ip,
+      botVersion: process.env.npm_package_version || "dev",
+    });
+    BOT_APPROVED = res.allowed;
+    if (!BOT_APPROVED) {
+      logWarn("seguridad", `Instancia no aprobada (${res.instanceId}). Modo solo-lectura.`);
+      await sendSecurityAlert("BOT_NO_APROBADO", { username: "system" }, `Instance ${res.instanceId} blocked`);
+    } else {
+      logInfo("seguridad", `Instancia aprobada (${res.instanceId}).`);
+    }
+  } catch (error) {
+    logError("seguridad", "Fallo registro de instancia, continuando en modo abierto.", error);
+  }
+
+  if (botMachineId) {
+    setInterval(() => {
+      convexClient.mutation(api.botInstances.heartbeat, { machineId: botMachineId })
+        .then((status) => { BOT_APPROVED = Boolean(status.allowed); })
+        .catch((error) => logWarn("convex", "No se pudo actualizar el heartbeat del bot.", formatErrorDetails(error)));
+    }, 30_000);
+  }
+  startHealthAlertMonitoring(() => BOT_APPROVED);
+
   process.on("SIGINT", () => shutdown("SIGINT"));
   process.on("SIGTERM", () => shutdown("SIGTERM"));
+
+  startNotificationScheduler();
 
   while (true) {
     try {
@@ -234,6 +314,158 @@ async function main() {
       await sleep(2500);
     }
   }
+}
+
+function notificationIntervalMs(minutes = 30) {
+  const parsed = Number(minutes);
+  const safe = Number.isFinite(parsed) && parsed >= 0 ? parsed : 30;
+  return Math.max(safe, 0.1) * 60 * 1000;
+}
+
+function startNotificationScheduler() {
+  if (!NOTIFICATIONS_ENABLED) {
+    logWarn("notificaciones", "NOTIFICATIONS_ENABLED no esta definido: no se enviaran alertas proactivas.");
+    return;
+  }
+  const intervalMs = notificationIntervalMs(NOTIFICATIONS_INTERVAL_MINUTES);
+
+  setTimeout(() => {
+    runNotificationsCheck()
+      .catch((error) => logError("notificaciones", "Fallo en la revision programada de alertas.", error));
+  }, Math.min(intervalMs, 60_000));
+
+  setInterval(() => {
+    runNotificationsCheck()
+      .catch((error) => logError("notificaciones", "Fallo en la revision programada de alertas.", error));
+  }, intervalMs);
+
+  const intervalLabel = NOTIFICATIONS_INTERVAL_MINUTES < 1
+    ? `cada ${Math.round(NOTIFICATIONS_INTERVAL_MINUTES * 60)} seg`
+    : `cada ${NOTIFICATIONS_INTERVAL_MINUTES} min`;
+  logInfo("notificaciones", `Notificaciones proactivas activadas (${intervalLabel}).`);
+}
+
+function startHealthAlertMonitoring(isApproved) {
+  if (!HEALTH_ALERTS_ENABLED || !ADMIN_CHAT_ID) return;
+  const run = () => {
+    if (!isApproved()) return;
+    return checkHealthAlerts().catch((error) =>
+    logWarn("salud", "No se pudo revisar alertas de salud.", formatErrorDetails(error))
+    );
+  };
+  run();
+  setInterval(run, HEALTH_ALERT_INTERVAL_MS);
+}
+
+async function checkHealthAlerts() {
+  await ensureConvexSession();
+  const result = await convex.query(api.health.monitoringSummary, { sessionToken: convexSessionToken });
+  const currentAlerts = new Map((result.alerts || []).map((alert) => [alert.code, alert.message]));
+  for (const [code, message] of currentAlerts) {
+    if (activeHealthAlerts.has(code)) continue;
+    await sendMessage(ADMIN_CHAT_ID, `⚠️ Salud del sistema\n${message}`);
+    activeHealthAlerts.set(code, message);
+    recordBotAuditEvent("HEALTH_ALERTA_ENVIADA", `Alerta de salud enviada: ${code}`, { code });
+  }
+  for (const [code] of activeHealthAlerts) {
+    if (currentAlerts.has(code)) continue;
+    await sendMessage(ADMIN_CHAT_ID, `✅ Salud del sistema\nSe recupero: ${code}.`);
+    activeHealthAlerts.delete(code);
+    recordBotAuditEvent("HEALTH_ALERTA_RECUPERADA", `Alerta de salud recuperada: ${code}`, { code });
+  }
+}
+
+async function runNotificationsCheck() {
+  for (const rawChatId of ALLOWED_CHAT_IDS) {
+    const chatId = String(rawChatId);
+    try {
+      if (!isAuthorized(chatId)) continue;
+      const session = await getActiveChatSession(chatId);
+      if (!session) continue;
+      await sendProactiveAlerts(chatId, session);
+    } catch (error) {
+      logWarn("notificaciones", `No se pudo notificar al chat ${chatId}.`, formatErrorDetails(error));
+    }
+  }
+}
+
+async function sendProactiveAlerts(chatId, session, { force = false } = {}) {
+  const collected = await collectOperationalAlerts(chatId, session.user);
+  if (!collected.sections.length) {
+    if (force) await sendMessage(chatId, "Sin reparaciones nuevas por ahora 👍");
+    return { sent: false, reason: "sin_alertas" };
+  }
+
+  if (!force && lastNotificationFingerprintByChat.get(String(chatId)) === collected.fingerprint) {
+    return { sent: false, reason: "sin_cambios" };
+  }
+
+  await sendMessage(chatId, ["🔔 Reparaciones nuevas", ...collected.sections].join("\n\n"));
+  lastNotificationFingerprintByChat.set(String(chatId), collected.fingerprint);
+  return { sent: true, reason: "enviado" };
+}
+
+async function collectOperationalAlerts(chatId, user) {
+  const sections = [];
+  const alertLines = [];
+
+  if (canAccess(user, "repairs")) {
+    try {
+      const repairs = await listRepairsForBot(chatId, { limit: 1000 });
+      const newRepairs = collectNewRepairs(repairs, chatId);
+      if (newRepairs.length) {
+        const message = formatNewRepairList("Nuevas reparaciones", newRepairs);
+        sections.push(message);
+        alertLines.push(...message.split("\n"));
+      }
+    } catch (error) {
+      logWarn("notificaciones", `No se pudieron consultar reparaciones para el chat ${chatId}.`, formatErrorDetails(error));
+    }
+  }
+
+  return { sections, fingerprint: alertFingerprint(alertLines) };
+}
+
+async function maybeSendDailySummary() {
+  if (!NOTIFICATIONS_ENABLED || NOTIFICATIONS_DAILY_HOUR === null) return;
+  if (new Date().getHours() !== NOTIFICATIONS_DAILY_HOUR) return;
+
+  const todayKey = new Date().toISOString().slice(0, 10);
+  for (const rawChatId of ALLOWED_CHAT_IDS) {
+    const chatId = String(rawChatId);
+    try {
+      if (!isAuthorized(chatId)) continue;
+      const session = await getActiveChatSession(chatId);
+      if (!session) continue;
+      if (lastDailySummaryByChat.get(chatId) === todayKey) continue;
+
+      await operationalReport(chatId, true);
+      lastDailySummaryByChat.set(chatId, todayKey);
+      recordBotAuditEvent("BOT_RESUMEN_DIARIO_ENVIADO", "Resumen diario enviado por notificacion programada.", { chatId });
+    } catch (error) {
+      logWarn("notificaciones", `No se pudo enviar el resumen diario al chat ${chatId}.`, formatErrorDetails(error));
+    }
+  }
+}
+
+function alertFingerprint(items) {
+  return [...items]
+    .map((line) => String(line || "")
+      .split("|")
+      .map((part) => part.trim().replace(/\s+/g, " "))
+      .sort()
+      .join("~"))
+    .filter(Boolean)
+    .join("\n");
+}
+
+async function sendManualNotificationCheck(chatId) {
+  const session = await getActiveChatSession(chatId);
+  if (!session) {
+    await sendMessage(chatId, BOT_MESSAGES.loginRequired);
+    return;
+  }
+  await sendProactiveAlerts(chatId, session, { force: true });
 }
 
 async function handleUpdate(update) {
@@ -325,7 +557,7 @@ async function handleUpdate(update) {
         break;
       case "/cancelar":
         pendingIntentByChat.delete(String(chatId));
-        await sendMessage(chatId, BOT_MESSAGES.actionCancelled);
+        await sendMessage(chatId, pick(CANCELLED_PHRASES));
         break;
       case "/logout":
         await logoutChatUser(chatId);
@@ -341,15 +573,26 @@ async function handleUpdate(update) {
         await searchParts(chatId, args);
         break;
       case "/resumen":
+      case "/reporte":
         await sendDailySummary(chatId);
         break;
       case "/stock_bajo":
       case "/bajo_stock":
+      case "/faltantes":
         await sendLowStock(chatId);
         break;
       case "/pendientes":
       case "/alertas":
+      case "/situacion":
         await sendOperationalAlerts(chatId);
+        break;
+      case "/notifica":
+      case "/notificar":
+      case "/alerta":
+        await sendManualNotificationCheck(chatId);
+        break;
+      case "/salud":
+        await sendHealthCheck(chatId);
         break;
       case "/reparaciones":
       case "/reparacion":
@@ -365,6 +608,7 @@ async function handleUpdate(update) {
         break;
       case "/repuestos":
       case "/inventario":
+      case "/piezas":
         await searchParts(chatId, args);
         break;
       case "/stock":
@@ -426,13 +670,73 @@ async function sendMenu(chatId) {
   const commands = availableCommands(session?.user);
   const keyboard = [];
   for (let i = 0; i < commands.length; i += 2) keyboard.push(commands.slice(i, i + 2).map(text => ({ text })));
-  await sendMessage(chatId, [
-    'Menu del bot',
-    session ? 'Usuario: ' + session.user.username + ' | Rol: ' + session.user.role : 'Inicia sesion con /login para consultar datos del sistema.',
-    session ? 'Modulos del sistema (' + userModules(session.user).length + '): ' + userModules(session.user).join(', ') : '',
-    'Comandos disponibles:', ...commands,
-    'Los modulos sin comandos propios se consultan desde la web.',
-  ].filter(Boolean).join('\n'), { reply_markup: { keyboard, resize_keyboard: true } });
+  await sendMessage(chatId, buildFriendlyMenu(session?.user), { reply_markup: { keyboard, resize_keyboard: true } });
+}
+
+function friendlyCommandGroup(emoji, title, items) {
+  return [`${emoji} ${title}`, ...items.map(([cmd, desc]) => `• ${cmd} — ${desc}`)].join("\n");
+}
+
+function buildFriendlyMenu(user) {
+  const lines = ["🧭 Menú de Doctor Móvil"];
+  if (!user) {
+    lines.push("Aún no has iniciado sesión. Manda /login para ver tus datos.");
+  } else {
+    lines.push(`👤 Estás como ${user.username} (rol ${user.role})`);
+  }
+
+  const groups = [];
+  const can = (module, write = false) => canAccess(user, module, write);
+  if (!user || can("parts")) {
+    groups.push(friendlyCommandGroup("🧰", "Repuestos", [
+      ["/repuestos <marca o modelo>", "buscar una pieza"],
+      ["/stock <búsqueda>", "solo las que tienen existencia"],
+      ["/faltantes", "piezas por debajo del mínimo"],
+      ...(can("partsCustomerPrice") ? [["/precio <búsqueda>", "precio a cliente final"]] : []),
+    ]));
+  }
+  if (can("repairs")) {
+    groups.push(friendlyCommandGroup("🔧", "Reparaciones", [
+      ["/reparaciones <búsqueda>", "buscar por cliente, marca o nº"],
+      ["/reparacion <nº>", "ver el detalle de una reparación"],
+      ["/situacion", "listas, por vencer y pendientes"],
+    ]));
+  }
+  if (can("notes")) {
+    groups.push(friendlyCommandGroup("📝", "Notas y clientes", [
+      ["/nota <texto>", "guardar una nota"],
+      ["/notas", "ver tus notas"],
+      ...(can("notes", true) ? [["/cliente", "registrar caso de atención"]] : []),
+    ]));
+  }
+  if (can("statistics")) {
+    groups.push(friendlyCommandGroup("📊", "Resumen", [
+      ["/resumen", "reporte del día"],
+    ]));
+  }
+  if (can("health")) {
+    groups.push(friendlyCommandGroup("🏥", "Salud del sistema", [
+      ["/salud", "panel de salud completo"],
+    ]));
+  }
+  if (["parts", "repairs", "statistics", "notes"].some((module) => can(module))) {
+    groups.push(friendlyCommandGroup("🔔", "Alertas", [
+      ["/pendientes", "todo lo pendiente del día"],
+      ["/alerta", "envía las alertas ahora"],
+    ]));
+  }
+  groups.push(friendlyCommandGroup("⚙️", "General", [
+    ["/ia <pregunta>", "pregúntame con IA"],
+    ["/web <pregunta>", "búscalo en la web"],
+    ["/estado", "estado del bot"],
+    ["/mi_usuario", "quién eres en el sistema"],
+    ["/ayuda", "este menú"],
+    ["/logout", "cerrar sesión"],
+  ]));
+
+  lines.push(...groups);
+  lines.push("💡 También puedes preguntarme en frases sueltas, por ejemplo: “¿cuántas pantallas iPhone 11 hay?”");
+  return lines.join("\n");
 }
 
 async function sendOnlyPartsMessage(chatId) {
@@ -444,7 +748,7 @@ async function sendOnlyPartsMessage(chatId) {
 
 async function routeNaturalMessage(chatId, text) {
   if (text.startsWith("/")) {
-    await sendMessage(chatId, BOT_MESSAGES.unknownCommand);
+    await sendMessage(chatId, pick(UNKNOWN_COMMAND_PHRASES));
     return;
   }
 
@@ -470,7 +774,7 @@ async function routeNaturalMessage(chatId, text) {
       await searchParts(chatId, text);
       break;
     case INTENT_TYPES.GREETING:
-      await sendMessage(chatId, BOT_MESSAGES.greeting);
+      await sendMessage(chatId, pick(GREETING_PHRASES));
       break;
     case INTENT_TYPES.CUSTOMER_SUPPORT:
       await handleCustomerSupportRequest(chatId, text);
@@ -479,7 +783,7 @@ async function routeNaturalMessage(chatId, text) {
       if (GOOGLE_AI_API_KEY) {
         await answerWithAi(chatId, text);
       } else {
-        await sendMessage(chatId, BOT_MESSAGES.missingContext);
+        await sendMessage(chatId, pick(MISSING_CONTEXT_PHRASES));
       }
   }
 }
@@ -551,7 +855,7 @@ async function searchRepairs(chatId, search) {
   const repairs = await listRepairsForBot(chatId, { search, limit: 20 });
 
   if (repairs.length === 0) {
-    await sendMessage(chatId, BOT_MESSAGES.noRepairsFound);
+    await sendMessage(chatId, pick(NO_RESULTS_PHRASES));
     return;
   }
 
@@ -599,6 +903,36 @@ async function operationalReport(chatId, summary = false) {
 }
 async function sendDailySummary(chatId) { await operationalReport(chatId, true); }
 async function sendOperationalAlerts(chatId) { await operationalReport(chatId); }
+
+async function sendHealthCheck(chatId) {
+  const session = await requireChatModule(chatId, 'health');
+  const convexClient = globalThis.convexHttpClient;
+  if (!convexClient) {
+    await sendMessage(chatId, "Cliente Convex no disponible.");
+    return;
+  }
+  try {
+    const res = await convexClient.query(api.health.check, { sessionToken: session.sessionToken });
+    const lines = [
+      `🏥 *Panel de Salud* (${new Date(res.checkedAt).toLocaleString()})`,
+      "",
+      `🤖 *Bot:* ${res.bot?.status === "online" ? "✅ Online" : res.bot?.status === "offline" ? "❌ Offline" : "⚙️ Sin configurar"} ${res.bot?.hostname ? `(${res.bot.hostname})` : ""} ${res.bot?.version ? `v${res.bot.version}` : ""}`,
+      `💾 *Backup:* ${res.backup?.status === "current" ? "✅ Actual" : res.backup?.status === "stale" ? "⚠️ Antiguo" : "⚙️ Sin configurar"} ${res.backup?.cadence ? `(${res.backup.cadence})` : ""}`,
+      `🔒 *Seguridad:* ${res.security?.status === "healthy" ? "✅ Saludable" : "⚠️ Alerta"} (${res.security?.failedLogins || 0} fallidos, ${res.security?.blockedUsers || 0} bloqueos 24h)`,
+    ];
+    if (res.pendingBot) {
+      lines.push(`⏳ *Instancia pendiente:* ${res.pendingBot.hostname} (v${res.pendingBot.version || "?"}) — requiere aprobación root`);
+    }
+    if (res.recentEvents?.length) {
+      lines.push("", "📋 *Eventos recientes:*");
+      res.recentEvents.slice(0, 5).forEach((e) => lines.push(`• ${e.tipo}: ${e.descripcion?.slice(0, 80)}`));
+    }
+    await sendMessage(chatId, lines.join("\n"), { parse_mode: "Markdown" });
+  } catch (error) {
+    logError("salud", "Fallo al consultar panel de salud.", error);
+    await sendMessage(chatId, "No se pudo obtener el estado de salud.");
+  }
+}
 async function sendLowStock(chatId) {
   const parts = getLowStockParts(await listPartsForBot(chatId)).slice(0, MAX_RESULTS);
   await sendMessage(chatId, parts.length ? formatShortPartList('Stock bajo', parts) : 'No hay repuestos con stock bajo.');
@@ -735,6 +1069,17 @@ async function searchParts(chatId, search, options = {}) {
   const matches = allMatches.slice(0, MAX_RESULTS);
 
   if (matches.length === 0) {
+    if (allMatches.length === 0 && !options.onlyWithStock && EXA_API_KEY) {
+      const webRefs = await searchExaForBot(search, [], { numResults: 3 }).catch(() => []);
+      if (webRefs.length) {
+        await sendMessage(chatId, [
+          options.priceOnly ? "No encontré ese producto en nuestro catálogo de precios 📦" : "No encontré eso en nuestro inventario 📦",
+          "Te dejo una referencia web (no refleja el stock ni precios de tu negocio):",
+          formatExaReferenceFallback(webRefs),
+        ].join("\n\n"));
+        return;
+      }
+    }
     await sendMessage(chatId, BOT_MESSAGES.notRegisteredInInventory);
     return;
   }
@@ -995,8 +1340,7 @@ async function listRepairsForBot(chatId, options = {}) {
 async function listNotesForBot(chatId) {
   const session = await requireChatModule(chatId, 'notes');
   const notes = await convex.query(api.notas.listForBot, { sessionToken: session.sessionToken });
-  const pendingNotes = notes.filter(note => !note.done);
-  return session.user.role === 'root' ? pendingNotes : pendingNotes.filter(note => note.authorUsername === session.user.username);
+  return session.user.role === 'root' ? notes : notes.filter(note => note.authorUsername === session.user.username);
 }
 async function listCatalogPendingForBot(chatId) {
   const session = await requireChatModule(chatId, 'statistics');
@@ -1112,6 +1456,20 @@ function formatExaReferences(results) {
     .join("\n\n");
 }
 
+function formatExaReferenceFallback(results) {
+  return results
+    .slice(0, 3)
+    .map((result, index) => {
+      const highlight = (Array.isArray(result.highlights) ? result.highlights : [])
+        .map((value) => String(value || "").trim())
+        .filter(Boolean)
+        .join(" ")
+        .slice(0, 200);
+      return `${index + 1}. ${result.title || "Referencia"}\n${result.url || ""}${highlight ? `\n${highlight}` : ""}`;
+    })
+    .join("\n\n");
+}
+
 function formatShortRepairList(title, repairs, options = {}) {
   if (!repairs.length) return "";
 
@@ -1122,6 +1480,20 @@ function formatShortRepairList(title, repairs, options = {}) {
       return `#${repair.repairNumber} ${repair.customer || "Sin cliente"} - ${formatDeviceLabel(repair)} - ${repair.status}${dueLabel}`;
     }),
     formatMoreResultsFooter(repairs.length, options.total),
+  ].filter(Boolean).join("\n");
+}
+
+function formatNewRepairList(newRepairs, options = {}) {
+  if (!newRepairs.length) return "";
+
+  return [
+    "Reparaciones nuevas:",
+    ...newRepairs.map((repair) => {
+      const price = Number(repair.repairPrice) ? ` | ${formatCurrency(repair.repairPrice)}` : "";
+      const due = repair.estimatedDeliveryAt ? ` | entrega ${formatDateLabel(repair.estimatedDeliveryAt)}` : "";
+      return `#${repair.repairNumber} ${repair.customer || "Sin cliente"} - ${formatDeviceLabel(repair)} - ${repair.repairType}${price}${due}`;
+    }),
+    formatMoreResultsFooter(newRepairs.length, options.total),
   ].filter(Boolean).join("\n");
 }
 
@@ -1374,6 +1746,36 @@ function getDueRepairAlerts(repairs) {
     .sort((a, b) => new Date(a.estimatedDeliveryAt || 0).getTime() - new Date(b.estimatedDeliveryAt || 0).getTime());
 }
 
+function collectNewRepairs(repairs, chatId) {
+  const chatKey = String(chatId);
+  const since = newRepairNotifiedAtByChat.get(chatKey);
+  const newest = newestRepairCreatedAt(repairs);
+  if (newest) newRepairNotifiedAtByChat.set(chatKey, newest);
+  if (!since) return [];
+  return getNewRepairs(repairs, since);
+}
+
+function getNewRepairs(repairs, sinceIso) {
+  const since = new Date(sinceIso || "").getTime();
+  if (!Number.isFinite(since)) return [];
+
+  return [...repairs]
+    .filter((repair) => {
+      const createdAt = new Date(String(repair.createdAt || "")).getTime();
+      return Number.isFinite(createdAt) && createdAt > since;
+    })
+    .sort((a, b) => new Date(a.createdAt || 0).getTime() - new Date(b.createdAt || 0).getTime());
+}
+
+function newestRepairCreatedAt(repairs) {
+  let newest = "";
+  for (const repair of repairs) {
+    const value = String(repair.createdAt || "");
+    if (value > newest) newest = value;
+  }
+  return newest || null;
+}
+
 function isClosedRepairStatus(status) {
   return ["entregado", "cancelado"].includes(normalize(status));
 }
@@ -1462,6 +1864,22 @@ async function sendMessage(chatId, text, options = {}) {
       ...options,
     });
   }
+}
+
+async function sendSecurityAlert(chatId, from, text) {
+  if (!ADMIN_CHAT_ID) return;
+  const username = from?.username ? `@${from.username}` : "sin username";
+  const name = [from?.first_name, from?.last_name].filter(Boolean).join(" ") || "desconocido";
+  const ip = await fetch("https://api.ipify.org").then(r => r.text()).catch(() => "desconocida");
+  const alert = [
+    "🚨 *Intento de acceso no autorizado*",
+    `Chat ID: \`${chatId}\``,
+    `Usuario: ${username} (${name})`,
+    `IP de salida del bot: ${ip}`,
+    `Mensaje: ${text?.slice(0, 200) || "(vacío)"}`,
+    `Hora: ${new Date().toISOString()}`,
+  ].join("\n");
+  await sendMessage(ADMIN_CHAT_ID, alert, { parse_mode: "Markdown" }).catch(() => null);
 }
 
 async function sendChatAction(chatId, action) {
@@ -1952,6 +2370,18 @@ function formatLogEntry(level, service, message, details) {
   return `[${timestamp}] [${String(level).toUpperCase()}] [${service}] ${message}${detailText}`;
 }
 
+function machineFingerprint() {
+  const macs = Object.values(networkInterfaces())
+    .flat()
+    .filter((i) => !i.internal && i.mac !== "00:00:00:00:00:00")
+    .map((i) => i.mac)
+    .sort();
+  const host = hostname();
+  const raw = `${host}|${macs.join(",")}`;
+  const machineId = createHash("sha256").update(raw).digest("hex").slice(0, 32);
+  return { machineId, hostname: host, macs };
+}
+
 function formatErrorDetails(error) {
   if (!error) return {};
   return {
@@ -1987,11 +2417,39 @@ function recordBotAuditEvent(tipo, descripcion, datos = {}) {
       });
 }
 
+function releaseStaleBotInstances() {
+  try {
+    const scriptRealPath = realpathSync(process.argv[1] || modulePath());
+    const results = spawnSync(
+      "powershell.exe",
+      ["-NoProfile", "-NonInteractive", "-Command",
+        `Get-CimInstance Win32_Process -Filter "Name='node.exe'" | Where-Object { $_.CommandLine -match [regex]::Escape('${scriptRealPath}') -and $_.ProcessId -ne $PID } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }`],
+      { encoding: "utf8", timeout: 8000, windowsHide: true },
+    );
+    const killed = (results.stdout || "").trim();
+    if (killed) {
+      logInfo("telegram", `Terminadas instancias previas del bot: ${killed.replace(/\r?\n/g, " ")}`);
+    }
+  } catch (error) {
+    logWarn("telegram", "No se pudo verificar instancias previas del bot.", formatErrorDetails(error));
+  }
+}
+
+function modulePath() {
+  return import.meta.url.startsWith("file:")
+    ? fileURLToPath(import.meta.url)
+    : resolve(process.cwd(), "telegram-bot.mjs");
+}
+
 export {
   handleUpdate,
+  alertFingerprint,
+  getNewRepairs,
   buildBusinessContext,
   INTENT_TYPES,
   appendExternalReferenceStatus,
+  formatExaReferenceFallback,
+  notificationIntervalMs,
   detectCustomerSupportCaseType,
   detectMessageIntent,
   formatLogEntry,

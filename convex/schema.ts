@@ -2,6 +2,21 @@ import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
 
 export default defineSchema({
+  consecutivos: defineTable({
+    key: v.string(),
+    value: v.number(),
+    updatedAt: v.string(),
+  }).index("by_key", ["key"]),
+
+  saludHistorial: defineTable({
+    apiLatencyMs: v.number(),
+    apiStatus: v.string(),
+    botStatus: v.string(),
+    backupStatus: v.string(),
+    securityStatus: v.string(),
+    createdAt: v.string(),
+  }).index("by_created_at", ["createdAt"]),
+
   usuarios: defineTable({
     username: v.string(),
     passwordHash: v.string(),
@@ -254,4 +269,16 @@ export default defineSchema({
     .index("by_source_id", ["sourceId"])
     .index("by_status", ["status"])
     .index("by_created_at", ["createdAt"]),
+
+  botInstances: defineTable({
+    machineId: v.string(),
+    hostname: v.string(),
+    macs: v.array(v.string()),
+    ip: v.string(),
+    botVersion: v.optional(v.string()),
+    allowed: v.boolean(),
+    firstSeen: v.number(),
+    lastSeen: v.number(),
+    approvedBy: v.optional(v.id("usuarios")),
+  }).index("by_machine", ["machineId"]),
 });

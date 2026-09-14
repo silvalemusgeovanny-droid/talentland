@@ -1,8 +1,8 @@
 // Keep role defaults aligned with convex/authorization.ts; Convex remains authoritative.
 const defaults = {
-  root: ['permissions', 'sales', 'products', 'parts', 'partsCost', 'partsCustomerPrice', 'repairs', 'contacts', 'notes', 'statistics', 'database', 'users'],
-  admin: ['permissions', 'sales', 'products', 'parts', 'partsCost', 'partsCustomerPrice', 'repairs', 'contacts', 'notes', 'statistics', 'database'],
-  user: ['permissions', 'sales', 'parts', 'partsCustomerPrice', 'repairs', 'notes', 'statistics'],
+  root: ['permissions', 'sales', 'products', 'parts', 'partsCost', 'partsCustomerPrice', 'repairs', 'contacts', 'notes', 'statistics', 'database', 'users', 'health'],
+  admin: ['permissions', 'sales', 'products', 'parts', 'partsCost', 'partsCustomerPrice', 'repairs', 'contacts', 'notes', 'statistics', 'database', 'health'],
+  user: ['permissions', 'sales', 'parts', 'partsCustomerPrice', 'repairs', 'notes', 'statistics', 'health'],
   activador: ['parts', 'partsCustomerPrice'],
 };
 export function userModules(user) {
@@ -22,6 +22,9 @@ export function availableCommands(user) {
   if (canAccess(user, 'notes')) commands.push('/nota', '/notas');
   if (canAccess(user, 'notes', true)) commands.push('/cliente');
   if (canAccess(user, 'statistics')) commands.push('/resumen');
-  if (['parts', 'repairs', 'statistics', 'notes'].some(module => canAccess(user, module))) commands.push('/pendientes');
+  if (canAccess(user, 'health')) commands.push('/salud');
+  if (['parts', 'repairs', 'statistics', 'notes'].some(module => canAccess(user, module))) {
+    commands.push('/pendientes', '/notifica');
+  }
   return commands;
 }

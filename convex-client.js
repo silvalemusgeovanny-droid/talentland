@@ -59,6 +59,7 @@
     updateRepair: (id, patch) => callConvex("mutation", "reparaciones:update", withSession({ id, patch })),
     removeRepair: (id) => callConvex("mutation", "reparaciones:remove", withSession({ id })),
     importRepairs: (repairs) => callConvex("mutation", "reparaciones:importBatch", withSession({ repairs })),
+    repairAutomaticDuplicates: () => callConvex("mutation", "integridad:repairAutomaticDuplicates", withSession()),
     seedUsers: (setupSecret = "") => callConvex("mutation", "auth:seedDefaultUsers", { setupSecret }),
     login: (username, password, sessionToken) =>
       callConvex("mutation", "auth:login", { username, password, sessionToken }),
@@ -74,6 +75,9 @@
     unlockUser: (sessionToken, id) => callConvex("mutation", "auth:unlockUser", { sessionToken, id }),
     changeOwnPassword: (sessionToken, currentPassword, newPassword) =>
       callConvex("mutation", "auth:changeOwnPassword", { sessionToken, currentPassword, newPassword }),
+    healthCheck: () => callConvex("query", "health:check", withSession()),
+    recordHealthCheck: (check) => callConvex("mutation", "health:record", withSession(check)),
+    approveBotInstance: (instanceId) => callConvex("mutation", "botInstances:approve", withSession({ instanceId, allow: true })),
     registrarAuditoria: (tipo, descripcion, usuario = "sistema", datos = "") =>
       callConvex("mutation", "auditoria:registrar", withSession({ tipo, descripcion, usuario, datos })),
     obtenerAuditoria: () => callConvex("query", "auditoria:obtener", withSession()),

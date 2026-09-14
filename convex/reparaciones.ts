@@ -1,6 +1,7 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 import { requireModuleRead, requireModuleWrite } from "./authorization";
+import { nextNumber, syncNumber } from "./consecutivos";
 
 const repairPartFields = {
   partId: v.string(),
@@ -21,7 +22,7 @@ const repairPartFields = {
 
 const repairFields = {
   sourceId: v.optional(v.string()),
-  repairNumber: v.number(),
+  repairNumber: v.optional(v.number()),
   customer: v.string(),
   deviceType: v.string(),
   phone: v.string(),
@@ -155,9 +156,11 @@ export const create = mutation({
   handler: async (ctx, args) => {
     await requireModuleWrite(ctx, args.sessionToken, "repairs");
     const { sessionToken: _sessionToken, ...repair } = args;
+    const repairNumber = await nextNumber(ctx, "repairs", "reparaciones", "repairNumber");
     await applyRepairPartsStockDelta(ctx, [], repair.repairParts);
     return await ctx.db.insert("reparaciones", {
       ...repair,
+      repairNumber,
       imei: normalizeIdentifier(repair.imei),
       dui: normalizeIdentifier(repair.dui),
     });
@@ -176,6 +179,7 @@ export const update = mutation({
     if (!existing) {
       throw new Error("No se encontro la reparacion.");
     }
+    delete args.patch.repairNumber;
     if (Object.prototype.hasOwnProperty.call(args.patch, "repairParts")) {
       await applyRepairPartsStockDelta(ctx, existing.repairParts, args.patch.repairParts);
     }
@@ -214,6 +218,7 @@ export const importBatch = mutation({
     await requireModuleWrite(ctx, args.sessionToken, "repairs");
     let inserted = 0;
     let skipped = 0;
+    const seenNumbers = new Set<number>();
 
     for (const repair of args.repairs) {
       const existing = repair.sourceId
@@ -228,12 +233,29 @@ export const importBatch = mutation({
         continue;
       }
 
+      const repairNumber = Math.trunc(Number(repair.repairNumber) || 0);
+      if (!repairNumber || seenNumbers.has(repairNumber)) {
+        skipped += 1;
+        continue;
+      }
+      const duplicateNumber = await ctx.db
+        .query("reparaciones")
+        .withIndex("by_repair_number", (q) => q.eq("repairNumber", repairNumber))
+        .first();
+      if (duplicateNumber) {
+        skipped += 1;
+        continue;
+      }
+      seenNumbers.add(repairNumber);
+
       await ctx.db.insert("reparaciones", {
         ...repair,
+        repairNumber,
         imei: normalizeIdentifier(repair.imei),
         dui: normalizeIdentifier(repair.dui),
       });
       inserted += 1;
+      await syncNumber(ctx, "repairs", repairNumber);
     }
 
     return { inserted, skipped };

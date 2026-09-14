@@ -68,6 +68,19 @@ describe("server-side module authorization", () => {
       .resolves.toBe(user);
   });
 
+  it("allows a delegated health operator to record a system check", async () => {
+    const user = {
+      active: true,
+      accountStatus: "active",
+      role: "user",
+      modules: ["health"],
+    };
+    const ctx = mutationContextFor(user);
+
+    await expect(requireModuleWrite(ctx, "valid-session", "health"))
+      .resolves.toBe(user);
+  });
+
   it("rejects audit reads without statistics access", async () => {
     const ctx = mutationContextFor({
       active: true,

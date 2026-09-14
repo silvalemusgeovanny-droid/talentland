@@ -1,6 +1,7 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 import { requireModuleRead, requireModuleWrite } from "./authorization";
+import { nextNumber } from "./consecutivos";
 
 const productFields = {
   sourceId: v.optional(v.string()),
@@ -80,9 +81,7 @@ export const create = mutation({
     if (duplicate) {
       throw new Error("Ese producto ya existe.");
     }
-    const productNumber = productArgs.productNumber && productArgs.productNumber > 0
-      ? productArgs.productNumber
-      : products.reduce((max, product) => Math.max(max, Number(product.productNumber) || 0), 0) + 1;
+    const productNumber = await nextNumber(ctx, "products", "productos", "productNumber");
     return await ctx.db.insert("productos", {
       ...productArgs,
       productNumber,
@@ -104,6 +103,7 @@ export const update = mutation({
     if ("providerPrice" in args.patch) requireInternalCostPermission(user);
     const current = await ctx.db.get(args.id);
     if (!current) throw new Error("Producto no encontrado.");
+    delete args.patch.productNumber;
     const nextProduct = { ...current, ...args.patch };
     const products = await ctx.db.query("productos").take(1000);
     const duplicate = products.find((product) =>

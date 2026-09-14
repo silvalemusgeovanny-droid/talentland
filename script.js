@@ -117,7 +117,6 @@ const sessionPanel = document.querySelector("#sessionPanel");
 const welcomeTitle = document.querySelector("#welcomeTitle");
 const accessSummary = document.querySelector("#accessSummary");
 const onlinePresence = document.querySelector("#onlinePresence");
-const permissionList = document.querySelector("#permissionList");
 const logoutButton = document.querySelector("#logoutButton");
 const logoutConfirmOverlay = document.querySelector("#logoutConfirmOverlay");
 const cancelLogoutButton = document.querySelector("#cancelLogoutButton");
@@ -270,6 +269,30 @@ const statisticsGrid = document.querySelector("#statisticsGrid");
 const statisticsLists = document.querySelector("#statisticsLists");
 const healthPermissionAudit = document.querySelector("#healthPermissionAudit");
 const healthPermissionAuditCount = document.querySelector("#healthPermissionAuditCount");
+const healthRefreshButton = document.querySelector("#healthRefreshButton");
+const healthOverallDot = document.querySelector("#healthOverallDot");
+const healthOverallStatus = document.querySelector("#healthOverallStatus");
+const healthOverallDetail = document.querySelector("#healthOverallDetail");
+const healthLastChecked = document.querySelector("#healthLastChecked");
+const healthApiCard = document.querySelector("#healthApiCard");
+const healthApiPill = document.querySelector("#healthApiPill");
+const healthApiDetail = document.querySelector("#healthApiDetail");
+const healthBotCard = document.querySelector("#healthBotCard");
+const healthBotPill = document.querySelector("#healthBotPill");
+const healthBotDetail = document.querySelector("#healthBotDetail");
+const healthBackupCard = document.querySelector("#healthBackupCard");
+const healthBackupPill = document.querySelector("#healthBackupPill");
+const healthBackupDetail = document.querySelector("#healthBackupDetail");
+const healthApproveBotButton = document.querySelector("#healthApproveBotButton");
+const healthSecurityCard = document.querySelector("#healthSecurityCard");
+const healthSecurityPill = document.querySelector("#healthSecurityPill");
+const healthSecurityDetail = document.querySelector("#healthSecurityDetail");
+const healthRecentEvents = document.querySelector("#healthRecentEvents");
+const healthRecentEventCount = document.querySelector("#healthRecentEventCount");
+const healthHistory = document.querySelector("#healthHistory");
+const healthHistoryCount = document.querySelector("#healthHistoryCount");
+let pendingHealthBotId = "";
+let healthRefreshTimer = null;
 const statisticsPendingDot = document.querySelector("#statisticsPendingDot");
 const statisticsPeriodButtons = document.querySelectorAll("[data-statistics-period]");
 const statisticsSectionButtons = document.querySelectorAll("[data-statistics-section]");
@@ -696,9 +719,6 @@ function applyAuthenticatedUser(user, message = "Sesion iniciada correctamente."
   const roleProfile = getRoleProfile(currentUser.role);
   welcomeTitle.textContent = `Bienvenido, ${currentUser.name}`;
   accessSummary.textContent = `${roleProfile.label} - ${roleProfile.access}`;
-  permissionList.innerHTML = getUserModules(currentUser).map((moduleName) =>
-    `<li>${moduleLabels[moduleName] || moduleName}</li>`
-  ).join("");
   loginForm.hidden = true;
   sessionPanel.hidden = false;
   if (logoutButton) logoutButton.hidden = false;
@@ -4767,6 +4787,183 @@ function formatPermissionModules(modules = []) {
   return modules.map((moduleName) => moduleLabels[moduleName] || moduleName).join(", ");
 }
 
+function setHealthApiStatus(status, detail) {
+  if (!healthApiCard || !healthApiPill || !healthApiDetail) return;
+  const labels = { healthy: "Operativo", warning: "En revisión", neutral: "Sin revisar", error: "No disponible" };
+  healthApiCard.classList.remove("healthy", "warning", "neutral", "error");
+  healthApiPill.classList.remove("healthy", "warning", "neutral", "error");
+  healthApiCard.classList.add(status);
+  healthApiPill.classList.add(status);
+  healthApiPill.innerHTML = `<i></i> ${labels[status] || labels.neutral}`;
+  healthApiDetail.textContent = detail;
+}
+
+function setHealthBotStatus(status, detail) {
+  if (!healthBotCard || !healthBotPill || !healthBotDetail) return;
+  const labels = { healthy: "Operativo", warning: "Iniciando / pendiente", neutral: "Sin configurar", error: "Error" };
+  healthBotCard.classList.remove("healthy", "warning", "neutral", "error");
+  healthBotPill.classList.remove("healthy", "warning", "neutral", "error");
+  healthBotCard.classList.add(status);
+  healthBotPill.classList.add(status);
+  healthBotPill.innerHTML = `<i></i> ${labels[status] || labels.neutral}`;
+  healthBotDetail.textContent = detail;
+}
+
+function setHealthBackupStatus(status, detail) {
+  if (!healthBackupCard || !healthBackupPill || !healthBackupDetail) return;
+  const labels = { healthy: "Vigente", warning: "Pendiente", neutral: "Sin historial", error: "Atrasado" };
+  healthBackupCard.classList.remove("healthy", "warning", "neutral", "error");
+  healthBackupPill.classList.remove("healthy", "warning", "neutral", "error");
+  healthBackupCard.classList.add(status);
+  healthBackupPill.classList.add(status);
+  healthBackupPill.innerHTML = `<i></i> ${labels[status] || labels.neutral}`;
+  healthBackupDetail.textContent = detail;
+}
+
+function setHealthSecurityStatus(status, detail) {
+  if (!healthSecurityCard || !healthSecurityPill || !healthSecurityDetail) return;
+  const labels = { healthy: "Sin alertas", warning: "Por revisar", neutral: "Sin revisar", error: "Atencion" };
+  healthSecurityCard.classList.remove("healthy", "warning", "neutral", "error");
+  healthSecurityPill.classList.remove("healthy", "warning", "neutral", "error");
+  healthSecurityCard.classList.add(status);
+  healthSecurityPill.classList.add(status);
+  healthSecurityPill.innerHTML = `<i></i> ${labels[status] || labels.neutral}`;
+  healthSecurityDetail.textContent = detail;
+}
+
+function renderHealthRecentEvents(events = []) {
+  if (!healthRecentEvents || !healthRecentEventCount) return;
+  healthRecentEventCount.textContent = `${events.length} evento${events.length === 1 ? "" : "s"}`;
+  if (!events.length) {
+    healthRecentEvents.innerHTML = `<div class="health-empty-state"><span class="health-empty-icon">⌁</span><strong>Sin actividad reciente</strong><p>Aqui apareceran eventos del bot, respaldos, seguridad y permisos.</p></div>`;
+    return;
+  }
+  healthRecentEvents.innerHTML = events.map((event) => {
+    const date = event.fecha ? new Date(event.fecha).toLocaleString("es-MX", { dateStyle: "medium", timeStyle: "short" }) : "Sin fecha";
+    const eventType = String(event.tipo || "EVENTO");
+    const isAlert = ["LOGIN_FALLIDO", "USUARIO_BLOQUEADO", "VERIFICACION_PRIVILEGIADA_FALLIDA", "VERIFICACION_PRIVILEGIADA_BLOQUEADA"].includes(eventType);
+    return `<article class="health-audit-item${isAlert ? " health-audit-alert" : ""}"><span class="health-audit-icon">${isAlert ? "!" : "•"}</span><div><strong>${escapeHtml(eventType.replaceAll("_", " "))}</strong><p>${escapeHtml(event.descripcion || "Evento registrado")}</p><small>${escapeHtml(date)}</small></div></article>`;
+  }).join("");
+}
+
+function renderHealthHistory(history = []) {
+  if (!healthHistory || !healthHistoryCount) return;
+  healthHistoryCount.textContent = `${history.length} revision${history.length === 1 ? "" : "es"}`;
+  if (!history.length) {
+    healthHistory.innerHTML = `<div class="health-empty-state"><span class="health-empty-icon">⌁</span><strong>Sin historial</strong><p>Las proximas revisiones quedaran registradas aqui.</p></div>`;
+    return;
+  }
+  healthHistory.innerHTML = history.map((entry) => {
+    const date = new Date(entry.createdAt).toLocaleString("es-MX", { dateStyle: "short", timeStyle: "short" });
+    const allHealthy = [entry.apiStatus, entry.botStatus, entry.backupStatus, entry.securityStatus].every((status) => status === "healthy" || status === "current");
+    return `<article class="health-history-item ${allHealthy ? "healthy" : "alert"}"><span>${allHealthy ? "●" : "●"}</span><div><strong>${escapeHtml(date)}</strong><small>API ${escapeHtml(String(entry.apiLatencyMs))} ms · Bot ${escapeHtml(entry.botStatus)} · Respaldo ${escapeHtml(entry.backupStatus)} · Seguridad ${escapeHtml(entry.securityStatus)}</small></div></article>`;
+  }).join("");
+}
+
+async function checkHealthApi() {
+  if (!healthOverallStatus || !healthOverallDetail || !healthLastChecked) return;
+  const checkedAt = new Date();
+  if (!window.repairCloud?.isConfigured()) {
+    setHealthApiStatus("error", "Convex no esta configurado en este navegador.");
+    healthOverallStatus.textContent = "Requiere configuracion";
+    healthOverallDetail.textContent = "Agrega la URL de Convex para habilitar las comprobaciones.";
+    healthLastChecked.textContent = checkedAt.toLocaleString("es-MX", { dateStyle: "medium", timeStyle: "short" });
+    healthOverallDot?.classList.remove("healthy", "warning", "error", "neutral");
+    healthOverallDot?.classList.add("error");
+    if (healthRefreshButton) healthRefreshButton.disabled = false;
+    return;
+  }
+
+  if (healthRefreshButton) healthRefreshButton.disabled = true;
+  setHealthApiStatus("warning", "Comprobando disponibilidad...");
+  healthOverallStatus.textContent = "Comprobando";
+  healthOverallDetail.textContent = "Se esta consultando Convex.";
+  healthOverallDot?.classList.remove("healthy", "warning", "error", "neutral");
+  healthOverallDot?.classList.add("warning");
+  const startedAt = performance.now();
+  try {
+    const result = await window.repairCloud.healthCheck();
+    const latency = Math.round(performance.now() - startedAt);
+    // Una respuesta lenta merece seguimiento, pero no equivale a una API
+    // caida. Solo los errores de la consulta se muestran como no disponible.
+    const status = latency > 1500 ? "warning" : "healthy";
+    const checkDate = result?.checkedAt ? new Date(result.checkedAt) : checkedAt;
+    const bot = result?.bot;
+    const pendingBot = result?.pendingBot;
+    const backup = result?.backup;
+    const security = result?.security;
+    renderHealthRecentEvents(result?.recentEvents || []);
+    renderHealthHistory(result?.history || []);
+    if (bot?.status === "online") {
+      const lastSeen = new Date(bot.lastSeen).toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit" });
+      setHealthBotStatus("healthy", `${bot.hostname || "Bot"} activo · ultima senal ${lastSeen}.`);
+    } else if (bot?.status === "offline") {
+      setHealthBotStatus("error", `Ultima senal: ${new Date(bot.lastSeen).toLocaleString("es-MX", { dateStyle: "medium", timeStyle: "short" })}.`);
+    } else {
+      pendingHealthBotId = pendingBot?.id || "";
+      if (healthApproveBotButton) healthApproveBotButton.hidden = !pendingHealthBotId;
+      setHealthBotStatus("warning", pendingBot
+        ? `${pendingBot.hostname || "Instancia"} espera aprobacion de root.`
+        : "No hay una instancia registrada.");
+    }
+    if (backup?.status === "current" || backup?.status === "stale") {
+      const createdAt = new Date(backup.createdAt).toLocaleString("es-MX", { dateStyle: "medium", timeStyle: "short" });
+      const records = Number(backup.recordCount || 0).toLocaleString("es-MX");
+      setHealthBackupStatus(backup.status === "current" ? "healthy" : "error", `${backup.cadence} · ${records} registros · ${createdAt}.`);
+    } else {
+      setHealthBackupStatus("warning", "No hay respaldos registrados todavia.");
+    }
+    if (security?.status === "alert") {
+      setHealthSecurityStatus("error", `${security.failedLogins || 0} intentos fallidos · ${security.blockedUsers || 0} bloqueos en 24 h.`);
+    } else {
+      setHealthSecurityStatus("healthy", "Sin intentos fallidos ni bloqueos en las ultimas 24 h.");
+    }
+    const requiresSetup = bot?.status === "unconfigured" || backup?.status === "unconfigured";
+    const overallStatus = status === "error" || bot?.status === "offline" || backup?.status === "stale" || security?.status === "alert"
+      ? "error"
+      : status === "warning" || requiresSetup ? "warning" : "healthy";
+    setHealthApiStatus(status, `Respondio en ${latency} ms.`);
+    healthOverallStatus.textContent = overallStatus === "healthy" ? "Todo en orden" : overallStatus === "warning" ? "Configuracion pendiente" : "Atencion requerida";
+    healthOverallDetail.textContent = overallStatus === "healthy"
+      ? "Los servicios configurados responden correctamente."
+      : bot?.status === "offline"
+        ? "El bot no ha enviado una senal reciente."
+        : backup?.status === "stale"
+          ? "El ultimo respaldo registrado esta atrasado."
+          : security?.status === "alert"
+            ? "Hay alertas de seguridad recientes que requieren revision."
+          : requiresSetup
+            ? "Falta configurar o aprobar uno de los servicios supervisados."
+            : "Convex responde, pero la consulta tardo mas de lo habitual.";
+    healthLastChecked.textContent = checkDate.toLocaleString("es-MX", { dateStyle: "medium", timeStyle: "short" });
+    healthOverallDot?.classList.remove("healthy", "warning", "error", "neutral");
+    healthOverallDot?.classList.add(overallStatus);
+    window.repairCloud.recordHealthCheck({
+      apiLatencyMs: latency,
+      apiStatus: status,
+      botStatus: bot?.status === "online" ? "healthy" : bot?.status === "offline" ? "error" : "neutral",
+      backupStatus: backup?.status === "current" ? "healthy" : backup?.status === "stale" ? "error" : "neutral",
+      securityStatus: security?.status === "healthy" ? "healthy" : security?.status === "alert" ? "error" : "neutral",
+    }).catch(() => {});
+  } catch (error) {
+    pendingHealthBotId = "";
+    if (healthApproveBotButton) healthApproveBotButton.hidden = true;
+    setHealthApiStatus("error", "No fue posible obtener respuesta de Convex.");
+    setHealthBotStatus("error", "No fue posible consultar el estado del bot.");
+    setHealthBackupStatus("error", "No fue posible consultar el estado de respaldos.");
+    setHealthSecurityStatus("error", "No fue posible consultar eventos de seguridad.");
+    renderHealthRecentEvents([]);
+    renderHealthHistory([]);
+    healthOverallStatus.textContent = "Atencion requerida";
+    healthOverallDetail.textContent = error.message || "La comprobacion no pudo completarse.";
+    healthLastChecked.textContent = checkedAt.toLocaleString("es-MX", { dateStyle: "medium", timeStyle: "short" });
+    healthOverallDot?.classList.remove("healthy", "warning", "error", "neutral");
+    healthOverallDot?.classList.add("error");
+  } finally {
+    if (healthRefreshButton) healthRefreshButton.disabled = false;
+  }
+}
+
 async function renderHealthPermissionAudit() {
   if (!healthPermissionAudit || !healthPermissionAuditCount) return;
   if (!canAccessModule("health")) return;
@@ -4803,6 +5000,10 @@ function setModule(moduleName) {
     moduleName = getAllowedModules()[0] || "permissions";
   }
   saveActiveModule(moduleName);
+  if (healthRefreshTimer) {
+    clearInterval(healthRefreshTimer);
+    healthRefreshTimer = null;
+  }
   document.body.classList.toggle("entry-panel-active", ["sales", "products", "parts", "repairs", "contacts"].includes(moduleName));
   sessionPanel.classList.toggle("control-panel-wide", ["statistics", "health"].includes(moduleName));
   moduleTabs.forEach((button) => {
@@ -4812,7 +5013,6 @@ function setModule(moduleName) {
   });
   modulePanels.forEach((panel) => {
     const isActive =
-      (moduleName === "permissions" && panel.id === "permissionsModule") ||
       (moduleName === "sales" && panel.id === "salesModule") ||
       (moduleName === "products" && panel.id === "productsModule") ||
       (moduleName === "parts" && panel.id === "partsModule") ||
@@ -4835,7 +5035,13 @@ function setModule(moduleName) {
   }
   if (moduleName === "database") renderDatabase();
   if (moduleName === "statistics") renderStatistics();
-  if (moduleName === "health") renderHealthPermissionAudit();
+  if (moduleName === "health") {
+    renderHealthPermissionAudit();
+    checkHealthApi();
+    healthRefreshTimer = window.setInterval(() => {
+      if (currentUser && canAccessModule("health")) checkHealthApi();
+    }, 60_000);
+  }
   if (moduleName === "contacts") renderContacts();
   if (moduleName === "users") renderUsers();
   if (moduleName === "parts") refreshQuickPartsView();
@@ -4850,6 +5056,21 @@ function setModule(moduleName) {
 }
 
 tabButtons.forEach((button) => button.addEventListener("click", () => setTheme(button.dataset.theme)));
+healthRefreshButton?.addEventListener("click", () => checkHealthApi());
+healthApproveBotButton?.addEventListener("click", async () => {
+  if (!pendingHealthBotId) return;
+  healthApproveBotButton.disabled = true;
+  try {
+    await window.repairCloud.approveBotInstance(pendingHealthBotId);
+    pendingHealthBotId = "";
+    healthApproveBotButton.hidden = true;
+    await checkHealthApi();
+  } catch (error) {
+    setHealthBotStatus("error", error.message || "No se pudo aprobar la instancia.");
+  } finally {
+    healthApproveBotButton.disabled = false;
+  }
+});
 moduleTabs.forEach((button) => button.addEventListener("click", () => {
   if (button.dataset.module === "parts") {
     window.location.href = "repuestos.html";

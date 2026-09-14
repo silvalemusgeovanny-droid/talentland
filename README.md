@@ -341,6 +341,31 @@ recibe el contenido base64 del backup protegido para guardarlo en Drive y avisar
 por correo. Gmail no recibe datos planos del negocio, solo la notificacion y el
 enlace al archivo protegido.
 
+## Salud del sistema
+
+El módulo **Salud del sistema** muestra la disponibilidad de Convex, la última
+señal del bot de Telegram, el respaldo más reciente, alertas de seguridad, la
+bitácora de permisos y el historial de revisiones. Root puede aprobar desde esa
+vista una nueva instancia del bot; mientras no se apruebe, el bot no procesa
+mensajes.
+
+Para recibir alertas externas por correo, copia
+`google-drive-backup-apps-script.js` en el mismo proyecto de Google Apps Script
+que recibe los respaldos y configura estas *Script properties* (no las escribas
+en el código):
+
+```text
+HEALTH_MONITOR_SECRET=<mismo valor que la variable de entorno en Convex>
+HEALTH_MONITOR_CONVEX_URL=https://tu-proyecto.convex.cloud
+HEALTH_MONITOR_EMAIL=correo-que-recibira-las-alertas
+```
+
+Agrega también `HEALTH_MONITOR_SECRET` como variable de entorno del deployment
+de Convex. Después ejecuta una vez `installHealthMonitorTrigger` desde Apps
+Script y concede los permisos solicitados. El disparador revisa cada cinco
+minutos y envía un correo solo cuando aparece o se recupera una alerta; no
+repite correos mientras el estado no cambie.
+
 ## Bot de Telegram
 
 `telegram-bot.mjs` implementa un bot conectado a Convex mediante
@@ -353,12 +378,13 @@ enlace al archivo protegido.
 | `/menu` o `/start` | Muestra el teclado de opciones. |
 | `/ayuda` o `/help` | Muestra comandos y ejemplos. |
 | `/estado` o `/status` | Muestra la configuracion activa sin revelar secretos. No sustituye una prueba de consulta a Convex. |
-| `/buscar texto` o `/repuestos texto` | Busca repuestos por nombre, marca, modelo o categoria. |
+| `/buscar texto` o `/repuestos texto` | Busca repuestos por nombre, marca, modelo o categoria. Si no hay nada en el inventario local y hay clave Exa, muestra hasta 3 referencias web como respaldo (no son stock de tu local). |
 | `/stock texto` | Busca repuestos con existencia. |
-| `/precio texto` | Consulta el precio a cliente final. |
+| `/precio texto` | Consulta el precio a cliente final. Con el mismo respaldo web de Exa si el producto no existe en tu catalogo. |
 | `/stock_bajo` | Lista repuestos agotados o con poca existencia. |
 | `/resumen` | Muestra el resumen operativo del dia. |
 | `/pendientes` o `/alertas` | Consulta reparaciones listas o por vencer, catalogo pendiente y stock bajo. |
+| `/notifica` o `/notificar` | Envia ahora el aviso de reparaciones nuevas, ignorando la deduplicacion automatica. |
 | `/cliente texto` o `/atencion texto` | Clasifica un caso de garantia, cotizacion, seguimiento o queja; busca reparaciones relacionadas e intenta guardar una nota interna en Convex. La respuesta indica si se guardo. |
 | `/login` | Solicita el usuario y la contrasena del sistema para iniciar sesion en el chat. |
 | `/logout` | Cierra la sesion del chat. |
@@ -411,6 +437,39 @@ Cada consulta valida la sesion actual en Convex. Al reiniciar el bot hay que
 iniciar sesion nuevamente. Las sesiones del navegador y Telegram son independientes.
 Sin `TELEGRAM_ALLOWED_CHAT_IDS`, solo queda disponible `/mi_chat_id`.
 No publicar `.env.local` ni copiar sus secretos en la documentacion.
+
+### Notificaciones proactivas
+
+Con `NOTIFICATIONS_ENABLED=true`, el bot revisa cada
+`NOTIFICATIONS_INTERVAL_MINUTES` si hay **reparaciones nuevas
+ingresadas** en los chats con sesion activa y con el modulo `repairs` habilitado,
+y lo avisa una unica vez por reparacion (basado en su campo `createdAt`). Las
+reparaciones ingresadas antes de la primera revision tras iniciar sesion no se
+anuncian, para no spamear historico. El intervalo acepta minutos con decimales
+para ciclos cortos: `0.25` equivale a 15 segundos y el minimo es `0.1` (6
+segundos); con el default de 30. No envia alertas de listas/por vencer ni de
+stock bajo de forma automatica; esos datos se consultan bajo demanda con
+`/situacion` y `/faltantes`. Se puede forzar la revision manual con
+`/notifica`. El resumen diario (`NOTIFICATIONS_DAILY_HOUR`) esta disponible pero
+desactivado de la programacion automatica.
+
+Variables:
+
+```text
+NOTIFICATIONS_ENABLED=true
+NOTIFICATIONS_INTERVAL_MINUTES=30
+NOTIFICATIONS_DAILY_HOUR=18
+```
+
+Requisitos para recibir notificaciones:
+
+- El bot debe estar corriendo (`npm run bot:telegram`).
+- El chat debe estar en `TELEGRAM_ALLOWED_CHAT_IDS`.
+- El chat debe tener sesion iniciada con `/login` (las sesiones expiran a las
+  12 horas). Al reiniciar el bot hay que iniciar sesion nuevamente.
+
+Si `NOTIFICATIONS_ENABLED` no esta activa, el bot conserva todo su comportamiento
+actual bajo demanda (`/pendientes`, `/resumen`) sin cambios.
 
 `TELEGRAM_ONLY_PARTS` ya no controla el acceso. El menu y `/ayuda` muestran
 comandos segun los modulos del usuario. Root conserva acceso completo; los demas
