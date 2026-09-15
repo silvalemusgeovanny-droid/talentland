@@ -253,10 +253,14 @@ const saveContactToGoogleButton = document.querySelector("#saveContactToGoogle")
 const connectGoogleContactsButton = document.querySelector("#connectGoogleContacts");
 const importGoogleContactsButton = document.querySelector("#importGoogleContacts");
 const contactSearchInput = document.querySelector("#contactSearch");
+const contactSortInput = document.querySelector("#contactSort");
 const contactRepairOptions = document.querySelector("#contactRepairOptions");
 const contactsHint = document.querySelector("#contactsHint");
 const contactsCount = document.querySelector("#contactsCount");
 const contactsList = document.querySelector("#contactsList");
+const saleCustomerPhoneInput = document.querySelector("#saleCustomerPhone");
+const saleCustomerEmailInput = document.querySelector("#saleCustomerEmail");
+const saveSaleCustomerContactInput = document.querySelector("#saveSaleCustomerContact");
 const deletedPartOptionsStorageKey = "inventoryDeletedPartOptions";
 const categoryOptions = ["Telefono", "Tablet", "Computadora", "Bocina"];
 const partOptionFieldLabels = {
@@ -654,6 +658,10 @@ function canViewPartCustomerPrice() {
 
 function canManageProducts() {
   return canAccessModule("sales") && canAccessModule("products") && ["root", "admin"].includes(currentUser?.role);
+}
+
+function canManageContacts() {
+  return ["root", "admin"].includes(currentUser?.role) && canAccessModule("contacts");
 }
 
 function canEditProductCatalog() {
@@ -2249,6 +2257,10 @@ function normalizeContactForCloud(contact) {
     phone: contact.phone || "",
     email: contact.email || "",
     notes: contact.notes || "",
+    status: contact.status || "pending",
+    usageCount: Number(contact.usageCount) || 0,
+    createdByName: contact.createdByName || currentUser?.name || currentUser?.username || "Sistema",
+    updatedByName: contact.updatedByName || currentUser?.name || currentUser?.username || "Sistema",
     createdAt: contact.createdAt || now,
     updatedAt: contact.updatedAt || now,
   };
@@ -3355,8 +3367,8 @@ function renderRepairsList(repairs) {
           <div class="table-action-icons repair-action-icons">
             <button class="edit-button icon-action-button icon-edit-button" type="button" data-repair-id="${escapeHtml(repairId)}" aria-label="Editar reparacion #${escapeHtml(repair.repairNumber || "")}" title="Editar">Editar</button>
             <button class="delete-button icon-action-button icon-delete-button" type="button" data-repair-id="${escapeHtml(repairId)}" aria-label="Eliminar reparacion #${escapeHtml(repair.repairNumber || "")}" title="Eliminar">Eliminar</button>
+            <button class="secondary-button icon-action-button status-icon-button" type="button" data-edit-status-repair-id="${escapeHtml(repairId)}" aria-label="Editar estado de reparacion #${escapeHtml(repair.repairNumber || "")}" title="Editar estado">✎</button>
             <button class="edit-button icon-action-button icon-invoice-button" type="button" data-invoice-repair-id="${escapeHtml(repairId)}" aria-label="Generar factura de reparacion #${escapeHtml(repair.repairNumber || "")}" title="Factura">Factura</button>
-        <button class="secondary-button icon-action-button status-icon-button" type="button" data-edit-status-repair-id="${escapeHtml(repairId)}" aria-label="Editar estado de reparacion #${escapeHtml(repair.repairNumber || "")}" title="Editar estado">✎</button>
           </div>
         ` : "";
     return `
@@ -3405,11 +3417,21 @@ function renderContactsList(contacts) {
     return;
   }
 
+  const sort = contactSortInput?.value || "name-asc";
+  contacts.sort((left, right) => {
+    if (sort === "name-desc") return String(right.name).localeCompare(String(left.name));
+    if (sort === "phone") return normalizePhoneDigits(left.phone).localeCompare(normalizePhoneDigits(right.phone));
+    if (sort === "recent") return String(right.updatedAt || "").localeCompare(String(left.updatedAt || ""));
+    return String(left.name).localeCompare(String(right.name));
+  });
   contactsList.innerHTML = contacts.map((contact) => `
     <article class="compact-part-item contact-item">
-      <strong>${escapeHtml(contact.name || "Sin nombre")}</strong>
+      <div class="contact-item-heading"><strong>${escapeHtml(contact.name || "Sin nombre")}</strong><span class="contact-status ${contact.status === "validated" ? "is-validated" : ""}">${contact.status === "validated" ? "Validado" : "Pendiente"}</span></div>
       <span>Tel. ${escapeHtml(contact.phone || "Sin telefono")}${contact.email ? ` | ${escapeHtml(contact.email)}` : ""}</span>
       ${contact.notes ? `<span>${escapeHtml(contact.notes)}</span>` : ""}
+      ${Number(contact.usageCount) >= 10 ? `<span class="contact-tag">Cliente frecuente</span>` : ""}
+      <small>Última edición: ${escapeHtml(contact.updatedAt ? new Date(contact.updatedAt).toLocaleDateString("es-MX") : "sin registro")} · ${escapeHtml(contact.updatedByName || "Sin registro")}</small>
+      ${canManageContacts() && contact.status !== "validated" ? `<button class="inline-action-button" type="button" data-validate-contact-id="${escapeHtml(getContactRecordId(contact))}">Validar contacto</button>` : ""}
     </article>
   `).join("");
 }
@@ -5302,6 +5324,28 @@ contactSearchInput?.addEventListener("input", () => {
   clearTimeout(contactSearchTimer);
   contactSearchTimer = setTimeout(renderContacts, 220);
 });
+contactSortInput?.addEventListener("change", renderContacts);
+contactsList?.addEventListener("click", async (event) => {
+  const button = event.target.closest("[data-validate-contact-id]");
+  if (!button || !canManageContacts()) return;
+  try {
+    const patch = {
+      status: "validated",
+      updatedByName: currentUser?.name || currentUser?.username || "Administrador",
+    };
+    if (window.repairCloud?.isConfigured()) await window.repairCloud.updateContact(button.dataset.validateContactId, patch);
+    else {
+      const contacts = loadContacts().map((contact) => getContactRecordId(contact) === button.dataset.validateContactId
+        ? { ...contact, ...patch, updatedAt: new Date().toISOString() }
+        : contact);
+      saveContacts(contacts);
+    }
+    contactsHint.textContent = "Contacto validado.";
+    await renderContacts();
+  } catch (error) {
+    contactsHint.textContent = `No se pudo validar el contacto: ${error.message}`;
+  }
+});
 
 contactNameInput?.addEventListener("input", () => {
   clearTimeout(contactRepairSearchTimer);
@@ -5913,6 +5957,36 @@ saleCustomerForm?.addEventListener("submit", async (event) => {
   }
   try {
     const customerName = String(saleCustomerNameInput.value || "").trim() || "Cliente general";
+    if (saveSaleCustomerContactInput?.checked) {
+      const phone = String(saleCustomerPhoneInput?.value || "").trim();
+      const email = String(saleCustomerEmailInput?.value || "").trim();
+      if (!normalizePhoneDigits(phone)) throw new Error("Agrega un teléfono para guardar el cliente provisional.");
+      if (!isValidEmailFormat(email)) throw new Error("El correo del cliente no tiene un formato válido.");
+      const now = new Date().toISOString();
+      const contact = {
+        id: crypto.randomUUID(), name: customerName, phone, email, notes: "Creado desde una venta.",
+        status: "pending", usageCount: 1,
+        createdByName: currentUser?.name || currentUser?.username || "Usuario",
+        updatedByName: currentUser?.name || currentUser?.username || "Usuario",
+        createdAt: now, updatedAt: now,
+      };
+      if (window.repairCloud?.isConfigured()) await window.repairCloud.createContact(normalizeContactForCloud(contact));
+      else {
+        const contacts = loadContacts();
+        const duplicateIndex = contacts.findIndex((item) => normalizePhoneDigits(item.phone) === normalizePhoneDigits(phone));
+        if (duplicateIndex === -1) {
+          contacts.unshift(contact);
+        } else {
+          contacts[duplicateIndex] = {
+            ...contacts[duplicateIndex],
+            usageCount: (Number(contacts[duplicateIndex].usageCount) || 0) + 1,
+            updatedAt: now,
+            updatedByName: contact.updatedByName,
+          };
+        }
+        saveContacts(contacts);
+      }
+    }
     const saleWithCustomer = await updateSaleInSource(pendingInvoiceSale, { customerName });
     pendingSale = pendingSale && getSaleRecordId(pendingSale) === getSaleRecordId(saleWithCustomer)
       ? saleWithCustomer
@@ -6470,6 +6544,10 @@ contactsForm?.addEventListener("submit", async (event) => {
     phone: contactPhoneInput.value.trim(),
     email: contactEmailInput.value.trim(),
     notes: contactNotesInput.value.trim(),
+    status: canManageContacts() ? "validated" : "pending",
+    usageCount: 0,
+    createdByName: currentUser?.name || currentUser?.username || "Usuario",
+    updatedByName: currentUser?.name || currentUser?.username || "Usuario",
     createdAt: now,
     updatedAt: now,
   };
@@ -6490,7 +6568,7 @@ contactsForm?.addEventListener("submit", async (event) => {
 
     if (window.repairCloud?.isConfigured()) {
       await window.repairCloud.createContact(normalizeContactForCloud(contact));
-      contactsHint.textContent = "Contacto guardado en Convex correctamente.";
+      contactsHint.textContent = canManageContacts() ? "Contacto validado y guardado." : "Cliente provisional guardado para validación.";
     } else {
       contacts.unshift(contact);
       saveContacts(contacts);

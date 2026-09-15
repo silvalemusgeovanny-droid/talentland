@@ -1,6 +1,6 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
-import { requireModuleRead, requireModuleWrite } from "./authorization";
+import { requireActiveSession, requireModuleRead, requireModuleWrite } from "./authorization";
 
 const contactArgs = {
   sourceId: v.optional(v.string()),
@@ -9,6 +9,10 @@ const contactArgs = {
   phone: v.string(),
   email: v.string(),
   notes: v.string(),
+  status: v.optional(v.union(v.literal("pending"), v.literal("validated"))),
+  usageCount: v.optional(v.number()),
+  createdByName: v.optional(v.string()),
+  updatedByName: v.optional(v.string()),
   createdAt: v.string(),
   updatedAt: v.string(),
 };
@@ -22,6 +26,10 @@ function normalizeContact(contact: any) {
     phone: String(contact.phone || "").trim(),
     email: String(contact.email || "").trim(),
     notes: String(contact.notes || "").trim(),
+    status: contact.status === "validated" ? "validated" : "pending",
+    usageCount: Math.max(0, Number(contact.usageCount) || 0),
+    createdByName: String(contact.createdByName || "Sistema").trim(),
+    updatedByName: String(contact.updatedByName || contact.createdByName || "Sistema").trim(),
     createdAt: contact.createdAt || now,
     updatedAt: contact.updatedAt || now,
   };
@@ -67,14 +75,23 @@ export const list = query({
 export const create = mutation({
   args: { sessionToken: v.string(), ...contactArgs },
   handler: async (ctx, args) => {
-    await requireModuleWrite(ctx, args.sessionToken, "contacts");
+    const { user, roleModules } = await requireActiveSession(ctx, args.sessionToken);
+    const hasContactAccess = user.role === "root" || (Array.isArray(user.modules) ? user.modules : roleModules).includes("contacts");
+    const canCreateFromSales = user.role !== "activador" && (Array.isArray(user.modules) ? user.modules : roleModules).includes("sales");
+    if (!hasContactAccess && !canCreateFromSales) throw new Error("No tienes permiso para crear clientes.");
     const { sessionToken: _sessionToken, ...contactArgsValue } = args;
     const contact = normalizeContact(contactArgsValue);
     if (!contact.name || !contact.phone) throw new Error("Nombre y telefono son obligatorios.");
 
     const existing = await findExistingContact(ctx, contact);
     if (existing) {
-      await ctx.db.patch(existing._id, { ...contact, updatedAt: new Date().toISOString() });
+      // A repeat sale must not overwrite an approved profile with the temporary
+      // details captured by the salesperson; it only counts as another use.
+      await ctx.db.patch(existing._id, {
+        usageCount: Math.max(0, Number(existing.usageCount) || 0) + 1,
+        updatedAt: new Date().toISOString(),
+        updatedByName: contact.updatedByName,
+      });
       return existing._id;
     }
 
@@ -92,11 +109,16 @@ export const update = mutation({
       phone: v.optional(v.string()),
       email: v.optional(v.string()),
       notes: v.optional(v.string()),
+      status: v.optional(v.union(v.literal("pending"), v.literal("validated"))),
+      usageCount: v.optional(v.number()),
+      updatedByName: v.optional(v.string()),
       updatedAt: v.optional(v.string()),
     }),
   },
   handler: async (ctx, args) => {
     await requireModuleWrite(ctx, args.sessionToken, "contacts");
+    const { user } = await requireActiveSession(ctx, args.sessionToken);
+    if (!["root", "admin"].includes(user.role)) throw new Error("Solo admin o root puede editar contactos.");
     const existing = await ctx.db.get(args.id);
     if (!existing) throw new Error("Contacto no encontrado.");
     await ctx.db.patch(args.id, {

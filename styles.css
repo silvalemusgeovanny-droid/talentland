@@ -3386,6 +3386,21 @@ body.parts-form-modal-open {
   min-width: auto;
 }
 
+.contact-item-heading { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.contact-status, .contact-tag { display: inline-flex; width: fit-content; border-radius: 999px; padding: 3px 8px; font-size: .72rem; font-weight: 800; background: #fff0da; color: #9a5712; }
+.contact-status.is-validated, .contact-tag { background: #dcefe7; color: #176542; }
+.contact-item small { color: var(--muted); }
+.contact-save-choice { display: flex; align-items: center; gap: 8px; font-size: .88rem; font-weight: 700; }
+
+/* The repair-card controls remain a single, even row regardless of each
+   button's semantic styling (edit, delete, status, or invoice). */
+.repair-action-icons .icon-action-button {
+  width: 42px;
+  min-width: 42px;
+  height: 42px;
+  min-height: 42px;
+}
+
 .icon-action-button {
   width: 42px;
   min-width: 42px;

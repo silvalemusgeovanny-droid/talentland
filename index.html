@@ -531,6 +531,12 @@
             </div>
 
             <input id="contactSearch" type="search" placeholder="Buscar contacto o telefono" />
+            <select id="contactSort" aria-label="Ordenar contactos">
+              <option value="name-asc">Nombre: A–Z</option>
+              <option value="name-desc">Nombre: Z–A</option>
+              <option value="phone">Teléfono</option>
+              <option value="recent">Actualizados recientemente</option>
+            </select>
             <div class="compact-list contacts-list" id="contactsList"></div>
           </section>
 
@@ -777,6 +783,14 @@
 
           <label for="saleCustomerName">Cliente</label>
           <input id="saleCustomerName" name="customerName" type="text" maxlength="80" placeholder="Cliente general" />
+
+          <label for="saleCustomerPhone">Teléfono</label>
+          <input id="saleCustomerPhone" name="customerPhone" type="tel" inputmode="tel" placeholder="Para guardar como nuevo cliente" />
+
+          <label for="saleCustomerEmail">Correo</label>
+          <input id="saleCustomerEmail" name="customerEmail" type="email" placeholder="correo@ejemplo.com" />
+
+          <label class="contact-save-choice"><input id="saveSaleCustomerContact" type="checkbox" /> Guardar como cliente provisional</label>
 
           <div class="sale-confirm-actions">
             <button class="secondary-button" type="button" id="cancelSaleCustomer">Cancelar</button>

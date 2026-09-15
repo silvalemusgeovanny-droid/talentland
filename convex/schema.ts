@@ -170,6 +170,10 @@ export default defineSchema({
     phone: v.string(),
     email: v.string(),
     notes: v.string(),
+    status: v.optional(v.union(v.literal("pending"), v.literal("validated"))),
+    usageCount: v.optional(v.number()),
+    createdByName: v.optional(v.string()),
+    updatedByName: v.optional(v.string()),
     createdAt: v.string(),
     updatedAt: v.string(),
   })
