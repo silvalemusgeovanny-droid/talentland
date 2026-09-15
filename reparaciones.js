@@ -108,9 +108,11 @@ function renderRepairActions(repair) {
   const label = `reparacion #${repair.repairNumber || ""}`.trim();
 
   return `
-    <div class="table-action-icons">
+    <div class="table-action-icons repair-action-icons">
       <button class="edit-button icon-action-button icon-edit-button" type="button" data-repair-id="${escapeHtml(id)}" aria-label="Editar ${escapeHtml(label)}" title="Editar">Editar</button>
       <button class="delete-button icon-action-button icon-delete-button" type="button" data-repair-id="${escapeHtml(id)}" aria-label="Eliminar ${escapeHtml(label)}" title="Eliminar">Eliminar</button>
+      <button class="secondary-button icon-action-button status-icon-button" type="button" data-status-repair-id="${escapeHtml(id)}" aria-label="Cambiar estado de ${escapeHtml(label)}" title="Cambiar estado">Estado</button>
+      <button class="edit-button icon-action-button icon-invoice-button" type="button" data-invoice-repair-id="${escapeHtml(id)}" aria-label="Generar factura de ${escapeHtml(label)}" title="Factura">Factura</button>
     </div>
   `;
 }
@@ -165,7 +167,36 @@ async function renderRepairs() {
 }
 
 repairSearch.addEventListener("input", renderRepairs);
+function closeQuickStatusMenu() { document.querySelector("#quickStatusMenu")?.remove(); }
+function openQuickStatusMenu(button, repair) {
+  closeQuickStatusMenu();
+  const rect = button.getBoundingClientRect();
+  const menu = document.createElement("form");
+  menu.id = "quickStatusMenu";
+  menu.className = "quick-status-menu";
+  menu.innerHTML = `<label for="quickRepairStatus">Cambiar estado</label><select id="quickRepairStatus" name="status">${["En proceso", "Listo", "Entregado", "Entregado no Reparado"].map((status) => `<option value="${status}"${repair.status === status ? " selected" : ""}>${status}</option>`).join("")}</select><div><button class="secondary-button" type="button" data-close-status-menu>Cancelar</button><button class="primary-button" type="submit">Guardar</button></div>`;
+  menu.style.top = `${Math.min(window.innerHeight - 154, rect.bottom + 8)}px`;
+  menu.style.left = `${Math.max(8, Math.min(window.innerWidth - 258, rect.right - 250))}px`;
+  document.body.append(menu);
+  menu.querySelector("[data-close-status-menu]")?.addEventListener("click", closeQuickStatusMenu);
+  menu.addEventListener("submit", async (event) => {
+    event.preventDefault(); const status = String(new FormData(menu).get("status") || "");
+    if (!status || status === repair.status) return closeQuickStatusMenu();
+    const patch = { status, deliveredAt: status === "Entregado" ? new Date().toISOString() : "" };
+    try { if (window.repairCloud?.isConfigured() && repair._id) await window.repairCloud.updateRepair(repair._id, patch); saveRepairs(loadRepairs().map((item) => getRepairRecordId(item) === getRepairRecordId(repair) ? { ...item, ...patch } : item)); closeQuickStatusMenu(); await renderRepairs(); } catch (error) { alert(`No se pudo actualizar el estado: ${error.message}`); }
+  });
+}
+
 repairsTable.addEventListener("click", async (event) => {
+  const statusButton = event.target.closest("[data-status-repair-id]");
+  const invoiceButton = event.target.closest("[data-invoice-repair-id]");
+  if (statusButton || invoiceButton) {
+    const button = statusButton || invoiceButton;
+    const repair = renderedRepairs.find((item) => getRepairRecordId(item) === (button.dataset.statusRepairId || button.dataset.invoiceRepairId));
+    if (!repair) return;
+    if (statusButton) return openQuickStatusMenu(statusButton, repair);
+    sessionStorage.setItem("pendingRepairEdit", JSON.stringify(repair)); localStorage.setItem("repairActiveModule", "repairs"); window.location.href = "index.html"; return;
+  }
   const button = event.target.closest("[data-repair-id]");
   if (!button) return;
 
@@ -196,6 +227,7 @@ repairsTable.addEventListener("click", async (event) => {
     alert(`No se pudo eliminar: ${error.message}`);
   }
 });
+document.addEventListener("pointerdown", (event) => { const menu = document.querySelector("#quickStatusMenu"); if (menu && !menu.contains(event.target) && !event.target.closest("[data-status-repair-id]")) closeQuickStatusMenu(); });
 colorModeToggle.addEventListener("click", () => {
   const nextMode = document.body.classList.contains("login-dark") ? "light" : "dark";
   setColorMode(nextMode);
