@@ -6256,14 +6256,59 @@ repairsList.addEventListener("click", async (event) => {
   repairsForm.scrollIntoView({ behavior: "smooth", block: "start" });
 });
 
+function closeQuickStatusMenu() {
+  document.querySelector("#quickStatusMenu")?.remove();
+}
+
+function openQuickStatusMenu(button, repair) {
+  closeQuickStatusMenu();
+  const rect = button.getBoundingClientRect();
+  const menu = document.createElement("form");
+  menu.id = "quickStatusMenu";
+  menu.className = "quick-status-menu";
+  menu.innerHTML = `
+    <label for="quickRepairStatus">Cambiar estado</label>
+    <select id="quickRepairStatus" name="status">
+      ${["En proceso", "Listo", "Entregado", "Entregado no Reparado"].map((status) => `<option value="${status}"${repair.status === status ? " selected" : ""}>${status}</option>`).join("")}
+    </select>
+    <div><button class="secondary-button" type="button" data-close-status-menu>Cancelar</button><button class="primary-button" type="submit">Guardar</button></div>`;
+  menu.style.top = `${Math.min(window.innerHeight - 154, rect.bottom + 8)}px`;
+  menu.style.left = `${Math.max(8, Math.min(window.innerWidth - 258, rect.right - 250))}px`;
+  document.body.append(menu);
+  menu.querySelector("[data-close-status-menu]")?.addEventListener("click", closeQuickStatusMenu);
+  menu.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const status = new FormData(menu).get("status");
+    if (!status || status === repair.status) return closeQuickStatusMenu();
+    const patch = { status: String(status), deliveredAt: status === "Entregado" ? new Date().toISOString() : "" };
+    const saveButton = menu.querySelector('button[type="submit"]');
+    saveButton.disabled = true;
+    try {
+      if (window.repairCloud?.isConfigured() && repair._id) await window.repairCloud.updateRepair(repair._id, patch);
+      const cached = loadRepairs().map((item) => getRepairRecordId(item) === getRepairRecordId(repair) ? { ...item, ...patch } : item);
+      saveRepairs(cached);
+      repairsHint.textContent = `Estado actualizado: ${patch.status}.`;
+      closeQuickStatusMenu();
+      await renderRepairs();
+      renderSideRepairs();
+    } catch (error) {
+      saveButton.disabled = false;
+      repairsHint.textContent = `No se pudo actualizar el estado: ${error.message}`;
+    }
+  });
+}
+
 repairsList.addEventListener("click", async (event) => {
   const button = event.target.closest("[data-edit-status-repair-id]");
   if (!button) return;
   const repairs = await loadRepairsFromSource(10000, "");
   const repair = repairs.find((item) => getRepairRecordId(item) === button.dataset.editStatusRepairId);
-  if (!repair) return;
-  openRepairInForm(repair);
-  repairsForm.scrollIntoView({ behavior: "smooth", block: "start" });
+  if (repair) openQuickStatusMenu(button, repair);
+});
+
+document.addEventListener("pointerdown", (event) => {
+  const menu = document.querySelector("#quickStatusMenu");
+  if (menu && !menu.contains(event.target) && !event.target.closest("[data-edit-status-repair-id]")) closeQuickStatusMenu();
 });
 
 repairsList.addEventListener("click", (event) => {

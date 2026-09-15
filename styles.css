@@ -3392,6 +3392,12 @@ body.parts-form-modal-open {
 .contact-item small { color: var(--muted); }
 .contact-save-choice { display: flex; align-items: center; gap: 8px; font-size: .88rem; font-weight: 700; }
 
+.quick-status-menu { position: fixed; z-index: 80; width: min(250px, calc(100vw - 16px)); display: grid; gap: 10px; padding: 12px; border: 1px solid rgb(255 255 255 / 18%); border-radius: 12px; background: #263844; box-shadow: 0 16px 34px rgb(0 0 0 / 28%); color: #f4f8fa; }
+.quick-status-menu label { font-size: .78rem; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; }
+.quick-status-menu select { min-height: 38px; border: 1px solid rgb(255 255 255 / 18%); border-radius: 8px; padding: 0 9px; background: #1d2c35; color: #fff; }
+.quick-status-menu > div { display: flex; justify-content: flex-end; gap: 8px; }
+.quick-status-menu button { min-height: 34px; margin: 0; padding: 0 11px; }
+
 /* The repair-card controls remain a single, even row regardless of each
    button's semantic styling (edit, delete, status, or invoice). */
 .repair-action-icons .icon-action-button {
