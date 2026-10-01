@@ -77,8 +77,12 @@ export async function requireModuleWrite(
   return user;
 }
 
-export async function requireRoot(ctx: MutationCtx, sessionToken: string) {
+export async function requireRoot(
+  ctx: MutationCtx | QueryCtx,
+  sessionToken: string,
+  message = "Solo root puede aprobar cambios de catalogo.",
+) {
   const { user } = await requireActiveSession(ctx, sessionToken);
-  if (user.role !== "root") throw new Error("Solo root puede aprobar cambios de catalogo.");
+  if (user.role !== "root") throw new Error(message);
   return user;
 }

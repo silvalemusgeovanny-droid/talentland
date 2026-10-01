@@ -1,10 +1,16 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const values = new Map();
+const sessionValues = new Map();
 globalThis.localStorage = {
   getItem: (key) => values.has(key) ? values.get(key) : null,
   setItem: (key, value) => values.set(key, String(value)),
   removeItem: (key) => values.delete(key),
+};
+const sessionStorage = {
+  getItem: (key) => sessionValues.has(key) ? sessionValues.get(key) : null,
+  setItem: (key, value) => sessionValues.set(key, String(value)),
+  removeItem: (key) => sessionValues.delete(key),
 };
 globalThis.CustomEvent = class {
   constructor(type, options) {
@@ -23,6 +29,8 @@ const { session, permissions, parts, notes } = window.repairApp;
 
 beforeEach(() => {
   values.clear();
+  sessionValues.clear();
+  delete window.sessionStorage;
   window.dispatchEvent.mockClear();
   window.repairCloud = null;
 });
@@ -81,6 +89,27 @@ describe("shared application core", () => {
     session.clear();
     expect(session.hasSession()).toBe(false);
     expect(session.getAuthMode()).toBeNull();
+  });
+
+  it("stores browser session credentials in sessionStorage when available", () => {
+    window.sessionStorage = sessionStorage;
+    values.set(session.keys.sessionToken, "legacy-token");
+    values.set(session.keys.currentUser, JSON.stringify({ username: "legacy" }));
+
+    expect(session.getToken()).toBeNull();
+    expect(session.getUser()).toBeNull();
+    expect(values.get(session.keys.sessionToken)).toBe("legacy-token");
+
+    session.saveToken("current-token");
+    session.saveUser({ username: "ana", role: "user" });
+    expect(sessionStorage.getItem(session.keys.sessionToken)).toBe("current-token");
+    expect(sessionStorage.getItem(session.keys.currentUser)).toContain('"ana"');
+    expect(values.has(session.keys.sessionToken)).toBe(false);
+    expect(values.has(session.keys.currentUser)).toBe(false);
+
+    session.clear();
+    expect(sessionStorage.getItem(session.keys.sessionToken)).toBeNull();
+    expect(sessionStorage.getItem(session.keys.currentUser)).toBeNull();
   });
 
   it("uses the same local login and restore path", async () => {

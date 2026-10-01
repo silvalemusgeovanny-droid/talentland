@@ -133,20 +133,28 @@ usuario.
 
 ## Usuarios y roles
 
-La mutacion `auth:seedDefaultUsers` crea usuarios iniciales solo si se envia el
-secreto `SETUP_SEED_SECRET` configurado en Convex. Ese secreto es de
-inicializacion y no debe vivir en el navegador ni reutilizarse para otros
-procesos.
+La mutacion `auth:seedDefaultUsers` inicializa un unico usuario root y requiere
+que `SETUP_SEED_SECRET`, `INITIAL_ADMIN_USERNAME` e `INITIAL_ADMIN_PASSWORD`
+esten configurados como variables de entorno de Convex. Configura un nombre de
+usuario propio y una contrasena unica que tenga al menos 8 caracteres, una
+minuscula, una mayuscula, un numero y un simbolo. La mutacion no crea otro root
+si ya existe uno y la cuenta inicial queda marcada con
+`mustChangePassword: true`.
 
-| Rol | Usuario | Contrasena inicial | Alcance |
-| --- | --- | --- | --- |
-| root | `root` | `root123` | Acceso completo, incluyendo usuarios. |
-| admin | `admin` | `admin123` | Acceso administrativo sin gestionar usuarios desde el panel root. |
-| user | `usuario` | `user123` | Acceso operativo limitado. |
-| activador | `activador` | `activador123` | Solo consulta de repuestos. |
+Ejecuta el bootstrap una sola vez desde un entorno administrativo confiable,
+nunca desde el navegador:
 
-Las cuentas iniciales quedan marcadas con `mustChangePassword: true`. Las
-contrasenas se guardan hasheadas en Convex como SHA-256 de `usuario:contrasena`.
+```bash
+npx convex env set SETUP_SEED_SECRET <SECRETO_ALEATORIO_DE_UN_SOLO_USO>
+npx convex env set INITIAL_ADMIN_USERNAME <USUARIO_ROOT_ELEGIDO>
+npx convex env set INITIAL_ADMIN_PASSWORD <CONTRASENA_UNICA_ELEGIDA>
+npx convex run auth:seedDefaultUsers '{"setupSecret":"<SECRETO_ALEATORIO_DE_UN_SOLO_USO>"}'
+```
+
+Retira `SETUP_SEED_SECRET` de las variables de Convex despues del bootstrap.
+Las contrasenas se guardan con scrypt en Convex. El fallback local no crea
+usuarios ni proporciona cuentas predefinidas; sin Convex solo pueden iniciar
+sesion usuarios locales que ya existan en el dispositivo.
 
 El rol `activador` es especial: solo puede ver repuestos y no debe agregar,
 editar ni borrar. Esa restriccion existe tanto en el panel principal como en
@@ -646,7 +654,8 @@ Confirmar la rama remota antes de publicar, porque el sitio puede estar tomando
 6. Usar `convex-client.js` para entender que funciones consume el frontend.
 7. Revisar `script.js` para el flujo principal y `repuestos.js` para la vista
    dedicada de repuestos.
-8. Antes de tocar permisos, probar con `root`, `admin`, `usuario` y `activador`.
+8. Antes de tocar permisos, validar los roles con cuentas de prueba configuradas
+   para el entorno.
 9. Antes de tocar repuestos, verificar que no se reactive ninguna importacion
    automatica desde `localStorage`.
 10. Si se agregan tablas o funciones Convex, desplegar/sincronizar Convex antes

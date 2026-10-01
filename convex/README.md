@@ -50,24 +50,23 @@ La app estatica usa la URL configurada en `convex-config.js`.
 El archivo `data/reparaciones-seed.json` contiene datos importables de
 reparaciones. La importacion se hace con `reparaciones:importBatch`.
 
-Los usuarios iniciales se crean con:
+El bootstrap crea un unico usuario root con las variables de entorno
+`INITIAL_ADMIN_USERNAME` e `INITIAL_ADMIN_PASSWORD`, despues de validar que la
+contrasena tenga al menos 8 caracteres, una minuscula, una mayuscula, un numero
+y un simbolo. La mutacion es idempotente y no crea otro root si ya existe uno.
+Configura `SETUP_SEED_SECRET`, `INITIAL_ADMIN_USERNAME` e
+`INITIAL_ADMIN_PASSWORD` en Convex, con credenciales unicas elegidas para la
+instalacion; nunca uses un secreto o contrasena predeterminados.
+
+Ejecuta el bootstrap desde un entorno administrativo confiable, nunca desde el
+navegador:
 
 ```text
-auth:seedDefaultUsers({ setupSecret: SETUP_SEED_SECRET })
+npx convex run auth:seedDefaultUsers '{"setupSecret":"<SETUP_SEED_SECRET>"}'
 ```
 
-`SETUP_SEED_SECRET` debe existir en las variables de entorno de Convex. Es un
-secreto temporal de inicializacion: no debe exponerse en el navegador ni
-reutilizarse para backups u otras integraciones.
-
-Usuarios creados:
-
-- `root` / `root123`
-- `admin` / `admin123`
-- `usuario` / `user123`
-- `activador` / `activador123`
-
-Todas las cuentas iniciales quedan con `mustChangePassword: true`.
+La cuenta queda marcada con `mustChangePassword: true`. Retira
+`SETUP_SEED_SECRET` de las variables de Convex al terminar.
 
 ## Acceso a datos
 

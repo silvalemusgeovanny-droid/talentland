@@ -182,41 +182,37 @@ export const seedDefaultUsers = mutation({
       throw new Error("No autorizado para crear usuarios iniciales.");
     }
 
+    const username = String(process.env.INITIAL_ADMIN_USERNAME || "").trim().toLowerCase();
+    const password = String(process.env.INITIAL_ADMIN_PASSWORD || "").trim();
+    if (!username) throw new Error("Configura INITIAL_ADMIN_USERNAME antes de crear el usuario root.");
+    if (!password) throw new Error("Configura INITIAL_ADMIN_PASSWORD antes de crear el usuario root.");
+    validatePasswordStrength(password);
+
+    const users = await ctx.db.query("usuarios").collect();
+    if (users.some((user) => user.role === "root")) return { inserted: 0 };
+
+    const existingUsername = await ctx.db
+      .query("usuarios")
+      .withIndex("by_username", (q) => q.eq("username", username))
+      .unique();
+    if (existingUsername) throw new Error("El usuario configurado para root ya existe.");
+
     const now = new Date().toISOString();
-    const defaults = [
-      { username: "root", password: "root123", name: "Root", role: "root", modules: ["permissions", "sales", "products", "parts", "partsCost", "partsCustomerPrice", "repairs", "contacts", "notes", "statistics", "database", "users"] },
-      { username: "admin", password: "admin123", name: "Administrador", role: "admin", modules: ["permissions", "sales", "products", "parts", "partsCost", "partsCustomerPrice", "repairs", "contacts", "notes", "statistics", "database"] },
-      { username: "usuario", password: "user123", name: "Usuario", role: "user", modules: ["permissions", "sales", "parts", "partsCustomerPrice", "repairs", "notes", "statistics"] },
-      { username: "activador", password: "activador123", name: "Activador", role: "activador", modules: ["parts", "partsCustomerPrice"] },
-    ];
-    let inserted = 0;
-
-    for (const user of defaults) {
-      const existing = await ctx.db
-        .query("usuarios")
-        .withIndex("by_username", (q) => q.eq("username", user.username))
-        .unique();
-
-      if (existing) continue;
-
-      await ctx.db.insert("usuarios", {
-        username: user.username,
-        passwordHash: await hashPassword(user.password),
-        name: user.name,
-        role: user.role,
-        modules: user.modules,
-        active: true,
-        accountStatus: "active",
-        failedLoginCount: 0,
-        lockedUntil: 0,
-        mustChangePassword: true,
-        createdAt: now,
-        updatedAt: now,
-      });
-      inserted += 1;
-    }
-
-    return { inserted };
+    await ctx.db.insert("usuarios", {
+      username,
+      passwordHash: await hashPassword(password),
+      name: "Root",
+      role: "root",
+      modules: ["permissions", "sales", "products", "parts", "partsCost", "partsCustomerPrice", "repairs", "contacts", "notes", "statistics", "database", "users"],
+      active: true,
+      accountStatus: "active",
+      failedLoginCount: 0,
+      lockedUntil: 0,
+      mustChangePassword: true,
+      createdAt: now,
+      updatedAt: now,
+    });
+    return { inserted: 1 };
   },
 });
 

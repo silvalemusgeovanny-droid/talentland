@@ -64,15 +64,17 @@ const KNOWN_SUPPLIERS = new Map([
   ["dr movil", "dr movil"],
 ]);
 
-if (!TELEGRAM_BOT_TOKEN) {
+const isTestEnvironment = process.env.NODE_ENV === "test";
+
+if (!TELEGRAM_BOT_TOKEN && !isTestEnvironment) {
   throw new Error("Falta TELEGRAM_BOT_TOKEN en el entorno o en .env.local.");
 }
 
-if (!CONVEX_URL) {
+if (!CONVEX_URL && !isTestEnvironment) {
   throw new Error("Falta CONVEX_URL en el entorno o en .env.local.");
 }
 
-const convex = new ConvexHttpClient(CONVEX_URL);
+const convex = CONVEX_URL ? new ConvexHttpClient(CONVEX_URL) : null;
 const telegramApi = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}`;
 
 

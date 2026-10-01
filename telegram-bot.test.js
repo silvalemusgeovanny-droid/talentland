@@ -1,5 +1,20 @@
-import { describe, expect, it } from "vitest";
-import {
+import { describe, expect, it, vi } from "vitest";
+const convexClientConstructor = vi.hoisted(() => vi.fn());
+vi.mock("convex/browser", () => ({
+  ConvexHttpClient: class {
+    constructor(url) {
+      convexClientConstructor(url);
+    }
+  },
+}));
+vi.mock("node:fs", async (importOriginal) => ({
+  ...await importOriginal(),
+  existsSync: () => false,
+}));
+
+vi.stubEnv("CONVEX_URL", "");
+vi.stubEnv("TELEGRAM_BOT_TOKEN", "");
+const {
   INTENT_TYPES,
   appendExternalReferenceStatus,
   detectCustomerSupportCaseType,
@@ -9,9 +24,19 @@ import {
   isSensitiveCredentialRequest,
   shouldUseWebReferences,
   withResultSummary,
-} from "./telegram-bot.mjs";
+} = await import("./telegram-bot.mjs");
 
 describe("telegram bot pure behavior", () => {
+  it("can be imported in tests without initializing a Convex client", async () => {
+    vi.stubEnv("NODE_ENV", "test");
+    vi.stubEnv("CONVEX_URL", "");
+    vi.stubEnv("TELEGRAM_BOT_TOKEN", "");
+
+    await import("./telegram-bot.mjs?without-convex-url");
+
+    expect(convexClientConstructor).not.toHaveBeenCalled();
+  });
+
   it("detects common message intents", () => {
     expect(detectMessageIntent("hola").type).toBe(INTENT_TYPES.GREETING);
     expect(detectMessageIntent("precio cliente samsung a12").type).toBe(INTENT_TYPES.PRICE_LOOKUP);

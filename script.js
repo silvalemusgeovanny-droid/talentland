@@ -48,36 +48,6 @@ const {
 const usersStorageKey = appSession.keys.users;
 const activeModuleStorageKey = appSession.keys.activeModule;
 const repairInvoicePhone = "69966950";
-const defaultUsers = [
-  {
-    id: "root-user",
-    username: "root",
-    password: "root123",
-    name: "Root",
-    role: "root",
-  },
-  {
-    id: "admin-user",
-    username: "admin",
-    password: "admin123",
-    name: "Administrador",
-    role: "admin",
-  },
-  {
-    id: "standard-user",
-    username: "usuario",
-    password: "user123",
-    name: "Usuario",
-    role: "user",
-  },
-  {
-    id: "activator-user",
-    username: "activador",
-    password: "activador123",
-    name: "Activador",
-    role: "activador",
-  },
-];
 
 const roleProfiles = appPermissions.roleProfiles;
 const manageableModules = appPermissions.manageableModules;
@@ -438,11 +408,7 @@ function setTheme(themeName) {
 
 function loadUsers() {
   const savedUsers = localStorage.getItem(usersStorageKey);
-  if (!savedUsers) {
-    localStorage.setItem(usersStorageKey, JSON.stringify(defaultUsers));
-    return defaultUsers;
-  }
-  return JSON.parse(savedUsers);
+  return savedUsers ? JSON.parse(savedUsers) : [];
 }
 
 function saveUsers(users) {

@@ -53,17 +53,21 @@
   function getSessionToken() {
     try {
       const sessionStorageApi = window.sessionStorage;
-      const sessionToken = sessionStorageApi?.getItem(keys.sessionToken);
-      if (sessionToken) return sessionToken;
-      const legacyToken = localStorage.getItem(keys.sessionToken);
-      if (!legacyToken) return null;
-      if (sessionStorageApi) {
-        sessionStorageApi.setItem(keys.sessionToken, legacyToken);
-        localStorage.removeItem(keys.sessionToken);
-      }
-      return legacyToken;
+      return sessionStorageApi
+        ? sessionStorageApi.getItem(keys.sessionToken)
+        : localStorage.getItem(keys.sessionToken);
     } catch {
       return "";
+    }
+  }
+
+  function getSessionUser() {
+    try {
+      const storage = window.sessionStorage || localStorage;
+      const value = storage.getItem(keys.currentUser);
+      return value ? JSON.parse(value) : null;
+    } catch {
+      return null;
     }
   }
 
@@ -95,10 +99,15 @@
       }
       window.dispatchEvent(new Event("repair-session-token-changed"));
     },
-    getUser: () => readJson(keys.currentUser),
+    getUser: getSessionUser,
     saveUser(user) {
       const normalizedUser = normalizeUser(user);
-      writeJson(keys.currentUser, normalizedUser);
+      if (window.sessionStorage) {
+        window.sessionStorage.setItem(keys.currentUser, JSON.stringify(normalizedUser));
+        localStorage.removeItem(keys.currentUser);
+      } else {
+        writeJson(keys.currentUser, normalizedUser);
+      }
       window.dispatchEvent(new CustomEvent("repair-session-changed", { detail: { user: normalizedUser } }));
     },
     getAuthMode: () => localStorage.getItem(keys.authMode),
@@ -110,6 +119,7 @@
       localStorage.removeItem(keys.sessionToken);
       window.sessionStorage?.removeItem(keys.sessionToken);
       localStorage.removeItem(keys.currentUser);
+      window.sessionStorage?.removeItem(keys.currentUser);
       localStorage.removeItem(keys.authMode);
       window.dispatchEvent(new CustomEvent("repair-session-changed", { detail: { user: null } }));
     },

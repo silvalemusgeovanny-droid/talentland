@@ -93,7 +93,6 @@
     removeRepair: (id) => callConvex("mutation", "reparaciones:remove", withSession({ id })),
     importRepairs: (repairs) => callConvex("mutation", "reparaciones:importBatch", withSession({ repairs })),
     repairAutomaticDuplicates: () => callConvex("mutation", "integridad:repairAutomaticDuplicates", withSession()),
-    seedUsers: (setupSecret = "") => callConvex("mutation", "auth:seedDefaultUsers", { setupSecret }),
     login: (username, password, sessionToken) =>
       callConvex("mutation", "auth:login", { username, password, sessionToken }),
     currentSession: (sessionToken) => callConvex("query", "auth:currentSession", { sessionToken }),

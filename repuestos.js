@@ -319,20 +319,16 @@ function unmarkOptionDeleted(field, value) {
 }
 
 function loadSystemUsers() {
-  const defaultUsers = [
-    { username: "root", password: "root123", role: "root", active: true },
-  ];
   try {
     const savedUsers = localStorage.getItem(usersStorageKey);
-    return savedUsers ? JSON.parse(savedUsers) : defaultUsers;
+    return savedUsers ? JSON.parse(savedUsers) : [];
   } catch {
-    return defaultUsers;
+    return [];
   }
 }
 
 async function verifyRootCredentials(username, password) {
   if (window.repairCloud?.isConfigured()) {
-    await window.repairCloud.seedUsers();
     return await window.repairCloud.verifyRoot(username, password);
   }
 

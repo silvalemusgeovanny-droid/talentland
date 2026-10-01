@@ -77,7 +77,9 @@ export const approve = mutation({
 });
 
 export const listAll = query({
-  handler: async (ctx) => {
+  args: { sessionToken: v.string() },
+  handler: async (ctx, args) => {
+    await requireRoot(ctx, args.sessionToken, "Solo root puede consultar las instancias del bot.");
     return ctx.db.query("botInstances").collect();
   },
 });

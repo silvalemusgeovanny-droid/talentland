@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { requireModuleRead, requireModuleWrite } from "./convex/authorization";
+import { requireModuleRead, requireModuleWrite, requireRoot } from "./convex/authorization";
 
 function mutationContextFor(user: Record<string, unknown>) {
   return {
@@ -104,5 +104,15 @@ describe("server-side module authorization", () => {
 
     await expect(requireModuleWrite(ctx, "valid-session", "parts"))
       .resolves.toBe(user);
+  });
+
+  it("allows root-only reads only for root users", async () => {
+    const root = { active: true, accountStatus: "active", role: "root" };
+    const user = { active: true, accountStatus: "active", role: "user" };
+
+    await expect(requireRoot(mutationContextFor(root), "valid-session"))
+      .resolves.toBe(root);
+    await expect(requireRoot(mutationContextFor(user), "valid-session", "Solo root puede consultar las instancias del bot."))
+      .rejects.toThrow("Solo root puede consultar las instancias del bot.");
   });
 });
