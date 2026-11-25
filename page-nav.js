@@ -17,7 +17,7 @@
 
   document.querySelectorAll(".module-page-nav").forEach((nav) => {
     const activeModule = nav.querySelector(".active")?.dataset.returnModule || "permissions";
-    nav.classList.add("module-tabs", "module-page-menu");
+    nav.classList.add("module-tabs", "module-page-menu", "module-menu");
     nav.innerHTML = modules
       .filter(([moduleName]) => !currentUser || window.repairApp.permissions.canAccess(currentUser, moduleName))
       .map(([moduleName, label, icon, href]) => `<a class="module-page-tab${moduleName === activeModule ? " active" : ""}" href="${href}" data-return-module="${moduleName}"><span class="module-tab-icon" aria-hidden="true">${icon}</span><span>${label}</span></a>`)

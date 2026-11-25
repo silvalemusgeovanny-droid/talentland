@@ -4408,3 +4408,51 @@ tbody tr:hover {
     padding-inline: 16px;
   }
 }
+
+/* Shared module-menu component: its geometry must not change with the active panel. */
+.module-menu-panel {
+  width: min(calc(100vw - 56px), var(--module-menu-max-width)) !important;
+  justify-self: center;
+}
+
+.module-menu {
+  display: grid !important;
+  grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
+  width: min(100%, var(--module-menu-max-width));
+  gap: 24px !important;
+  padding: 26px !important;
+  border-radius: 16px !important;
+}
+
+.module-menu > :is(.module-tab, .module-page-tab) {
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  min-height: 116px !important;
+  gap: 18px;
+  padding: 18px 22px !important;
+  border-radius: 15px !important;
+  align-items: center;
+}
+
+.module-menu > :is(.module-tab, .module-page-tab) > span:last-child {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 1180px) {
+  .module-menu { grid-template-columns: repeat(3, minmax(0, 1fr)) !important; }
+}
+
+@media (max-width: 640px) {
+  .module-menu {
+    grid-template-columns: 1fr !important;
+    gap: 12px !important;
+    padding: 14px !important;
+  }
+
+  .module-menu > :is(.module-tab, .module-page-tab) {
+    min-height: 82px !important;
+    padding: 12px 14px !important;
+  }
+}
