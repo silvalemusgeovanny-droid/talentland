@@ -688,7 +688,7 @@ body.users-active .login-stage {
 }
 
 body.entry-panel-active .session-panel {
-  width: min(100%, 920px);
+  width: min(calc(100vw - 56px), var(--module-menu-max-width));
   justify-self: center;
 }
 
@@ -947,6 +947,11 @@ input[readonly] {
 
 .module-tab[hidden] {
   display: none;
+}
+
+.module-tab > span:last-child {
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .module-tab-icon {
