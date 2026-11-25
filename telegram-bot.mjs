@@ -499,6 +499,22 @@ async function handleUpdate(update) {
     await sendMessage(chatId, 'Para usar tu sesion del sistema, abre un chat privado con el bot.');
     return;
   }
+
+  // Actividad del usuario: extiende la sesion 3 h (tope absoluto 12 h en Convex).
+  // No bloquea el flujo: si la red falla, la sesion sigue valida hasta su expiracion.
+  const chatSessionToken = userSessionByChat.get(String(chatId))?.sessionToken;
+  if (chatSessionToken) {
+    convex.mutation(api.auth.touchSession, { sessionToken: chatSessionToken })
+      .then((result) => {
+        if (result && result.active === false) {
+          userSessionByChat.delete(String(chatId));
+          conversationHistoryByChat.delete(String(chatId));
+          pendingIntentByChat.delete(String(chatId));
+        }
+      })
+      .catch(() => null);
+  }
+
   try {
     const telegramActor = message.from?.username
       ? `@${message.from.username}`

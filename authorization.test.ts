@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { requireModuleRead, requireModuleWrite, requireRoot } from "./convex/authorization";
+import { touchSession } from "./convex/auth";
 
 function mutationContextFor(user: Record<string, unknown>) {
   return {
@@ -114,5 +115,74 @@ describe("server-side module authorization", () => {
       .resolves.toBe(root);
     await expect(requireRoot(mutationContextFor(user), "valid-session", "Solo root puede consultar las instancias del bot."))
       .rejects.toThrow("Solo root puede consultar las instancias del bot.");
+  });
+});
+
+function sessionContextFor(session: Record<string, unknown>, user: Record<string, unknown>) {
+  const patched: Array<{ id: unknown; patch: Record<string, unknown> }> = [];
+  const ctx = {
+    db: {
+      query: () => ({
+        withIndex: (_name: string, buildQuery: (query: { eq: () => object }) => unknown) => {
+          buildQuery({ eq: () => ({}) });
+          return { unique: async () => session };
+        },
+      }),
+      get: async () => user,
+      patch: async (id: unknown, patch: Record<string, unknown>) => {
+        patched.push({ id, patch });
+      },
+    },
+  } as any;
+  return { ctx, patched };
+}
+
+const activeUser = { active: true, accountStatus: "active", role: "user", modules: ["parts"] };
+
+describe("touchSession: inactividad 3 h y tope absoluto 12 h", () => {
+  it("renueva una sesion joven y extiende su expiracion", async () => {
+    const before = Date.now();
+    const session = {
+      _id: "session-id",
+      userId: "user-id",
+      createdAt: new Date(before).toISOString(),
+      expiresAt: before + 60_000,
+    };
+    const { ctx, patched } = sessionContextFor(session, activeUser);
+
+    await expect(touchSession(ctx as any, { sessionToken: "token" }))
+      .resolves.toEqual({ active: true });
+    expect(patched).toHaveLength(1);
+    expect(Number(patched[0].patch.expiresAt)).toBeGreaterThan(before);
+  });
+
+  it("rechaza una sesion con mas de 12 h aunque siga vigente", async () => {
+    const now = Date.now();
+    const session = {
+      _id: "session-id",
+      userId: "user-id",
+      createdAt: new Date(now - 13 * 60 * 60 * 1000).toISOString(),
+      expiresAt: now + 60_000,
+    };
+    const { ctx, patched } = sessionContextFor(session, activeUser);
+
+    await expect(touchSession(ctx as any, { sessionToken: "token" }))
+      .resolves.toEqual({ active: false });
+    expect(patched).toHaveLength(0);
+  });
+
+  it("rechaza una sesion ya expirada por inactividad", async () => {
+    const now = Date.now();
+    const session = {
+      _id: "session-id",
+      userId: "user-id",
+      createdAt: new Date(now - 60 * 60 * 1000).toISOString(),
+      expiresAt: now - 1_000,
+    };
+    const { ctx, patched } = sessionContextFor(session, activeUser);
+
+    await expect(touchSession(ctx as any, { sessionToken: "token" }))
+      .resolves.toEqual({ active: false });
+    expect(patched).toHaveLength(0);
   });
 });

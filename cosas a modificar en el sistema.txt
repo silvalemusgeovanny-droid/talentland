@@ -23,6 +23,16 @@ PENDIENTES DE SEGURIDAD Y MEJORAS
    - Permitir filtrar Eventos recientes por Bot, Respaldos, Seguridad y Errores del sistema.
    - Registrar y mostrar cuando un servicio se recupera, incluyendo cuanto tiempo estuvo afectado.
    - Enviar a root un resumen diario breve solo si hubo alertas o errores, sin repetir notificaciones ya atendidas.
+12. Contactos:
+   - Definido: directorio de clientes con nombre, teléfono, correo y notas; buscador y orden A-Z, Z-A, teléfono o actualización reciente.
+   - Definido: Admin y Root pueden consultar, validar y editar; usuarios de Ventas solo pueden crear clientes provisionales desde una venta.
+   - Definido: Google Contacts prevalece ante conflictos de sincronización; los números anteriores se conservan y el más nuevo se identifica al validar.
+   - Definido: el cliente recibe la etiqueta automática "Cliente frecuente" al llegar a 10 usos.
+   - Pendiente: terminar la edición administrativa de contactos, el historial de números y la sincronización real con Google Contacts (requiere configurar OAuth).
+
+13. Reparaciones:
+   - Pendiente de publicar: alinear definitivamente los cuatro botones de acción a 42x42 px y forzar la recarga del CSS actualizado.
+   - Factura debe quedar siempre al final, después de Estado, tanto en el panel principal como en el registro de reparaciones.
 
 Estado actual del panel de Salud:
 - Ya muestra la causa especifica de configuracion pendiente, una tarjeta independiente de errores y el proximo respaldo programado con tiempo restante.
@@ -30,3 +40,20 @@ Estado actual del panel de Salud:
 Nota:
 - El sistema continuara funcionando con Convex y conexion a internet.
 - El modo offline queda omitido por ahora.
+
+nota: con GitHub copilot hicimos una auditoria y se modificaron archivos es de pasarlos a local para no generar errores
+
+.env.example
+README.md
+app-core.js
+app-core.test.js
+authorization.test.ts
+convex-client.js
+convex/README.md
+convex/auth.ts
+convex/authorization.ts
+convex/botInstances.ts
+repuestos.js
+script.js
+telegram-bot.mjs
+telegram-bot.test.js

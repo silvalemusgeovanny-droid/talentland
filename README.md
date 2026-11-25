@@ -473,8 +473,10 @@ Requisitos para recibir notificaciones:
 
 - El bot debe estar corriendo (`npm run bot:telegram`).
 - El chat debe estar en `TELEGRAM_ALLOWED_CHAT_IDS`.
-- El chat debe tener sesion iniciada con `/login` (las sesiones expiran a las
-  12 horas). Al reiniciar el bot hay que iniciar sesion nuevamente.
+- El chat debe tener sesion iniciada con `/login`. La sesion expira tras 3 horas
+  sin actividad (cada mensaje o accion la renueva) y como maximo a las 12 horas
+  del inicio de sesion, cuando hay que entrar de nuevo. Al reiniciar el bot hay
+  que iniciar sesion nuevamente.
 
 Si `NOTIFICATIONS_ENABLED` no esta activa, el bot conserva todo su comportamiento
 actual bajo demanda (`/pendientes`, `/resumen`) sin cambios.

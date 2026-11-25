@@ -4856,7 +4856,7 @@ function showUndoBar(message, onUndo) {
   const undoBar = getUndoBar();
   let secondsLeft = 10;
   if (undoTimerId) clearInterval(undoTimerId);
-  undoBar.innerHTML = `<span>${message}</span><small>${secondsLeft}s</small><button type="button">Deshacer</button>`;
+  undoBar.innerHTML = `<span>${escapeHtml(message)}</span><small>${secondsLeft}s</small><button type="button">Deshacer</button>`;
   undoBar.hidden = false;
   undoBar.querySelector("button").addEventListener("click", async () => {
     const undoButton = undoBar.querySelector("button");

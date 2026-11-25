@@ -46,7 +46,7 @@ describe('module access', () => {
     await send(id, '/reparaciones iphone');
     await send(id, 'garantia pantalla iphone 11');
     expect(mock.query.mock.calls.every(([ref]) => refName(ref) === 'auth:currentSession')).toBe(true);
-    expect(mock.mutation.mock.calls).toHaveLength(1);
+    expect(mock.mutation.mock.calls.filter(([ref]) => refName(ref) !== 'auth:touchSession')).toHaveLength(1);
   });
   it('uses the root chat session for repairs and note writes', async () => {
     user = { username: 'root', role: 'root', modules: [] };
@@ -125,7 +125,7 @@ describe('module access', () => {
       expect(sent.at(-1).text).toContain('Completada');
       expect(sent.at(-1).text).not.toContain('Ajena privada');
     }
-    expect(mock.mutation.mock.calls).toHaveLength(1);
+    expect(mock.mutation.mock.calls.filter(([ref]) => refName(ref) !== 'auth:touchSession')).toHaveLength(1);
   });
   it('shows root notes from all authors', async () => {
     user.role = 'root';

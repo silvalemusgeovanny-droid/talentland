@@ -3,6 +3,7 @@ import { v } from "convex/values";
 import { scryptAsync } from "@noble/hashes/scrypt.js";
 
 const sessionDurationMs = 1000 * 60 * 60 * 3;
+const sessionAbsoluteMaxMs = 1000 * 60 * 60 * 12;
 const activePresenceMs = 1000 * 60;
 const maxFailedLoginAttempts = 5;
 const lockDurationMs = 1000 * 60 * 15;
@@ -391,7 +392,12 @@ export const touchSession = mutation({
     const user = await ctx.db.get(session.userId);
     if (!user || !user.active || getAccountStatus(user) !== "active") return { active: false };
 
+    // Tope absoluto: aunque haya actividad, la sesion muere a las 12 h de creada
+    // y obliga a un login nuevo. Sin createdAt (sesiones viejas) se permite renovar.
     const now = Date.now();
+    const createdAtMs = session.createdAt ? new Date(session.createdAt).getTime() : NaN;
+    if (Number.isFinite(createdAtMs) && now - createdAtMs > sessionAbsoluteMaxMs) return { active: false };
+
     await ctx.db.patch(session._id, { expiresAt: now + sessionDurationMs, lastSeenAt: new Date(now).toISOString() });
     return { active: true };
   },

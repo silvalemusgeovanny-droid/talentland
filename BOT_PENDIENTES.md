@@ -69,6 +69,32 @@ Completado:
     - Nuevo helper puro `notificationIntervalMs` con fallback a 30 min ante
       valores invalidos; pruebas en `notifications.test.js`.
 
+12. Sesiones con expiracion por inactividad + tope absoluto (29 de septiembre de 2026):
+    - La sesion expira tras 3 h sin actividad (cada mensaje/accion la renueva
+      via `touchSession`) y como maximo a las 12 h de creada (tope absoluto en
+      `convex/auth.ts`, obliga a login nuevo). Sin commit: cambio solo local.
+    - El bot renueva la sesion del chat con cada mensaje (fire-and-forget).
+    - README actualizado con la regla real. Pruebas del tope en
+      `authorization.test.ts`; se ajustaron 2
+      aserciones en `bot-access.test.js` por el keepalive `touch`.
+    - Suite 251/252 (solo falla el obsoleto pre-existente en `tmp/`).
+      SIN COMMIT por decision del usuario.
+
+13. Ruido de snapshots en `tmp/` (29 de septiembre de 2026):
+    - `tmp/` tiene 4 snapshots viejos del flujo Pages; su copia de
+      `bot-access.test.js` fallaba siempre contra codigo actual.
+    - Nuevo `vitest.config.js` que excluye `tmp/**`: suite real 70/70 verde.
+      SIN COMMIT por decision del usuario (igual que punto 12).
+
+14. XSS tapado + CSP (29 de septiembre de 2026):
+    - `showUndoBar` en `script.js` y `repuestos.js` ahora escapa el mensaje.
+    - Sin `<script>` inline: el arranque de tema/sesion y el cargador de la app
+      se movieron a `theme-boot.js`, `session-boot.js` y `app-boot.js`.
+    - CSP en las 4 paginas (scripts solo propios + Google/unpkg; estilos
+      inline permitidos; sin objetos; sin iframes externos salvo Google).
+      Nota: el script de Google GSI se permite pero no se usa en el JS.
+    - Suite 70/70 verde. SIN COMMIT por decision del usuario.
+
 Pendientes para continuar en la siguiente sesion:
 
 1. Confirmar una respuesta desde el chat de Telegram. El 5 de septiembre de 2026

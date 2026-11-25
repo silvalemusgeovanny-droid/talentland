@@ -902,33 +902,31 @@ input[readonly] {
 }
 
 .module-tabs {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 12px;
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 24px;
   min-width: 0;
-  padding: 12px;
+  padding: 26px;
   border: 1px solid rgb(23 32 38 / 10%);
-  border-radius: 8px;
+  border-radius: 16px;
   background: rgb(237 243 245 / 82%);
 }
 
 .module-tab {
   display: flex;
-  flex: 1 1 calc(20% - 12px);
-  gap: 10px;
+  width: 100%;
+  gap: 18px;
   align-items: center;
   justify-content: flex-start;
   min-width: 0;
-  max-width: calc(20% - 10px);
-  min-height: 72px;
-  padding: 10px 13px;
+  min-height: 116px;
+  padding: 18px 22px;
   border: 1px solid rgb(23 32 38 / 12%);
-  border-radius: 8px;
+  border-radius: 15px;
   background: rgb(255 255 255 / 48%);
   color: #53616b;
   cursor: pointer;
-  font-size: 0.82rem;
+  font-size: clamp(.84rem, 1.2vw, 1.02rem);
   font-weight: 900;
   white-space: normal;
   box-shadow: 0 7px 18px rgb(17 24 32 / 7%);
@@ -952,9 +950,9 @@ input[readonly] {
 
 .module-tab-icon {
   display: grid;
-  width: 38px;
-  min-width: 38px;
-  height: 38px;
+  width: 54px;
+  min-width: 54px;
+  height: 54px;
   place-items: center;
   position: relative;
   border: 1px solid rgb(23 107 135 / 24%);
@@ -979,8 +977,8 @@ input[readonly] {
 }
 
 .module-tab-icon svg {
-  width: 23px;
-  height: 23px;
+  width: 30px;
+  height: 30px;
   fill: none;
   stroke: currentColor;
   stroke-linecap: round;
@@ -1060,8 +1058,16 @@ input[readonly] {
 .module-page-tab:hover { transform: translateY(-1px); border-color: rgb(23 107 135 / 28%); box-shadow: 0 10px 22px rgb(17 24 32 / 11%); }
 .module-page-tab.active { border-color: #58758a; background: #2b4150; color: #fff; box-shadow: inset 0 0 0 1px rgb(255 255 255 / 7%); }
 .module-page-tab .module-tab-icon { width: 54px; min-width: 54px; height: 54px; border-color: #3e596a; background: #172936; color: #a8bdca; font-size: 1.7rem; }
-@media (max-width: 980px) { .module-page-nav.module-tabs { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
-@media (max-width: 640px) { .module-page-nav.module-tabs { grid-template-columns: 1fr; padding: 14px; } .module-page-tab { min-height: 74px; padding: 12px 15px; } }
+@media (max-width: 1180px) {
+  .module-tabs,
+  .module-page-nav.module-tabs { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+
+@media (max-width: 640px) {
+  .module-tabs,
+  .module-page-nav.module-tabs { grid-template-columns: 1fr; padding: 14px; }
+  .module-page-tab { min-height: 74px; padding: 12px 15px; }
+}
 .status-icon-button { width: 32px; min-width: 32px; height: 32px; padding: 0; font-size: 1.05rem; line-height: 1; }
 .status-icon-button { font-size: 0; color: #dbeaf0; background: rgb(255 255 255 / 12%); border: 1px solid rgb(255 255 255 / 22%); }
 .status-icon-button::before { content: ""; position: absolute; inset: 7px; background: currentColor; -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='none' stroke='white' stroke-linecap='round' stroke-linejoin='round' stroke-width='2.2' d='M12 6v6l4 2M21 12a9 9 0 1 1-3-6.7M21 4v5h-5'/%3E%3C/svg%3E") center / contain no-repeat; mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='none' stroke='white' stroke-linecap='round' stroke-linejoin='round' stroke-width='2.2' d='M12 6v6l4 2M21 12a9 9 0 1 1-3-6.7M21 4v5h-5'/%3E%3C/svg%3E") center / contain no-repeat; }
@@ -3406,10 +3412,13 @@ body.parts-form-modal-open {
 /* The repair-card controls remain a single, even row regardless of each
    button's semantic styling (edit, delete, status, or invoice). */
 .repair-action-icons .icon-action-button {
+  flex: 0 0 42px;
   width: 42px;
   min-width: 42px;
   height: 42px;
   min-height: 42px;
+  max-height: 42px;
+  align-self: center;
 }
 
 .icon-action-button {
@@ -3954,8 +3963,7 @@ tbody tr:hover {
 
 @media (max-width: 860px) {
   .module-tab {
-    flex-basis: calc(50% - 12px);
-    max-width: calc(50% - 10px);
+    max-width: none;
   }
 
   .module-tab > span:last-child {
@@ -4207,30 +4215,29 @@ tbody tr:hover {
   }
 
   .module-tabs {
-    gap: 8px;
+    gap: 12px;
     padding: 8px;
-    justify-content: stretch;
   }
 
   .module-tab {
-    flex-basis: calc(50% - 8px);
-    max-width: calc(50% - 6px);
+    width: 100%;
+    max-width: none;
     min-width: 0;
-    min-height: 64px;
-    padding: 8px 10px;
+    min-height: 82px;
+    padding: 12px 14px;
     font-size: 0.76rem;
     white-space: normal;
   }
 
   .module-tab-icon {
-    width: 34px;
-    min-width: 34px;
-    height: 34px;
+    width: 40px;
+    min-width: 40px;
+    height: 40px;
   }
 
   .module-tab-icon svg {
-    width: 20px;
-    height: 20px;
+    width: 22px;
+    height: 22px;
   }
 
   .parts-header {

@@ -2,21 +2,16 @@
 <html lang="es">
   <head>
     <meta charset="UTF-8" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://accounts.google.com https://unpkg.com; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' https://*.convex.cloud https://*.convex.site https://accounts.google.com; font-src 'self' data:; object-src 'none'; base-uri 'self'; frame-src 'self' https://accounts.google.com; frame-ancestors 'self'" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate" />
     <meta http-equiv="Pragma" content="no-cache" />
     <meta http-equiv="Expires" content="0" />
     <link rel="icon" type="image/svg+xml" href="favicon.svg?v=drmovil-2" />
-    <link rel="stylesheet" href="styles.css?v=module-tabs-responsive-20260914" />
+    <link rel="stylesheet" href="styles.css?v=uniform-module-menu-20261125" />
     <title>Login | Inventario y Reparaciones</title>
-    <script>
-      try {
-        if (localStorage.getItem("loginColorMode") === "dark") document.documentElement.classList.add("login-dark");
-        if (localStorage.getItem("repairSessionToken") || localStorage.getItem("repairCurrentUser")) {
-          document.documentElement.classList.add("session-restoring");
-        }
-      } catch {}
-    </script>
+    <script src="theme-boot.js?v=csp-20260929"></script>
+    <script src="session-boot.js?v=csp-20260929"></script>
   </head>
   <body>
     <main class="app-shell">
@@ -889,10 +884,6 @@
     <script src="convex-client.js?v=repair-identifiers-invoice-20260907"></script>
     <script src="https://accounts.google.com/gsi/client" async defer></script>
     <script src="https://unpkg.com/convex/dist/browser.js"></script>
-    <script>
-      const appScript = document.createElement("script");
-      appScript.src = `script.js?v=status-action-icons-20260914b-${Date.now()}`;
-      document.body.append(appScript);
-    </script>
+    <script src="app-boot.js?v=csp-20260929"></script>
   </body>
 </html>
