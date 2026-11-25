@@ -4428,11 +4428,23 @@ tbody tr:hover {
   display: flex;
   width: 100%;
   min-width: 0;
-  min-height: 116px !important;
-  gap: 18px;
-  padding: 18px 22px !important;
-  border-radius: 15px !important;
+  min-height: 70px !important;
+  gap: 11px;
+  padding: 11px 13px !important;
+  border-radius: 9px !important;
   align-items: center;
+}
+
+.module-menu > :is(.module-tab, .module-page-tab) .module-tab-icon {
+  width: 32px;
+  min-width: 32px;
+  height: 32px;
+  font-size: 1rem;
+}
+
+.module-menu > .module-tab .module-tab-icon svg {
+  width: 19px;
+  height: 19px;
 }
 
 .module-menu > :is(.module-tab, .module-page-tab) > span:last-child {
@@ -4452,7 +4464,7 @@ tbody tr:hover {
   }
 
   .module-menu > :is(.module-tab, .module-page-tab) {
-    min-height: 82px !important;
-    padding: 12px 14px !important;
+    min-height: 70px !important;
+    padding: 11px 13px !important;
   }
 }
