@@ -10,6 +10,7 @@
   --accent: #0f4f6a;
   --accent-2: #d35f2d;
   --dark: #111820;
+  --module-menu-max-width: 1680px;
 }
 
 * {
@@ -1052,7 +1053,7 @@ input[readonly] {
   display: block;
 }
 
-.module-page-nav { margin: 18px 0 22px; }
+.module-page-nav { width: min(100%, var(--module-menu-max-width)); margin: 18px auto 22px; }
 .module-page-nav.module-tabs { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); justify-content: initial; gap: 14px; padding: 26px; border-radius: 16px; }
 .module-page-tab { display: flex; align-items: center; gap: 18px; min-height: 116px; padding: 18px 22px; border: 1px solid rgb(118 153 174 / 28%); border-radius: 15px; background: rgb(14 29 39 / 58%); color: #b7c6d1; font-size: clamp(.84rem, 1.2vw, 1.02rem); font-weight: 900; text-decoration: none; box-shadow: none; transition: transform 150ms ease, border-color 150ms ease, box-shadow 150ms ease, background 150ms ease; }
 .module-page-tab:hover { transform: translateY(-1px); border-color: rgb(23 107 135 / 28%); box-shadow: 0 10px 22px rgb(17 24 32 / 11%); }
@@ -3022,6 +3023,8 @@ body.users-active .users-panel-header {
 .session-panel {
   display: grid;
   gap: 22px;
+  width: min(calc(100vw - 56px), var(--module-menu-max-width));
+  justify-self: center;
   max-height: calc(100vh - 72px);
   overflow: auto;
 }
@@ -3032,7 +3035,7 @@ body.users-active .session-panel {
 }
 
 .session-panel.control-panel-wide {
-  width: min(calc(100vw - 56px), 1480px);
+  width: min(calc(100vw - 56px), var(--module-menu-max-width));
   justify-self: center;
 }
 
